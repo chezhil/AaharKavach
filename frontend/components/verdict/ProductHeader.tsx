@@ -12,20 +12,18 @@ export function ProductHeader({ product }: { product: Product }) {
   const Icon = source.icon;
 
   return (
-    <div className="flex items-start gap-3">
-      <div className="grid size-14 shrink-0 place-items-center rounded-2xl border border-border-subtle bg-surface text-fg-subtle">
-        <Package size={22} />
+    <div className="tile flex items-center gap-3.5 bg-surface p-4">
+      <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-brand text-brand-fg">
+        <Package size={24} strokeWidth={2.2} />
       </div>
       <div className="min-w-0 flex-1">
         {product.brand ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+          <p className="text-[0.68rem] font-bold uppercase tracking-wider text-brand-line">
             {product.brand}
           </p>
         ) : null}
-        <h1 className="mt-0.5 text-lg font-bold leading-tight tracking-tight">
-          {product.name}
-        </h1>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-fg-subtle">
+        <h1 className="display mt-1 text-xl">{product.name}</h1>
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-fg-subtle">
           <Icon size={12} aria-hidden />
           {source.text}
           {product.source !== "LABEL_PHOTO" ? (

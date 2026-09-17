@@ -36,3 +36,7 @@ cdk.out/
 .next/
 out/
 next-env.d.ts
+
+# Next.js auto-generates these agent rule files on every dev run
+frontend/AGENTS.md
+frontend/CLAUDE.md

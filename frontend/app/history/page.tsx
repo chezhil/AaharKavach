@@ -12,8 +12,8 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight">Scan history</h1>
+      <header className="px-1">
+        <h1 className="display text-2xl">Scan history</h1>
         <p className="mt-1 text-sm text-fg-subtle">
           Every product you&apos;ve checked, newest first. Tap one to re-run it against whoever
           is selected now.

@@ -32,13 +32,13 @@ export function IngredientChips({
   };
 
   return (
-    <section className="space-y-2.5">
-      <div className="flex items-center gap-1.5">
-        <h3 className="text-sm font-semibold text-fg-muted">Ingredients</h3>
-        <span className="text-xs text-fg-subtle">· tap any to explain</span>
+    <section className="tile bg-surface p-4">
+      <div className="flex items-baseline gap-2">
+        <h3 className="display text-base">Ingredients</h3>
+        <span className="text-xs text-fg-subtle">tap any to explain</span>
       </div>
 
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="mt-3 flex flex-wrap gap-1.5">
         {ingredients.map((ingredient, i) => {
           const flagged = flaggedNames.has(ingredient.name.toLowerCase());
           const open = openIndex === i;
@@ -48,11 +48,11 @@ export function IngredientChips({
                 onClick={() => setOpenIndex(open ? null : i)}
                 aria-expanded={open}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                  "rounded-full px-3 py-1.5 text-xs font-bold transition-all",
                   flagged
-                    ? "border-unsafe-border bg-unsafe-soft text-unsafe"
-                    : "border-border-subtle bg-surface text-fg-muted hover:border-border-strong",
-                  open && "ring-2 ring-brand ring-offset-2 ring-offset-bg",
+                    ? "bg-unsafe text-unsafe-fg"
+                    : "bg-surface-hover text-fg-muted hover:text-fg",
+                  open && "ring-2 ring-sky ring-offset-2 ring-offset-surface",
                 )}
               >
                 {ingredient.name}
@@ -66,11 +66,11 @@ export function IngredientChips({
       </ul>
 
       {openIndex !== null ? (
-        <div className="animate-rise flex gap-2.5 rounded-xl border border-border-subtle bg-surface p-3">
-          <Info size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden />
+        <div className="animate-rise mt-3 flex gap-2.5 rounded-2xl bg-sky p-3.5 text-sky-fg">
+          <Info size={17} className="mt-0.5 shrink-0" aria-hidden />
           <div className="min-w-0">
-            <p className="text-sm font-semibold">{ingredients[openIndex].name}</p>
-            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+            <p className="text-sm font-extrabold">{ingredients[openIndex].name}</p>
+            <p className="mt-1 text-sm font-medium leading-relaxed opacity-80">
               {explainerFor(ingredients[openIndex])}
             </p>
           </div>

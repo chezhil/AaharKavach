@@ -4,41 +4,67 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-/** Tailwind classes per verdict — one place, so the traffic light stays consistent. */
+/**
+ * Tailwind classes per verdict, in two registers:
+ *   solid — a filled bento tile (saturated fill, dark or light text on it)
+ *   soft  — the same meaning on a dark card (tinted background, readable hue)
+ * One place, so the traffic light never drifts between screens.
+ */
 export const verdictStyles: Record<
   Verdict,
-  { text: string; bg: string; border: string; dot: string }
+  { solid: string; soft: string; line: string; border: string; dot: string }
 > = {
   SAFE: {
-    text: "text-safe",
-    bg: "bg-safe-soft",
-    border: "border-safe-border",
+    solid: "bg-safe text-safe-fg",
+    soft: "bg-safe-soft text-safe-line",
+    line: "text-safe-line",
+    border: "border-safe-line/35",
     dot: "bg-safe",
   },
   CAUTION: {
-    text: "text-caution",
-    bg: "bg-caution-soft",
-    border: "border-caution-border",
+    solid: "bg-caution text-caution-fg",
+    soft: "bg-caution-soft text-caution-line",
+    line: "text-caution-line",
+    border: "border-caution-line/35",
     dot: "bg-caution",
   },
   UNSAFE: {
-    text: "text-unsafe",
-    bg: "bg-unsafe-soft",
-    border: "border-unsafe-border",
+    solid: "bg-unsafe text-unsafe-fg",
+    soft: "bg-unsafe-soft text-unsafe-line",
+    line: "text-unsafe-line",
+    border: "border-unsafe-line/40",
     dot: "bg-unsafe",
   },
 };
 
-export const severityStyles: Record<Severity, { text: string; bg: string; border: string }> = {
-  MILD: { text: "text-fg-muted", bg: "bg-surface-hover", border: "border-border-strong" },
-  MODERATE: { text: "text-caution", bg: "bg-caution-soft", border: "border-caution-border" },
-  SEVERE: { text: "text-unsafe", bg: "bg-unsafe-soft", border: "border-unsafe-border" },
+export const severityStyles: Record<
+  Severity,
+  { solid: string; soft: string; line: string; border: string }
+> = {
+  MILD: {
+    solid: "bg-surface-hover text-fg",
+    soft: "bg-surface-hover text-fg-muted",
+    line: "text-fg-muted",
+    border: "border-border-strong",
+  },
+  MODERATE: {
+    solid: "bg-caution text-caution-fg",
+    soft: "bg-caution-soft text-caution-line",
+    line: "text-caution-line",
+    border: "border-caution-line/35",
+  },
+  SEVERE: {
+    solid: "bg-unsafe text-unsafe-fg",
+    soft: "bg-unsafe-soft text-unsafe-line",
+    line: "text-unsafe-line",
+    border: "border-unsafe-line/40",
+  },
 };
 
-export const confidenceStyles: Record<Confidence, { text: string; bg: string; bars: number }> = {
-  HIGH: { text: "text-safe", bg: "bg-safe", bars: 3 },
-  MEDIUM: { text: "text-caution", bg: "bg-caution", bars: 2 },
-  LOW: { text: "text-unsafe", bg: "bg-unsafe", bars: 1 },
+export const confidenceStyles: Record<Confidence, { line: string; bar: string; bars: number }> = {
+  HIGH: { line: "text-safe-line", bar: "bg-safe", bars: 3 },
+  MEDIUM: { line: "text-caution-line", bar: "bg-caution", bars: 2 },
+  LOW: { line: "text-unsafe-line", bar: "bg-unsafe", bars: 1 },
 };
 
 export const accentVar: Record<string, string> = {

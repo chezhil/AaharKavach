@@ -19,7 +19,6 @@ export function SeverityPicker({ value, onChange, label }: Props) {
     >
       {SEVERITIES.map((severity) => {
         const active = severity === value;
-        const styles = severityStyles[severity];
         return (
           <button
             key={severity}
@@ -28,10 +27,10 @@ export function SeverityPicker({ value, onChange, label }: Props) {
             aria-checked={active}
             onClick={() => onChange(severity)}
             className={cn(
-              "rounded-lg px-2 py-1.5 text-xs font-semibold transition-all",
+              "rounded-lg px-2 py-1.5 text-xs font-bold transition-all",
               active
-                ? cn(styles.bg, styles.text, "border", styles.border)
-                : "border border-transparent text-fg-subtle hover:text-fg-muted",
+                ? severityStyles[severity].solid
+                : "text-fg-subtle hover:text-fg-muted",
             )}
           >
             {SEVERITY_LABEL[severity]}

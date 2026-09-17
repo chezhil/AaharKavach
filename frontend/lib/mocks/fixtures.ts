@@ -184,6 +184,21 @@ export const MOCK_PRODUCTS: Product[] = [
     ],
   },
   {
+    barcode: "8908003847412",
+    name: "70% Dark Chocolate, Nut-Free Facility",
+    brand: "Pascati",
+    categories: ["Chocolate Bars"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Cocoa Mass"),
+      ing("Sugar"),
+      ing("Cocoa Butter"),
+      ing("Vanilla"),
+    ],
+  },
+  {
     barcode: "8901030865278",
     name: "Banana Chips, Kerala Style",
     brand: "Beyond Snack",

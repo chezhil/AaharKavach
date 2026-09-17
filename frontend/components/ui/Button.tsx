@@ -3,20 +3,20 @@
 import { cn } from "@/lib/utils";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "sky" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand text-brand-fg hover:bg-brand-strong active:scale-[0.98]",
-  secondary:
-    "bg-surface text-fg border border-border-subtle hover:bg-surface-hover active:scale-[0.98]",
+  primary: "bg-brand text-brand-fg hover:brightness-110",
+  sky: "bg-sky text-sky-fg hover:brightness-105",
+  secondary: "bg-surface text-fg hover:bg-surface-hover",
   ghost: "text-fg-muted hover:bg-surface-hover hover:text-fg",
-  danger: "bg-unsafe-soft text-unsafe border border-unsafe-border hover:brightness-110",
+  danger: "bg-unsafe text-unsafe-fg hover:brightness-110",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-3 text-sm gap-1.5 rounded-lg",
-  md: "h-11 px-4 text-sm gap-2 rounded-xl",
+  sm: "h-9 px-3.5 text-xs gap-1.5 rounded-xl",
+  md: "h-11 px-4 text-sm gap-2 rounded-2xl",
   lg: "h-14 px-6 text-base gap-2.5 rounded-2xl",
 };
 
@@ -36,9 +36,9 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center font-semibold transition-all",
+        "inline-flex items-center justify-center font-bold transition-all active:scale-[0.97]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
-        "disabled:pointer-events-none disabled:opacity-50",
+        "disabled:pointer-events-none disabled:opacity-40",
         variants[variant],
         sizes[size],
         className,

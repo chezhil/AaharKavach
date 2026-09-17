@@ -1,94 +1,68 @@
 @import "tailwindcss";
 
 /*
- * AaharKavach design tokens.
- * Dark is the default surface; light mode flips the same variables so no
- * component needs a `dark:` variant. Verdict colours are the load-bearing
- * part — they must stay distinguishable for red/green colour blindness, which
- * is why every verdict also carries an icon and a word, never colour alone.
+ * AaharKavach — bento design system.
+ *
+ * Black canvas, saturated solid tiles, heavy display type. Locked to dark:
+ * the whole look depends on colour blocks reading against black, and a light
+ * variant would be a second, weaker design rather than the same one inverted.
+ *
+ * Each semantic colour comes in four parts:
+ *   --x        solid tile fill
+ *   --x-fg     text that sits on that fill
+ *   --x-soft   dark tint, for the same meaning on a dark card
+ *   --x-line   the readable version of the hue against dark
+ *
+ * The verdict hues are the load-bearing ones. Brand orange and unsafe crimson
+ * are deliberately far apart in hue (25 vs 355) and carry opposite text
+ * colours, and every verdict also ships an icon and a word — never colour alone.
  */
 
 :root {
   color-scheme: dark;
 
-  --bg: oklch(0.17 0.015 160);
-  --bg-elevated: oklch(0.21 0.017 160);
-  --surface: oklch(0.24 0.018 162);
-  --surface-hover: oklch(0.28 0.02 162);
-  --border: oklch(0.32 0.02 162);
-  --border-strong: oklch(0.42 0.03 162);
+  --bg: #08090a;
+  --bg-elevated: #121316;
+  --surface: #1a1b1f;
+  --surface-hover: #24252b;
+  --border: #2a2c33;
+  --border-strong: #3d404a;
 
-  --fg: oklch(0.97 0.006 160);
-  --fg-muted: oklch(0.78 0.015 160);
-  --fg-subtle: oklch(0.62 0.018 160);
+  --fg: #fafafa;
+  --fg-muted: #a5a7b0;
+  --fg-subtle: #74767f;
 
-  --brand: oklch(0.82 0.17 148);
-  --brand-strong: oklch(0.72 0.18 150);
-  --brand-fg: oklch(0.2 0.04 150);
-  --brand-soft: oklch(0.3 0.05 152);
+  --brand: #ff5c16;
+  --brand-strong: #ff7a3d;
+  --brand-fg: #150803;
+  --brand-soft: #2c1408;
+  --brand-line: #ff8a52;
 
-  --safe: oklch(0.82 0.16 155);
-  --safe-soft: oklch(0.3 0.06 158);
-  --safe-border: oklch(0.45 0.1 156);
+  --sky: #a9c9f2;
+  --sky-fg: #071320;
+  --sky-soft: #131f2d;
+  --sky-line: #a9c9f2;
 
-  --caution: oklch(0.85 0.15 82);
-  --caution-soft: oklch(0.33 0.06 78);
-  --caution-border: oklch(0.52 0.11 80);
+  --safe: #3ddc84;
+  --safe-fg: #04190d;
+  --safe-soft: #0f2a1b;
+  --safe-line: #55e896;
 
-  --unsafe: oklch(0.73 0.19 22);
-  --unsafe-soft: oklch(0.32 0.09 20);
-  --unsafe-border: oklch(0.5 0.16 22);
+  --caution: #ffc22e;
+  --caution-fg: #1a1203;
+  --caution-soft: #2c2208;
+  --caution-line: #ffd05a;
 
-  --accent-violet: oklch(0.72 0.16 300);
-  --accent-amber: oklch(0.8 0.15 70);
-  --accent-teal: oklch(0.78 0.12 195);
-  --accent-rose: oklch(0.74 0.16 8);
-  --accent-sky: oklch(0.76 0.13 240);
+  --unsafe: #f4243b;
+  --unsafe-fg: #fff1f2;
+  --unsafe-soft: #2e0c12;
+  --unsafe-line: #ff6072;
 
-  --radius: 1rem;
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -12px oklch(0 0 0 / 0.5);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-
-    --bg: oklch(0.985 0.006 150);
-    --bg-elevated: oklch(1 0 0);
-    --surface: oklch(1 0 0);
-    --surface-hover: oklch(0.96 0.008 150);
-    --border: oklch(0.9 0.012 155);
-    --border-strong: oklch(0.8 0.02 155);
-
-    --fg: oklch(0.22 0.02 158);
-    --fg-muted: oklch(0.44 0.02 158);
-    --fg-subtle: oklch(0.56 0.018 158);
-
-    --brand: oklch(0.58 0.15 152);
-    --brand-strong: oklch(0.5 0.15 152);
-    --brand-fg: oklch(0.99 0.01 150);
-    --brand-soft: oklch(0.94 0.04 152);
-
-    --safe: oklch(0.52 0.14 156);
-    --safe-soft: oklch(0.95 0.04 158);
-    --safe-border: oklch(0.78 0.09 156);
-
-    --caution: oklch(0.58 0.13 66);
-    --caution-soft: oklch(0.96 0.05 85);
-    --caution-border: oklch(0.82 0.1 78);
-
-    --unsafe: oklch(0.53 0.2 25);
-    --unsafe-soft: oklch(0.96 0.03 20);
-    --unsafe-border: oklch(0.8 0.12 22);
-
-    --accent-violet: oklch(0.52 0.19 300);
-    --accent-amber: oklch(0.58 0.14 66);
-    --accent-teal: oklch(0.55 0.11 195);
-    --accent-rose: oklch(0.55 0.19 12);
-    --accent-sky: oklch(0.54 0.15 245);
-
-    --shadow-card: 0 1px 2px oklch(0.2 0.02 158 / 0.06), 0 10px 24px -14px oklch(0.2 0.02 158 / 0.22);
-  }
+  --accent-violet: #c4a5ff;
+  --accent-amber: #ffc22e;
+  --accent-teal: #6fe3d0;
+  --accent-rose: #ff9ab0;
+  --accent-sky: #a9c9f2;
 }
 
 @theme inline {
@@ -107,18 +81,27 @@
   --color-brand-strong: var(--brand-strong);
   --color-brand-fg: var(--brand-fg);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
+
+  --color-sky: var(--sky);
+  --color-sky-fg: var(--sky-fg);
+  --color-sky-soft: var(--sky-soft);
+  --color-sky-line: var(--sky-line);
 
   --color-safe: var(--safe);
+  --color-safe-fg: var(--safe-fg);
   --color-safe-soft: var(--safe-soft);
-  --color-safe-border: var(--safe-border);
+  --color-safe-line: var(--safe-line);
 
   --color-caution: var(--caution);
+  --color-caution-fg: var(--caution-fg);
   --color-caution-soft: var(--caution-soft);
-  --color-caution-border: var(--caution-border);
+  --color-caution-line: var(--caution-line);
 
   --color-unsafe: var(--unsafe);
+  --color-unsafe-fg: var(--unsafe-fg);
   --color-unsafe-soft: var(--unsafe-soft);
-  --color-unsafe-border: var(--unsafe-border);
+  --color-unsafe-line: var(--unsafe-line);
 
   --color-accent-violet: var(--accent-violet);
   --color-accent-amber: var(--accent-amber);
@@ -127,9 +110,11 @@
   --color-accent-sky: var(--accent-sky);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  --radius-card: var(--radius);
+  --radius-tile: 1.5rem;
+  --radius-chip: 0.875rem;
 }
 
 * {
@@ -147,7 +132,17 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* The whole app is a phone-width column, centred on a desktop screen. */
+/* Wide, heavy, slightly tightened — the bento headline voice. */
+.display {
+  font-family: var(--font-archivo), var(--font-geist-sans), sans-serif;
+  font-weight: 800;
+  font-stretch: 120%;
+  letter-spacing: -0.015em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+/* The app is a phone-width column, centred on a desktop screen. */
 .app-shell {
   width: 100%;
   max-width: 30rem;
@@ -155,13 +150,19 @@ body {
 }
 
 .safe-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+}
+
+/* Every bento tile: same corner, same inner padding rhythm. */
+.tile {
+  border-radius: var(--radius-tile);
+  overflow: hidden;
 }
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(0.5rem);
+    transform: translateY(0.75rem) scale(0.98);
   }
   to {
     opacity: 1;
@@ -170,7 +171,7 @@ body {
 }
 
 .animate-rise {
-  animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sheet-up {
@@ -183,7 +184,7 @@ body {
 }
 
 .animate-sheet {
-  animation: sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sweep {

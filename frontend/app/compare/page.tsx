@@ -14,16 +14,13 @@ import { cn, verdictStyles } from "@/lib/utils";
 
 type Slot = "A" | "B";
 
-function VerdictPill({ verdict, dim }: { verdict: Verdict; dim?: boolean }) {
+function VerdictPill({ verdict }: { verdict: Verdict }) {
   const style = verdictStyles[verdict];
   return (
     <span
       className={cn(
-        "inline-flex w-full items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-bold transition-opacity",
-        style.bg,
-        style.text,
-        style.border,
-        dim && "opacity-55",
+        "inline-flex w-full items-center justify-center rounded-lg px-2 py-1.5 text-xs font-extrabold uppercase tracking-wide",
+        style.solid,
       )}
     >
       {VERDICT_LABEL[verdict]}
@@ -88,13 +85,13 @@ function CompareInner() {
     return (
       <div
         className={cn(
-          "relative flex min-h-[7rem] flex-col rounded-2xl border p-3 transition-colors",
-          winner ? "border-safe-border bg-safe-soft" : "border-border-subtle bg-surface",
+          "tile relative flex min-h-[7.5rem] flex-col p-3 transition-colors",
+          winner ? "bg-safe text-safe-fg" : "bg-surface",
         )}
       >
         {winner ? (
-          <span className="absolute -top-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-bold text-bg">
-            <Trophy size={10} aria-hidden />
+          <span className="absolute left-1/2 top-2.5 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-black/15 px-2.5 py-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider">
+            <Trophy size={9} aria-hidden />
             Safer pick
           </span>
         ) : null}
@@ -108,10 +105,10 @@ function CompareInner() {
             >
               <X size={14} />
             </button>
-            <p className="mt-2 pr-6 text-sm font-bold leading-snug">
+            <p className={cn("display pr-6 text-sm leading-snug", winner ? "mt-8" : "mt-2")}>
               {product?.name ?? "Loading…"}
             </p>
-            <p className="mt-0.5 text-xs text-fg-subtle">{product?.brand ?? barcode}</p>
+            <p className="mt-0.5 text-xs opacity-70">{product?.brand ?? barcode}</p>
             <span className="mt-auto pt-2">
               {which === "A" && result ? (
                 <ConfidenceBadge confidence={result.a.evaluation.confidence} />
@@ -136,8 +133,8 @@ function CompareInner() {
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight">Compare two products</h1>
+      <header className="px-1">
+        <h1 className="display text-2xl">Compare two products</h1>
         <p className="mt-1 text-sm text-fg-subtle">
           Checked against{" "}
           {activeProfiles.length > 0
@@ -167,8 +164,8 @@ function CompareInner() {
 
       {result && a && b && !busy ? (
         <>
-          <section className="animate-rise rounded-2xl border border-border-subtle bg-surface p-4">
-            <p className="text-sm font-bold">
+          <section className="tile animate-rise bg-surface p-4">
+            <p className="display text-base">
               {result.safer_pick === "TIE"
                 ? "It's a tie"
                 : `${result.safer_pick === "A" ? result.a.product.name : result.b.product.name} is the safer pick`}
@@ -187,15 +184,12 @@ function CompareInner() {
                 return (
                   <li
                     key={evalA.profile_id}
-                    className="rounded-2xl border border-border-subtle bg-surface p-3"
+                    className="tile bg-surface p-3"
                   >
-                    <p className="mb-2 text-sm font-semibold">{evalA.profile_name}</p>
+                    <p className="display mb-2 text-sm">{evalA.profile_name}</p>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1.5">
-                        <VerdictPill
-                          verdict={evalA.verdict}
-                          dim={result.safer_pick === "B"}
-                        />
+                        <VerdictPill verdict={evalA.verdict} />
                         <p className="text-xs leading-relaxed text-fg-subtle">
                           {evalA.flagged_ingredients.length > 0
                             ? evalA.flagged_ingredients.map((f) => f.ingredient).join(", ")
@@ -203,10 +197,7 @@ function CompareInner() {
                         </p>
                       </div>
                       <div className="space-y-1.5">
-                        <VerdictPill
-                          verdict={evalB.verdict}
-                          dim={result.safer_pick === "A"}
-                        />
+                        <VerdictPill verdict={evalB.verdict} />
                         <p className="text-xs leading-relaxed text-fg-subtle">
                           {evalB.flagged_ingredients.length > 0
                             ? evalB.flagged_ingredients.map((f) => f.ingredient).join(", ")
@@ -236,7 +227,7 @@ function CompareInner() {
       ) : null}
 
       {!a || !b ? (
-        <p className="rounded-2xl border border-dashed border-border-strong px-4 py-6 text-center text-sm text-fg-subtle">
+        <p className="tile bg-surface px-4 py-6 text-center text-sm text-fg-subtle">
           Pick two products to see which one clears more of your household.
         </p>
       ) : null}

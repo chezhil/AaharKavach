@@ -58,7 +58,8 @@ export const RESTRICTION_ALIASES: Record<string, string[]> = {
   fish: ["Fish / Shellfish"],
   shellfish: ["Fish / Shellfish"],
   seafood: ["Fish / Shellfish"],
-  vegetarian: ["Fish / Shellfish", "Gelatin", "Insect-derived (Carmine)"],
+  // Indian usage: shakahari excludes egg as well as meat and fish.
+  vegetarian: ["Egg", "Fish / Shellfish", "Gelatin", "Insect-derived (Carmine)"],
   vegan: ["Dairy / Milk", "Egg", "Fish / Shellfish", "Gelatin", "Insect-derived (Carmine)"],
   jain: ["Fish / Shellfish", "Egg", "Gelatin"],
   mustard: ["Mustard"],
@@ -111,4 +112,29 @@ export const INGREDIENT_EXPLAINERS: Record<string, string> = {
   "calcium carbonate": "Chalk, added to fortify a food with calcium.",
   salt: "Sodium chloride — seasoning and preservative.",
   sugar: "Refined sucrose, usually from sugarcane.",
+};
+
+/**
+ * Phrases that contain an allergen word but are not that allergen.
+ * "Cocoa butter" is the one that bites: it is pressed from cocoa beans and
+ * contains no dairy at all, but a naive substring match flags it as milk.
+ */
+export const FALSE_FRIENDS: Record<string, string[]> = {
+  "Dairy / Milk": [
+    "cocoa butter",
+    "shea butter",
+    "peanut butter",
+    "butterfly pea",
+    "butternut",
+    "coconut milk",
+    "almond milk",
+    "soy milk",
+    "oat milk",
+    "rice milk",
+    "milk thistle",
+  ],
+  "Gluten / Wheat": ["buckwheat", "wheatgrass"],
+  "Tree Nuts": ["nutmeg", "water chestnut", "coconut", "nutritional yeast"],
+  Peanuts: ["peanut free", "peanut-free"],
+  Soy: ["soy free", "soy-free"],
 };

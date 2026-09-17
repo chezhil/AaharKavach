@@ -175,32 +175,30 @@ export default function ResultPage() {
   const total = evaluation.profile_evaluations.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ProductHeader product={product} />
 
-      <section
-        className={cn("rounded-2xl border p-4", style.border, style.bg)}
-        aria-live="polite"
-      >
+      <section className={cn("tile p-4", style.solid)} aria-live="polite">
         <div className="flex items-start gap-3">
-          <Icon size={26} className={cn("mt-0.5 shrink-0", style.text)} strokeWidth={2.2} />
+          <Icon size={30} className="mt-0.5 shrink-0" strokeWidth={2.4} aria-hidden />
           <div className="min-w-0 flex-1">
-            <p className={cn("text-base font-bold leading-tight", style.text)}>
+            <p className="display text-xl">
               {verdict === "SAFE"
                 ? total === 1
                   ? "Safe for them"
                   : `Safe for all ${total}`
                 : `${VERDICT_LABEL[verdict]} for ${total - clearCount} of ${total}`}
             </p>
-            <p className="mt-1 text-sm text-fg-muted">
-              Checked against {evaluation.profile_evaluations.map((e) => e.profile_name).join(", ")}.
+            <p className="mt-1.5 text-sm font-medium opacity-80">
+              Checked against{" "}
+              {evaluation.profile_evaluations.map((e) => e.profile_name).join(", ")}.
             </p>
           </div>
-          <ConfidenceBadge confidence={evaluation.confidence} className="shrink-0" />
+          <ConfidenceBadge confidence={evaluation.confidence} onSolid className="shrink-0" />
         </div>
 
         {evaluation.data_quality_note ? (
-          <p className="mt-3 rounded-xl border border-border-subtle bg-bg/60 px-3 py-2 text-xs leading-relaxed text-fg-muted">
+          <p className="mt-3 rounded-xl bg-black/12 px-3 py-2.5 text-xs font-medium leading-relaxed opacity-90">
             {evaluation.data_quality_note}
           </p>
         ) : null}
@@ -226,9 +224,9 @@ export default function ResultPage() {
       />
 
       {evaluation.safe_alternatives_suggestion ? (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-4">
-          <h3 className="flex items-center gap-1.5 text-sm font-bold">
-            <Lightbulb size={15} className="text-brand" aria-hidden />
+        <section className="tile bg-surface p-4">
+          <h3 className="display flex items-center gap-1.5 text-base">
+            <Lightbulb size={16} className="text-brand" aria-hidden />
             Try instead
           </h3>
           <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
@@ -240,15 +238,15 @@ export default function ResultPage() {
                 <li key={alt.barcode}>
                   <Link
                     href={`/result/${alt.barcode}`}
-                    className="flex items-center gap-2 rounded-xl border border-border-subtle bg-bg px-3 py-2.5 transition-colors hover:border-brand"
+                    className="flex items-center gap-2 rounded-xl bg-surface-hover px-3 py-2.5 transition-colors hover:brightness-125"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{alt.name}</span>
+                      <span className="block truncate text-sm font-bold">{alt.name}</span>
                       {alt.brand ? (
                         <span className="block truncate text-xs text-fg-subtle">{alt.brand}</span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 rounded-full bg-safe-soft px-2 py-0.5 text-[0.65rem] font-bold text-safe">
+                    <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
                       Clear
                     </span>
                   </Link>

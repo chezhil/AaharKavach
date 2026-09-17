@@ -46,7 +46,7 @@ export function Sheet({ open, onClose, title, description, children }: Props) {
         <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border-subtle bg-bg-elevated/95 px-5 pb-3 pt-4 backdrop-blur">
           <div className="min-w-0 flex-1">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-strong" />
-            <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+            <h2 className="display text-lg">{title}</h2>
             {description ? (
               <p className="mt-0.5 text-sm text-fg-subtle">{description}</p>
             ) : null}

@@ -9,7 +9,12 @@ import type {
   Severity,
   Verdict,
 } from "@/lib/types";
-import { ALLERGEN_SYNONYMS, CROSS_REACTIVITY, RESTRICTION_ALIASES } from "./knowledge";
+import {
+  ALLERGEN_SYNONYMS,
+  CROSS_REACTIVITY,
+  FALSE_FRIENDS,
+  RESTRICTION_ALIASES,
+} from "./knowledge";
 import { MOCK_PRODUCTS } from "./fixtures";
 
 /**
@@ -29,12 +34,27 @@ function allergensFor(restrictionLabel: string): string[] {
   return direct ? [direct] : [restrictionLabel];
 }
 
+/** Whole-word containment, so "oats" never matches inside "groats". */
+function containsPhrase(hay: string, needle: string): boolean {
+  if (!needle) return false;
+  return new RegExp(`(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|\\s)`).test(hay);
+}
+
 function matchIngredient(ingredientName: string, allergen: string): boolean {
   const hay = norm(ingredientName);
+
+  // "Cocoa butter" is not dairy — check the exclusions before the synonyms.
+  if ((FALSE_FRIENDS[allergen] ?? []).some((phrase) => containsPhrase(hay, norm(phrase)))) {
+    return false;
+  }
+
   const needles = ALLERGEN_SYNONYMS[allergen] ?? [norm(allergen)];
   return needles.some((n) => {
     const needle = norm(n);
-    return hay === needle || hay.includes(needle) || needle.includes(hay);
+    if (hay === needle) return true;
+    if (containsPhrase(hay, needle)) return true;
+    // The label may be terser than the synonym ("Milk" vs "milk solids").
+    return hay.length >= 3 && containsPhrase(needle, hay);
   });
 }
 

@@ -11,6 +11,16 @@ type Status = "starting" | "scanning" | "denied" | "unsupported";
  * import time, so it is imported lazily inside the effect — that also keeps it
  * out of the bundle for everyone who never opens the scanner.
  */
+/** Tear a scanner down without letting its own errors escape. */
+function wipe(scanner: Html5Qrcode | null) {
+  if (!scanner) return;
+  try {
+    scanner.clear();
+  } catch {
+    // Already unmounted — nothing to clean up.
+  }
+}
+
 export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) => void }) {
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
@@ -25,11 +35,13 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
         return;
       }
 
+      let scanner: Html5Qrcode | null = null;
+
       try {
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (cancelled) return;
 
-        const scanner = new Html5Qrcode("scanner-region", {
+        scanner = new Html5Qrcode("scanner-region", {
           verbose: false,
           formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
@@ -41,7 +53,6 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
             Html5QrcodeSupportedFormats.QR_CODE,
           ],
         });
-        instance.current = scanner;
 
         await scanner.start(
           { facingMode: "environment" },
@@ -57,8 +68,12 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
           },
         );
 
+        // Tracked only once it is genuinely running: stop() throws on a
+        // scanner that never started, so the cleanup path must never see one.
+        instance.current = scanner;
         if (!cancelled) setStatus("scanning");
       } catch {
+        wipe(scanner);
         if (!cancelled) setStatus("denied");
       }
     })();
@@ -68,17 +83,15 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
       const scanner = instance.current;
       instance.current = null;
       if (!scanner) return;
-      // stop() rejects when it never started; either way we want clear().
-      scanner
-        .stop()
-        .catch(() => {})
-        .finally(() => {
-          try {
-            scanner.clear();
-          } catch {
-            // The node is already gone — nothing to clean up.
-          }
-        });
+      // stop() rejects *and* can throw synchronously; both end in the same place.
+      try {
+        Promise.resolve(scanner.stop()).then(
+          () => wipe(scanner),
+          () => wipe(scanner),
+        );
+      } catch {
+        wipe(scanner);
+      }
     };
   }, [onDetected]);
 

@@ -17,9 +17,9 @@ export default function ProfilesPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex items-start justify-between gap-3 px-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Household</h1>
+          <h1 className="display text-2xl">Household</h1>
           <p className="mt-1 text-sm text-fg-subtle">
             Everyone you check products against, and how serious each restriction is.
           </p>
@@ -48,7 +48,7 @@ export default function ProfilesPage() {
         {profiles.map((profile) => (
           <li
             key={profile.id}
-            className="rounded-2xl border border-border-subtle bg-surface p-4"
+            className="tile bg-surface p-4"
           >
             <div className="flex items-start gap-3">
               <span
@@ -59,7 +59,7 @@ export default function ProfilesPage() {
               </span>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate font-bold">{profile.name}</p>
+                <p className="display truncate text-base">{profile.name}</p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
                   {HOUSEHOLD_ROLE_LABEL[profile.household_role]}
                   {!profile.can_edit ? (
@@ -105,10 +105,8 @@ export default function ProfilesPage() {
                     <li
                       key={restriction.id}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs font-medium",
-                        style.bg,
-                        style.text,
-                        style.border,
+                        "rounded-full px-2.5 py-1 text-xs font-bold",
+                        style.solid,
                       )}
                     >
                       {restriction.label}
@@ -145,7 +143,7 @@ export default function ProfilesPage() {
         ))}
       </ul>
 
-      <p className="rounded-2xl border border-border-subtle bg-surface p-3.5 text-xs leading-relaxed text-fg-subtle">
+      <p className="tile bg-surface p-3.5 text-xs leading-relaxed text-fg-subtle">
         Who can edit whose restrictions is decided by Cedar policy on the backend, not by this
         screen. A child&apos;s profile stays read-only here even if you are signed in as them.
       </p>
