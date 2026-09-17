@@ -1,0 +1,4 @@
+strands-agents
+pydantic
+pytest
+boto3
