@@ -31,6 +31,14 @@ interface AppState {
 
 const AppContext = createContext<AppState | null>(null);
 
+function persistActive(ids: string[]): void {
+  try {
+    window.localStorage.setItem(ACTIVE_KEY, JSON.stringify(ids));
+  } catch {
+    // Private mode or a full quota — the selection just won't survive a reload.
+  }
+}
+
 function readActive(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -61,7 +69,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loaded.some((p) => p.id === id),
       );
       // Default to everyone: checking the whole household is the safer default.
-      setActiveIdsState(stored.length > 0 ? stored : loaded.map((p) => p.id));
+      const initial = stored.length > 0 ? stored : loaded.map((p) => p.id);
+      setActiveIdsState(initial);
+      persistActive(initial);
       setLoading(false);
     })();
     return () => {
@@ -71,11 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setActiveIds = useCallback((ids: string[]) => {
     setActiveIdsState(ids);
-    try {
-      window.localStorage.setItem(ACTIVE_KEY, JSON.stringify(ids));
-    } catch {
-      // Non-fatal: the selection just won't survive a reload.
-    }
+    persistActive(ids);
   }, []);
 
   const toggleActive = useCallback((id: string) => {
@@ -86,11 +92,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ? current.filter((x) => x !== id)
           : current
         : [...current, id];
-      try {
-        window.localStorage.setItem(ACTIVE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      persistActive(next);
       return next;
     });
   }, []);
@@ -98,7 +100,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const createProfile = useCallback(async (draft: ProfileDraft) => {
     const created = await api.createProfile(draft);
     setProfiles((current) => [...current, created]);
-    setActiveIdsState((current) => [...current, created.id]);
+    // A new member has to be persisted into the selection too, or a reload
+    // silently drops them from every check.
+    setActiveIdsState((current) => {
+      const next = [...current, created.id];
+      persistActive(next);
+      return next;
+    });
     return created;
   }, []);
 
@@ -111,7 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteProfile = useCallback(async (id: string) => {
     await api.deleteProfile(id);
     setProfiles((current) => current.filter((p) => p.id !== id));
-    setActiveIdsState((current) => current.filter((x) => x !== id));
+    setActiveIdsState((current) => {
+      const next = current.filter((x) => x !== id);
+      persistActive(next);
+      return next;
+    });
   }, []);
 
   const refreshHistory = useCallback(async () => {

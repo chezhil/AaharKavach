@@ -9,7 +9,8 @@ import { MOCK_PRODUCTS } from "@/lib/mocks/fixtures";
 import { usingMocks } from "@/lib/api";
 import { cn, isValidBarcode } from "@/lib/utils";
 
-type Mode = "camera" | "manual" | "photo";
+export type ScanMode = "camera" | "manual" | "photo";
+type Mode = ScanMode;
 
 const MODES: Array<{ id: Mode; label: string; icon: typeof Camera }> = [
   { id: "camera", label: "Camera", icon: Camera },
@@ -24,6 +25,8 @@ interface Props {
   onLabelPhoto: (file: File) => void;
   busy?: boolean;
   error?: string | null;
+  /** Opens on this tab — used by the "photograph the label" deep link. */
+  initialMode?: Mode;
 }
 
 export function ScanSheet({
@@ -33,8 +36,9 @@ export function ScanSheet({
   onLabelPhoto,
   busy,
   error,
+  initialMode = "camera",
 }: Props) {
-  const [mode, setMode] = useState<Mode>("camera");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [typed, setTyped] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 

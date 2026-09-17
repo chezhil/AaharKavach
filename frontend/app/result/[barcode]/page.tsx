@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Columns2,
   Lightbulb,
@@ -144,12 +145,20 @@ export default function ResultPage() {
         title="Not in the database"
         body={`We couldn't find ${barcode} in Open Food Facts. Photograph the ingredients panel instead and we'll read it directly.`}
         action={
-          <Link href="/">
-            <Button variant="secondary" size="sm">
-              <ScanLine size={15} />
-              Back to scanning
-            </Button>
-          </Link>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link href="/?scan=photo">
+              <Button size="sm">
+                <Camera size={15} />
+                Photograph the label
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="secondary" size="sm">
+                <ScanLine size={15} />
+                Back to scanning
+              </Button>
+            </Link>
+          </div>
         }
       />
     );

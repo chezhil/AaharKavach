@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Columns2, ScanLine, Users } from "lucide-react";
+import { ArrowRight, Columns2, ScanLine, UserPlus, Users } from "lucide-react";
 import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
-import { ScanSheet } from "@/components/scanner/ScanSheet";
+import { ScanSheet, type ScanMode } from "@/components/scanner/ScanSheet";
 import { HistoryRow } from "@/components/history/HistoryRow";
 import { Button } from "@/components/ui/Button";
 import { api, ProductNotFoundError, runScan } from "@/lib/api";
@@ -17,10 +17,16 @@ const SYNONYM_COUNT = Object.values(ALLERGEN_SYNONYMS).reduce(
   0,
 );
 
-export default function ScanPage() {
+function ScanHome() {
   const router = useRouter();
-  const { activeIds, activeProfiles, addScan, history, profiles } = useApp();
-  const [open, setOpen] = useState(false);
+  const params = useSearchParams();
+  const { activeIds, activeProfiles, addScan, history, profiles, loading } = useApp();
+
+  // `/?scan=photo` is how the "not in the database" screen hands over.
+  const requested = params.get("scan");
+  const initialMode: ScanMode =
+    requested === "photo" ? "photo" : requested === "manual" ? "manual" : "camera";
+  const [open, setOpen] = useState(requested !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +84,7 @@ export default function ScanPage() {
           : `for ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
   const recent = history.slice(0, 3);
+  const noProfiles = !loading && profiles.length === 0;
   const launch = () => {
     setError(null);
     setOpen(true);
@@ -88,30 +95,47 @@ export default function ScanPage() {
       <ProfileSwitcher />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <button
-          onClick={launch}
-          className="tile group relative col-span-2 min-h-[11.5rem] bg-brand p-5 text-left text-brand-fg md:row-span-2 md:min-h-[21rem] md:p-6"
-        >
-          <span
-            aria-hidden
-            className="display pointer-events-none absolute -right-4 bottom-0 select-none text-[5.5rem] leading-none opacity-[0.11] md:text-[9rem]"
+        {noProfiles ? (
+          <Link
+            href="/profiles"
+            className="tile group relative col-span-2 flex min-h-[11.5rem] flex-col bg-brand p-5 text-brand-fg md:row-span-2 md:min-h-[21rem] md:p-6"
           >
-            कवच
-          </span>
-          <span className="relative flex h-full flex-col">
             <span className="grid size-14 place-items-center rounded-2xl bg-brand-fg/15 transition-transform group-hover:scale-105">
-              <ScanLine size={28} strokeWidth={2.5} />
+              <UserPlus size={28} strokeWidth={2.5} />
             </span>
             <span className="display mt-auto pt-6 text-[2rem] md:text-[3rem]">
-              Scan a
+              Add someone
               <br />
-              product
+              first
             </span>
             <span className="mt-1.5 text-sm font-bold opacity-75">
-              {checkingLine}
+              There&apos;s nobody to check a product against yet.
             </span>
-          </span>
-        </button>
+          </Link>
+        ) : (
+          <button
+            onClick={launch}
+            className="tile group relative col-span-2 min-h-[11.5rem] bg-brand p-5 text-left text-brand-fg md:row-span-2 md:min-h-[21rem] md:p-6"
+          >
+            <span
+              aria-hidden
+              className="display pointer-events-none absolute -right-4 bottom-0 select-none text-[5.5rem] leading-none opacity-[0.11] md:text-[9rem]"
+            >
+              कवच
+            </span>
+            <span className="relative flex h-full flex-col">
+              <span className="grid size-14 place-items-center rounded-2xl bg-brand-fg/15 transition-transform group-hover:scale-105">
+                <ScanLine size={28} strokeWidth={2.5} />
+              </span>
+              <span className="display mt-auto pt-6 text-[2rem] md:text-[3rem]">
+                Scan a
+                <br />
+                product
+              </span>
+              <span className="mt-1.5 text-sm font-bold opacity-75">{checkingLine}</span>
+            </span>
+          </button>
+        )}
 
         <Link
           href="/profiles"
@@ -205,13 +229,24 @@ export default function ScanPage() {
       )}
 
       <ScanSheet
+        // Remount when the deep link asks for a different tab.
+        key={initialMode}
         open={open}
         onClose={() => setOpen(false)}
         onBarcode={handleBarcode}
         onLabelPhoto={handleLabelPhoto}
         busy={busy}
         error={error}
+        initialMode={initialMode}
       />
     </div>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<p className="py-10 text-center text-sm text-fg-subtle">Loading…</p>}>
+      <ScanHome />
+    </Suspense>
   );
 }
