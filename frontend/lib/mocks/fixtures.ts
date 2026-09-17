@@ -1,0 +1,237 @@
+import type { Product, Profile } from "@/lib/types";
+import { INGREDIENT_EXPLAINERS } from "./knowledge";
+
+function ing(name: string, eNumber?: string) {
+  const key = (eNumber ?? name).toLowerCase();
+  return {
+    name,
+    e_number: eNumber ?? null,
+    explainer: INGREDIENT_EXPLAINERS[key] ?? null,
+  };
+}
+
+/** Stand-in for Open Food Facts. Barcodes are real-format, data is hand-written. */
+export const MOCK_PRODUCTS: Product[] = [
+  {
+    barcode: "8901063152762",
+    name: "Good Day Butter Cookies",
+    brand: "Britannia",
+    categories: ["Biscuits", "Cookies"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Refined Wheat Flour (Maida)"),
+      ing("Sugar"),
+      ing("Butter"),
+      ing("Milk Solids"),
+      ing("Invert Sugar Syrup"),
+      ing("Soy Lecithin", "E322"),
+      ing("Raising Agent", "E503"),
+      ing("Salt"),
+    ],
+  },
+  {
+    barcode: "8901058000108",
+    name: "2-Minute Masala Noodles",
+    brand: "Maggi",
+    categories: ["Instant Noodles"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Refined Wheat Flour (Maida)"),
+      ing("Palm Oil"),
+      ing("Salt"),
+      ing("Wheat Gluten"),
+      ing("Mixed Spices"),
+      ing("Flavour Enhancer", "E635"),
+      ing("Acidity Regulator", "E330"),
+    ],
+  },
+  {
+    barcode: "5000159461122",
+    name: "Snickers Bar",
+    brand: "Mars",
+    categories: ["Chocolate Bars"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Milk Chocolate"),
+      ing("Peanuts"),
+      ing("Glucose Syrup"),
+      ing("Sugar"),
+      ing("Milk Solids"),
+      ing("Egg White"),
+      ing("Soy Lecithin", "E322"),
+      ing("Salt"),
+    ],
+  },
+  {
+    barcode: "7622210449283",
+    name: "Oreo Original",
+    brand: "Cadbury",
+    categories: ["Biscuits", "Cookies"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Refined Wheat Flour (Maida)"),
+      ing("Sugar"),
+      ing("Palm Oil"),
+      ing("Cocoa Powder"),
+      ing("Invert Sugar Syrup"),
+      ing("Soy Lecithin", "E322"),
+      ing("Raising Agent", "E500"),
+    ],
+  },
+  {
+    barcode: "8901491101837",
+    name: "India's Magic Masala Chips",
+    brand: "Lay's",
+    categories: ["Chips", "Savoury Snacks"],
+    data_confidence: "MEDIUM",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Potato"),
+      ing("Palm Oil"),
+      ing("Spice Mix"),
+      ing("Milk Solids"),
+      ing("Flavour Enhancer", "E627"),
+      ing("Flavour Enhancer", "E631"),
+      ing("Acidity Regulator", "E330"),
+    ],
+  },
+  {
+    barcode: "8901719101090",
+    name: "Taaza Toned Milk",
+    brand: "Amul",
+    categories: ["Dairy", "Milk"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [ing("Toned Milk")],
+  },
+  {
+    barcode: "7394376616068",
+    name: "Oat Drink Barista Edition",
+    brand: "Oatly",
+    categories: ["Plant Milk", "Milk"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Water"),
+      ing("Oats"),
+      ing("Rapeseed Oil"),
+      ing("Calcium Carbonate"),
+      ing("Salt"),
+    ],
+  },
+  {
+    barcode: "8904004401234",
+    name: "Special Namkeen Mixture",
+    brand: "Shree Ganesh",
+    categories: ["Savoury Snacks"],
+    // The interesting one: a small local brand with a half-empty record.
+    data_confidence: "LOW",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [ing("Gram Flour"), ing("Edible Vegetable Oil"), ing("Spices")],
+  },
+  {
+    barcode: "8906087130057",
+    name: "Multigrain Energy Bar",
+    brand: "Yoga Bar",
+    categories: ["Snack Bars"],
+    data_confidence: "MEDIUM",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Dates"),
+      ing("Almond"),
+      ing("Oats"),
+      ing("Cashew"),
+      ing("Honey"),
+    ],
+  },
+  {
+    barcode: "8904223830012",
+    name: "Millet Crunchies, Lightly Salted",
+    brand: "Slurrp Farm",
+    categories: ["Savoury Snacks", "Chips"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [ing("Ragi Millet"), ing("Rice"), ing("Sunflower Oil"), ing("Salt")],
+  },
+  {
+    barcode: "8901234567895",
+    name: "Strawberry Yoghurt Drink",
+    brand: "Fresh Farms",
+    categories: ["Dairy", "Yoghurt"],
+    data_confidence: "MEDIUM",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Toned Milk"),
+      ing("Sugar"),
+      ing("Strawberry Pulp"),
+      ing("Carmine", "E120"),
+      ing("Stabiliser", "E471"),
+    ],
+  },
+  {
+    barcode: "8901030865278",
+    name: "Banana Chips, Kerala Style",
+    brand: "Beyond Snack",
+    categories: ["Chips", "Savoury Snacks"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [ing("Banana"), ing("Coconut Oil"), ing("Salt"), ing("Turmeric")],
+  },
+];
+
+/** Seed household. Mirrors the Cedar roles Role 3 will enforce. */
+export const MOCK_PROFILES: Profile[] = [
+  {
+    id: "adult_1",
+    name: "Aaditya",
+    household_role: "ADMIN",
+    accent: "violet",
+    can_edit: true,
+    restrictions: [
+      { id: "r1", label: "Gluten", severity: "MODERATE" },
+      { id: "r2", label: "Soy", severity: "MILD" },
+    ],
+  },
+  {
+    id: "kid_1",
+    name: "Aryan",
+    household_role: "CHILD",
+    accent: "amber",
+    can_edit: true,
+    restrictions: [
+      { id: "r3", label: "Peanuts", severity: "SEVERE" },
+      { id: "r4", label: "Dairy", severity: "MODERATE" },
+    ],
+  },
+  {
+    id: "adult_2",
+    name: "Naman",
+    household_role: "MEMBER",
+    accent: "teal",
+    can_edit: false,
+    restrictions: [
+      { id: "r5", label: "Latex", severity: "MODERATE" },
+      { id: "r6", label: "Vegetarian", severity: "MILD" },
+    ],
+  },
+];
+
+export function findProduct(barcode: string): Product | undefined {
+  return MOCK_PRODUCTS.find((p) => p.barcode === barcode.trim());
+}

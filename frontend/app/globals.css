@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/*
+ * AaharKavach design tokens.
+ * Dark is the default surface; light mode flips the same variables so no
+ * component needs a `dark:` variant. Verdict colours are the load-bearing
+ * part — they must stay distinguishable for red/green colour blindness, which
+ * is why every verdict also carries an icon and a word, never colour alone.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: oklch(0.17 0.015 160);
+  --bg-elevated: oklch(0.21 0.017 160);
+  --surface: oklch(0.24 0.018 162);
+  --surface-hover: oklch(0.28 0.02 162);
+  --border: oklch(0.32 0.02 162);
+  --border-strong: oklch(0.42 0.03 162);
+
+  --fg: oklch(0.97 0.006 160);
+  --fg-muted: oklch(0.78 0.015 160);
+  --fg-subtle: oklch(0.62 0.018 160);
+
+  --brand: oklch(0.82 0.17 148);
+  --brand-strong: oklch(0.72 0.18 150);
+  --brand-fg: oklch(0.2 0.04 150);
+  --brand-soft: oklch(0.3 0.05 152);
+
+  --safe: oklch(0.82 0.16 155);
+  --safe-soft: oklch(0.3 0.06 158);
+  --safe-border: oklch(0.45 0.1 156);
+
+  --caution: oklch(0.85 0.15 82);
+  --caution-soft: oklch(0.33 0.06 78);
+  --caution-border: oklch(0.52 0.11 80);
+
+  --unsafe: oklch(0.73 0.19 22);
+  --unsafe-soft: oklch(0.32 0.09 20);
+  --unsafe-border: oklch(0.5 0.16 22);
+
+  --accent-violet: oklch(0.72 0.16 300);
+  --accent-amber: oklch(0.8 0.15 70);
+  --accent-teal: oklch(0.78 0.12 195);
+  --accent-rose: oklch(0.74 0.16 8);
+  --accent-sky: oklch(0.76 0.13 240);
+
+  --radius: 1rem;
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -12px oklch(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: oklch(0.985 0.006 150);
+    --bg-elevated: oklch(1 0 0);
+    --surface: oklch(1 0 0);
+    --surface-hover: oklch(0.96 0.008 150);
+    --border: oklch(0.9 0.012 155);
+    --border-strong: oklch(0.8 0.02 155);
+
+    --fg: oklch(0.22 0.02 158);
+    --fg-muted: oklch(0.44 0.02 158);
+    --fg-subtle: oklch(0.56 0.018 158);
+
+    --brand: oklch(0.58 0.15 152);
+    --brand-strong: oklch(0.5 0.15 152);
+    --brand-fg: oklch(0.99 0.01 150);
+    --brand-soft: oklch(0.94 0.04 152);
+
+    --safe: oklch(0.52 0.14 156);
+    --safe-soft: oklch(0.95 0.04 158);
+    --safe-border: oklch(0.78 0.09 156);
+
+    --caution: oklch(0.58 0.13 66);
+    --caution-soft: oklch(0.96 0.05 85);
+    --caution-border: oklch(0.82 0.1 78);
+
+    --unsafe: oklch(0.53 0.2 25);
+    --unsafe-soft: oklch(0.96 0.03 20);
+    --unsafe-border: oklch(0.8 0.12 22);
+
+    --accent-violet: oklch(0.52 0.19 300);
+    --accent-amber: oklch(0.58 0.14 66);
+    --accent-teal: oklch(0.55 0.11 195);
+    --accent-rose: oklch(0.55 0.19 12);
+    --accent-sky: oklch(0.54 0.15 245);
+
+    --shadow-card: 0 1px 2px oklch(0.2 0.02 158 / 0.06), 0 10px 24px -14px oklch(0.2 0.02 158 / 0.22);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-subtle: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+
+  --color-safe: var(--safe);
+  --color-safe-soft: var(--safe-soft);
+  --color-safe-border: var(--safe-border);
+
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-caution-border: var(--caution-border);
+
+  --color-unsafe: var(--unsafe);
+  --color-unsafe-soft: var(--unsafe-soft);
+  --color-unsafe-border: var(--unsafe-border);
+
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-sky: var(--accent-sky);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-card: var(--radius);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* The whole app is a phone-width column, centred on a desktop screen. */
+.app-shell {
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-sheet {
+  animation: sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(-46%);
+  }
+  50% {
+    transform: translateY(46%);
+  }
+  100% {
+    transform: translateY(-46%);
+  }
+}
+
+/* The laser line in the scanner viewfinder. */
+.animate-sweep {
+  animation: sweep 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-sheet,
+  .animate-sweep {
+    animation: none;
+  }
+}
+
+/* html5-qrcode injects its own chrome; we only want the video. */
+#scanner-region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border-radius: 1.25rem;
+}
+
+#scanner-region img[alt="Info icon"],
+#scanner-region__dashboard_section_csr span,
+#scanner-region__header_message {
+  display: none !important;
+}
