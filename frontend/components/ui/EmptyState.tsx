@@ -16,7 +16,9 @@ export function EmptyState({ icon: Icon, title, body, action }: Props) {
       </div>
       <div>
         <p className="display text-base">{title}</p>
-        <p className="mx-auto mt-1 max-w-[26ch] text-sm text-fg-subtle">{body}</p>
+        <p className="mx-auto mt-1 max-w-[26ch] text-sm text-fg-subtle">
+          {body}
+        </p>
       </div>
       {action}
     </div>

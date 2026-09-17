@@ -31,7 +31,7 @@ export function Sheet({ open, onClose, title, description, children }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
       <button
         aria-label="Close"
         onClick={onClose}
@@ -41,11 +41,11 @@ export function Sheet({ open, onClose, title, description, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-sheet relative w-full max-w-[30rem] max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border-subtle bg-bg-elevated shadow-2xl"
+        className="animate-sheet relative max-h-[88dvh] w-full max-w-[30rem] overflow-y-auto rounded-t-3xl border-t border-border-subtle bg-bg-elevated shadow-2xl md:max-h-[85dvh] md:max-w-[34rem] md:rounded-3xl md:border"
       >
         <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border-subtle bg-bg-elevated/95 px-5 pb-3 pt-4 backdrop-blur">
           <div className="min-w-0 flex-1">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-strong" />
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-strong md:hidden" />
             <h2 className="display text-lg">{title}</h2>
             {description ? (
               <p className="mt-0.5 text-sm text-fg-subtle">{description}</p>
@@ -59,7 +59,7 @@ export function Sheet({ open, onClose, title, description, children }: Props) {
             <X size={18} />
           </button>
         </div>
-        <div className="px-5 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-4">
+        <div className="px-5 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-4 md:pb-6">
           {children}
         </div>
       </div>

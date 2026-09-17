@@ -19,7 +19,9 @@ export function IngredientChips({
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const flaggedNames = new Set(
-    flags.map((f) => f.ingredient.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase()),
+    flags.map((f) =>
+      f.ingredient.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase(),
+    ),
   );
 
   const explainerFor = (ingredient: Ingredient): string => {
@@ -57,7 +59,9 @@ export function IngredientChips({
               >
                 {ingredient.name}
                 {ingredient.e_number ? (
-                  <span className="ml-1 font-mono opacity-70">{ingredient.e_number}</span>
+                  <span className="ml-1 font-mono opacity-70">
+                    {ingredient.e_number}
+                  </span>
                 ) : null}
               </button>
             </li>
@@ -69,7 +73,9 @@ export function IngredientChips({
         <div className="animate-rise mt-3 flex gap-2.5 rounded-2xl bg-sky p-3.5 text-sky-fg">
           <Info size={17} className="mt-0.5 shrink-0" aria-hidden />
           <div className="min-w-0">
-            <p className="text-sm font-extrabold">{ingredients[openIndex].name}</p>
+            <p className="text-sm font-extrabold">
+              {ingredients[openIndex].name}
+            </p>
             <p className="mt-1 text-sm font-medium leading-relaxed opacity-80">
               {explainerFor(ingredients[openIndex])}
             </p>

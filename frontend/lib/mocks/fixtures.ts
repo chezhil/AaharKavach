@@ -139,7 +139,11 @@ export const MOCK_PRODUCTS: Product[] = [
     data_confidence: "LOW",
     source: "OPEN_FOOD_FACTS",
     image_url: null,
-    ingredients: [ing("Gram Flour"), ing("Edible Vegetable Oil"), ing("Spices")],
+    ingredients: [
+      ing("Gram Flour"),
+      ing("Edible Vegetable Oil"),
+      ing("Spices"),
+    ],
   },
   {
     barcode: "8906087130057",
@@ -165,7 +169,12 @@ export const MOCK_PRODUCTS: Product[] = [
     data_confidence: "HIGH",
     source: "OPEN_FOOD_FACTS",
     image_url: null,
-    ingredients: [ing("Ragi Millet"), ing("Rice"), ing("Sunflower Oil"), ing("Salt")],
+    ingredients: [
+      ing("Ragi Millet"),
+      ing("Rice"),
+      ing("Sunflower Oil"),
+      ing("Salt"),
+    ],
   },
   {
     barcode: "8901234567895",
@@ -206,7 +215,12 @@ export const MOCK_PRODUCTS: Product[] = [
     data_confidence: "HIGH",
     source: "OPEN_FOOD_FACTS",
     image_url: null,
-    ingredients: [ing("Banana"), ing("Coconut Oil"), ing("Salt"), ing("Turmeric")],
+    ingredients: [
+      ing("Banana"),
+      ing("Coconut Oil"),
+      ing("Salt"),
+      ing("Turmeric"),
+    ],
   },
 ];
 

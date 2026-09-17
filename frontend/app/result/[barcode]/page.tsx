@@ -36,7 +36,8 @@ const sameSelection = (a: string[], b: string[]) =>
 export default function ResultPage() {
   const { barcode } = useParams<{ barcode: string }>();
   const router = useRouter();
-  const { activeIds, activeProfiles, profiles, history, addScan, loading } = useApp();
+  const { activeIds, activeProfiles, profiles, history, addScan, loading } =
+    useApp();
 
   // Keyed by barcode + selection so a stale answer never renders under a new
   // question; anything not resolved for the current key reads as loading.
@@ -52,7 +53,9 @@ export default function ResultPage() {
   const cached = useMemo(
     () =>
       history.find(
-        (s) => s.product.barcode === barcode && sameSelection(s.profile_ids, activeIds),
+        (s) =>
+          s.product.barcode === barcode &&
+          sameSelection(s.profile_ids, activeIds),
       ) ?? null,
     [history, barcode, activeIds],
   );
@@ -159,7 +162,11 @@ export default function ResultPage() {
         title="That didn't go through"
         body="The lookup failed on the way out. Check the connection and try the scan again."
         action={
-          <Button variant="secondary" size="sm" onClick={() => router.refresh()}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.refresh()}
+          >
             Retry
           </Button>
         }
@@ -171,106 +178,137 @@ export default function ResultPage() {
   const verdict = worstVerdict(evaluation.profile_evaluations);
   const style = verdictStyles[verdict];
   const Icon = ICONS[verdict];
-  const clearCount = evaluation.profile_evaluations.filter((e) => e.verdict === "SAFE").length;
+  const clearCount = evaluation.profile_evaluations.filter(
+    (e) => e.verdict === "SAFE",
+  ).length;
   const total = evaluation.profile_evaluations.length;
 
   return (
-    <div className="space-y-3">
-      <ProductHeader product={product} />
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+      <div className="space-y-3">
+        <ProductHeader product={product} />
 
-      <section className={cn("tile p-4", style.solid)} aria-live="polite">
-        <div className="flex items-start gap-3">
-          <Icon size={30} className="mt-0.5 shrink-0" strokeWidth={2.4} aria-hidden />
-          <div className="min-w-0 flex-1">
-            <p className="display text-xl">
-              {verdict === "SAFE"
-                ? total === 1
-                  ? "Safe for them"
-                  : `Safe for all ${total}`
-                : `${VERDICT_LABEL[verdict]} for ${total - clearCount} of ${total}`}
-            </p>
-            <p className="mt-1.5 text-sm font-medium opacity-80">
-              Checked against{" "}
-              {evaluation.profile_evaluations.map((e) => e.profile_name).join(", ")}.
-            </p>
+        <section className={cn("tile p-4", style.solid)} aria-live="polite">
+          <div className="flex items-start gap-3">
+            <Icon
+              size={30}
+              className="mt-0.5 shrink-0"
+              strokeWidth={2.4}
+              aria-hidden
+            />
+            <div className="min-w-0 flex-1">
+              <p className="display text-xl">
+                {verdict === "SAFE"
+                  ? total === 1
+                    ? "Safe for them"
+                    : `Safe for all ${total}`
+                  : `${VERDICT_LABEL[verdict]} for ${total - clearCount} of ${total}`}
+              </p>
+              <p className="mt-1.5 text-sm font-medium opacity-80">
+                Checked against{" "}
+                {evaluation.profile_evaluations
+                  .map((e) => e.profile_name)
+                  .join(", ")}
+                .
+              </p>
+            </div>
+            <ConfidenceBadge
+              confidence={evaluation.confidence}
+              onSolid
+              className="shrink-0"
+            />
           </div>
-          <ConfidenceBadge confidence={evaluation.confidence} onSolid className="shrink-0" />
-        </div>
 
-        {evaluation.data_quality_note ? (
-          <p className="mt-3 rounded-xl bg-black/12 px-3 py-2.5 text-xs font-medium leading-relaxed opacity-90">
-            {evaluation.data_quality_note}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
-        {evaluation.profile_evaluations.map((profileEval, i) => (
-          <VerdictCard
-            key={profileEval.profile_id}
-            evaluation={profileEval}
-            profile={
-              activeProfiles.find((p) => p.id === profileEval.profile_id) ??
-              profiles.find((p) => p.id === profileEval.profile_id)
-            }
-            index={i}
-          />
-        ))}
-      </section>
-
-      <IngredientChips
-        ingredients={product.ingredients}
-        flags={evaluation.profile_evaluations.flatMap((e) => e.flagged_ingredients)}
-      />
-
-      {evaluation.safe_alternatives_suggestion ? (
-        <section className="tile bg-surface p-4">
-          <h3 className="display flex items-center gap-1.5 text-base">
-            <Lightbulb size={16} className="text-brand" aria-hidden />
-            Try instead
-          </h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-            {evaluation.safe_alternatives_suggestion}
-          </p>
-          {evaluation.safe_alternatives && evaluation.safe_alternatives.length > 0 ? (
-            <ul className="mt-3 space-y-1.5">
-              {evaluation.safe_alternatives.map((alt) => (
-                <li key={alt.barcode}>
-                  <Link
-                    href={`/result/${alt.barcode}`}
-                    className="flex items-center gap-2 rounded-xl bg-surface-hover px-3 py-2.5 transition-colors hover:brightness-125"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">{alt.name}</span>
-                      {alt.brand ? (
-                        <span className="block truncate text-xs text-fg-subtle">{alt.brand}</span>
-                      ) : null}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
-                      Clear
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {evaluation.data_quality_note ? (
+            <p className="mt-3 rounded-xl bg-black/12 px-3 py-2.5 text-xs font-medium leading-relaxed opacity-90">
+              {evaluation.data_quality_note}
+            </p>
           ) : null}
         </section>
-      ) : null}
 
-      <div className="flex gap-2">
-        <Link href={`/compare?a=${product.barcode}`} className="flex-1">
-          <Button variant="secondary" className="w-full">
-            <Columns2 size={16} />
-            Compare
-          </Button>
-        </Link>
-        <Link href="/" className="flex-1">
-          <Button className="w-full">
-            <ScanLine size={16} />
-            Scan another
-          </Button>
-        </Link>
+        <section
+          className={cn(
+            "grid gap-3",
+            evaluation.profile_evaluations.length > 1 &&
+              "md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2",
+          )}
+        >
+          {evaluation.profile_evaluations.map((profileEval, i) => (
+            <VerdictCard
+              key={profileEval.profile_id}
+              evaluation={profileEval}
+              profile={
+                activeProfiles.find((p) => p.id === profileEval.profile_id) ??
+                profiles.find((p) => p.id === profileEval.profile_id)
+              }
+              index={i}
+            />
+          ))}
+        </section>
       </div>
+
+      <aside className="space-y-3 lg:sticky lg:top-24">
+        <IngredientChips
+          ingredients={product.ingredients}
+          flags={evaluation.profile_evaluations.flatMap(
+            (e) => e.flagged_ingredients,
+          )}
+        />
+
+        {evaluation.safe_alternatives_suggestion ? (
+          <section className="tile bg-surface p-4">
+            <h3 className="display flex items-center gap-1.5 text-base">
+              <Lightbulb size={16} className="text-brand" aria-hidden />
+              Try instead
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
+              {evaluation.safe_alternatives_suggestion}
+            </p>
+            {evaluation.safe_alternatives &&
+            evaluation.safe_alternatives.length > 0 ? (
+              <ul className="mt-3 space-y-1.5">
+                {evaluation.safe_alternatives.map((alt) => (
+                  <li key={alt.barcode}>
+                    <Link
+                      href={`/result/${alt.barcode}`}
+                      className="flex items-center gap-2 rounded-xl bg-surface-hover px-3 py-2.5 transition-colors hover:brightness-125"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">
+                          {alt.name}
+                        </span>
+                        {alt.brand ? (
+                          <span className="block truncate text-xs text-fg-subtle">
+                            {alt.brand}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
+                        Clear
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+
+        <div className="flex gap-2">
+          <Link href={`/compare?a=${product.barcode}`} className="flex-1">
+            <Button variant="secondary" className="w-full">
+              <Columns2 size={16} />
+              Compare
+            </Button>
+          </Link>
+          <Link href="/" className="flex-1">
+            <Button className="w-full">
+              <ScanLine size={16} />
+              Scan another
+            </Button>
+          </Link>
+        </div>
+      </aside>
     </div>
   );
 }

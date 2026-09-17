@@ -149,8 +149,28 @@ body {
   margin-inline: auto;
 }
 
+/* On a wider screen the column opens up into a real multi-column bento. */
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 46rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    max-width: 70rem;
+  }
+}
+
+/* Room for the floating nav pill; on desktop the nav moves into the header. */
 .safe-bottom {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+}
+
+@media (min-width: 768px) {
+  .safe-bottom {
+    padding-bottom: 3rem;
+  }
 }
 
 /* Every bento tile: same corner, same inner padding rhythm. */
@@ -185,6 +205,13 @@ body {
 
 .animate-sheet {
   animation: sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A bottom sheet on a phone is a centred dialog on a laptop. */
+@media (min-width: 768px) {
+  .animate-sheet {
+    animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 @keyframes sweep {

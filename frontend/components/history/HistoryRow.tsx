@@ -6,7 +6,9 @@ import { cn, relativeTime, verdictStyles } from "@/lib/utils";
 export function HistoryRow({ scan }: { scan: ScanResult }) {
   const verdict = worstVerdict(scan.evaluation.profile_evaluations);
   const style = verdictStyles[verdict];
-  const flagged = scan.evaluation.profile_evaluations.filter((e) => e.verdict !== "SAFE");
+  const flagged = scan.evaluation.profile_evaluations.filter(
+    (e) => e.verdict !== "SAFE",
+  );
 
   return (
     <li>
@@ -24,7 +26,9 @@ export function HistoryRow({ scan }: { scan: ScanResult }) {
           {VERDICT_LABEL[verdict]}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold">{scan.product.name}</span>
+          <span className="block truncate text-sm font-bold">
+            {scan.product.name}
+          </span>
           <span className="mt-0.5 block truncate text-xs text-fg-subtle">
             {flagged.length > 0
               ? `Flagged for ${flagged.map((e) => e.profile_name).join(", ")}`
@@ -33,7 +37,11 @@ export function HistoryRow({ scan }: { scan: ScanResult }) {
             {relativeTime(scan.scanned_at)}
           </span>
         </span>
-        <ChevronRight size={16} className="shrink-0 text-fg-subtle" aria-hidden />
+        <ChevronRight
+          size={16}
+          className="shrink-0 text-fg-subtle"
+          aria-hidden
+        />
       </Link>
     </li>
   );

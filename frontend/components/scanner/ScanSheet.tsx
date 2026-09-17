@@ -26,7 +26,14 @@ interface Props {
   error?: string | null;
 }
 
-export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error }: Props) {
+export function ScanSheet({
+  open,
+  onClose,
+  onBarcode,
+  onLabelPhoto,
+  busy,
+  error,
+}: Props) {
   const [mode, setMode] = useState<Mode>("camera");
   const [typed, setTyped] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -53,7 +60,11 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
       description="Point at the barcode, type it, or photograph the ingredients panel."
     >
       <div className="space-y-4">
-        <div role="tablist" aria-label="Scan method" className="grid grid-cols-3 gap-1 rounded-xl bg-bg p-1">
+        <div
+          role="tablist"
+          aria-label="Scan method"
+          className="grid grid-cols-3 gap-1 rounded-xl bg-bg p-1"
+        >
           {MODES.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -62,7 +73,9 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
               onClick={() => setMode(id)}
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
-                mode === id ? "bg-brand text-brand-fg" : "text-fg-subtle hover:text-fg-muted",
+                mode === id
+                  ? "bg-brand text-brand-fg"
+                  : "text-fg-subtle hover:text-fg-muted",
               )}
             >
               <Icon size={14} aria-hidden />
@@ -82,22 +95,32 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
 
         {busy ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border-subtle bg-surface px-5 py-10 text-center">
-            <Loader2 size={22} className="animate-spin text-brand" aria-hidden />
-            <p className="text-sm font-semibold">Checking against your household…</p>
+            <Loader2
+              size={22}
+              className="animate-spin text-brand"
+              aria-hidden
+            />
+            <p className="text-sm font-semibold">
+              Checking against your household…
+            </p>
             <p className="text-xs text-fg-subtle">
               Looking up the product, then reasoning over every ingredient.
             </p>
           </div>
         ) : (
           <>
-            {mode === "camera" ? <BarcodeScanner onDetected={handleDetected} /> : null}
+            {mode === "camera" ? (
+              <BarcodeScanner onDetected={handleDetected} />
+            ) : null}
 
             {mode === "manual" ? (
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <input
                     value={typed}
-                    onChange={(e) => setTyped(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                      setTyped(e.target.value.replace(/\D/g, ""))
+                    }
                     onKeyDown={(e) => e.key === "Enter" && submitTyped()}
                     inputMode="numeric"
                     autoFocus
@@ -105,7 +128,10 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
                     aria-label="Barcode number"
                     className="h-12 flex-1 rounded-xl border border-border-subtle bg-bg px-3.5 font-mono text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
                   />
-                  <Button onClick={submitTyped} disabled={!isValidBarcode(typed)}>
+                  <Button
+                    onClick={submitTyped}
+                    disabled={!isValidBarcode(typed)}
+                  >
                     Check
                   </Button>
                 </div>
@@ -147,9 +173,12 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
                   className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-10 text-center transition-colors hover:border-brand"
                 >
                   <ImagePlus size={24} className="text-fg-subtle" aria-hidden />
-                  <span className="text-sm font-semibold">Photograph the ingredients panel</span>
+                  <span className="text-sm font-semibold">
+                    Photograph the ingredients panel
+                  </span>
                   <span className="max-w-[32ch] text-xs text-fg-subtle">
-                    For loose or unlisted products with no barcode in the database.
+                    For loose or unlisted products with no barcode in the
+                    database.
                   </span>
                 </button>
                 <input
@@ -165,7 +194,8 @@ export function ScanSheet({ open, onClose, onBarcode, onLabelPhoto, busy, error 
                   }}
                 />
                 <p className="rounded-xl border border-caution-border bg-caution-soft px-3 py-2 text-xs text-caution">
-                  Photo reads come back with low confidence — we&apos;ll say so on the result.
+                  Photo reads come back with low confidence — we&apos;ll say so
+                  on the result.
                 </p>
               </div>
             ) : null}

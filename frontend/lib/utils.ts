@@ -61,7 +61,10 @@ export const severityStyles: Record<
   },
 };
 
-export const confidenceStyles: Record<Confidence, { line: string; bar: string; bars: number }> = {
+export const confidenceStyles: Record<
+  Confidence,
+  { line: string; bar: string; bars: number }
+> = {
   HIGH: { line: "text-safe-line", bar: "bg-safe", bars: 3 },
   MEDIUM: { line: "text-caution-line", bar: "bg-caution", bars: 2 },
   LOW: { line: "text-unsafe-line", bar: "bg-unsafe", bars: 1 },
@@ -96,7 +99,10 @@ export function relativeTime(iso: string): string {
   if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
   const days = Math.round(hours / 24);
   if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 /** Barcodes are 8–14 digits (EAN-8 through GTIN-14). */

@@ -50,11 +50,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [loaded, pastScans] = await Promise.all([api.listProfiles(), api.listHistory()]);
+      const [loaded, pastScans] = await Promise.all([
+        api.listProfiles(),
+        api.listHistory(),
+      ]);
       if (cancelled) return;
       setProfiles(loaded);
       setHistory(pastScans);
-      const stored = readActive().filter((id) => loaded.some((p) => p.id === id));
+      const stored = readActive().filter((id) =>
+        loaded.some((p) => p.id === id),
+      );
       // Default to everyone: checking the whole household is the safer default.
       setActiveIdsState(stored.length > 0 ? stored : loaded.map((p) => p.id));
       setLoading(false);
@@ -73,35 +78,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toggleActive = useCallback(
-    (id: string) => {
-      setActiveIdsState((current) => {
-        // Never let the selection empty out — there'd be nothing to check against.
-        const next = current.includes(id)
-          ? current.length > 1
-            ? current.filter((x) => x !== id)
-            : current
-          : [...current, id];
-        try {
-          window.localStorage.setItem(ACTIVE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const toggleActive = useCallback((id: string) => {
+    setActiveIdsState((current) => {
+      // Never let the selection empty out — there'd be nothing to check against.
+      const next = current.includes(id)
+        ? current.length > 1
+          ? current.filter((x) => x !== id)
+          : current
+        : [...current, id];
+      try {
+        window.localStorage.setItem(ACTIVE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
 
-  const createProfile = useCallback(
-    async (draft: ProfileDraft) => {
-      const created = await api.createProfile(draft);
-      setProfiles((current) => [...current, created]);
-      setActiveIdsState((current) => [...current, created.id]);
-      return created;
-    },
-    [],
-  );
+  const createProfile = useCallback(async (draft: ProfileDraft) => {
+    const created = await api.createProfile(draft);
+    setProfiles((current) => [...current, created]);
+    setActiveIdsState((current) => [...current, created.id]);
+    return created;
+  }, []);
 
   const updateProfile = useCallback(async (id: string, draft: ProfileDraft) => {
     const updated = await api.updateProfile(id, draft);
@@ -120,7 +119,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addScan = useCallback((scan: ScanResult) => {
-    setHistory((current) => [scan, ...current.filter((s) => s.product.barcode !== scan.product.barcode)]);
+    setHistory((current) => [
+      scan,
+      ...current.filter((s) => s.product.barcode !== scan.product.barcode),
+    ]);
   }, []);
 
   const value = useMemo<AppState>(

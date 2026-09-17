@@ -23,28 +23,41 @@ import { MOCK_PRODUCTS } from "./fixtures";
  * render before the agent is wired up. Same output shape, no LLM.
  */
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 function allergensFor(restrictionLabel: string): string[] {
   const key = norm(restrictionLabel);
   if (RESTRICTION_ALIASES[key]) return RESTRICTION_ALIASES[key];
   // Fall back to a direct hit on an allergen name, else treat the raw label
   // as its own allergen so unknown restrictions still match literally.
-  const direct = Object.keys(ALLERGEN_SYNONYMS).find((a) => norm(a).includes(key));
+  const direct = Object.keys(ALLERGEN_SYNONYMS).find((a) =>
+    norm(a).includes(key),
+  );
   return direct ? [direct] : [restrictionLabel];
 }
 
 /** Whole-word containment, so "oats" never matches inside "groats". */
 function containsPhrase(hay: string, needle: string): boolean {
   if (!needle) return false;
-  return new RegExp(`(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|\\s)`).test(hay);
+  return new RegExp(
+    `(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|\\s)`,
+  ).test(hay);
 }
 
 function matchIngredient(ingredientName: string, allergen: string): boolean {
   const hay = norm(ingredientName);
 
   // "Cocoa butter" is not dairy — check the exclusions before the synonyms.
-  if ((FALSE_FRIENDS[allergen] ?? []).some((phrase) => containsPhrase(hay, norm(phrase)))) {
+  if (
+    (FALSE_FRIENDS[allergen] ?? []).some((phrase) =>
+      containsPhrase(hay, norm(phrase)),
+    )
+  ) {
     return false;
   }
 
@@ -64,27 +77,40 @@ function downgrade(sev: Severity): Severity {
 
 function verdictFor(flags: FlaggedIngredient[]): Verdict {
   const direct = flags.filter((f) => !f.cross_reactive);
-  if (direct.some((f) => f.profile_severity === "SEVERE" || f.profile_severity === "MODERATE")) {
+  if (
+    direct.some(
+      (f) =>
+        f.profile_severity === "SEVERE" || f.profile_severity === "MODERATE",
+    )
+  ) {
     return "UNSAFE";
   }
   if (flags.length > 0) return "CAUTION";
   return "SAFE";
 }
 
-function summarise(profile: Profile, flags: FlaggedIngredient[], verdict: Verdict): string {
+function summarise(
+  profile: Profile,
+  flags: FlaggedIngredient[],
+  verdict: Verdict,
+): string {
   if (verdict === "SAFE") {
     return `Nothing here matches ${profile.name}'s restrictions.`;
   }
   const worst = flags.find((f) => f.profile_severity === "SEVERE") ?? flags[0];
   const others = flags.length - 1;
-  const tail = others > 0 ? ` (plus ${others} more match${others > 1 ? "es" : ""})` : "";
+  const tail =
+    others > 0 ? ` (plus ${others} more match${others > 1 ? "es" : ""})` : "";
   if (verdict === "UNSAFE") {
     return `Contains ${worst.ingredient} — ${worst.matched_allergen} for ${profile.name}${tail}.`;
   }
   return `Worth a second look: ${worst.ingredient} may affect ${profile.name}${tail}.`;
 }
 
-function evaluateProfile(product: Product, profile: Profile): ProfileEvaluation {
+function evaluateProfile(
+  product: Product,
+  profile: Profile,
+): ProfileEvaluation {
   const flags: FlaggedIngredient[] = [];
   const seen = new Set<string>();
 
@@ -97,7 +123,9 @@ function evaluateProfile(product: Product, profile: Profile): ProfileEvaluation 
           : ingredient.name;
         const hit =
           matchIngredient(ingredient.name, allergen) ||
-          (ingredient.e_number ? matchIngredient(ingredient.e_number, allergen) : false);
+          (ingredient.e_number
+            ? matchIngredient(ingredient.e_number, allergen)
+            : false);
         if (!hit) continue;
         const key = `${label}|${allergen}`;
         if (seen.has(key)) continue;
@@ -114,7 +142,8 @@ function evaluateProfile(product: Product, profile: Profile): ProfileEvaluation 
       }
 
       // Cross-reactivity — a related risk, never listed as the allergen itself.
-      const cross = CROSS_REACTIVITY[allergen] ?? CROSS_REACTIVITY[restriction.label];
+      const cross =
+        CROSS_REACTIVITY[allergen] ?? CROSS_REACTIVITY[restriction.label];
       if (!cross) continue;
       for (const ingredient of product.ingredients) {
         const hay = norm(ingredient.name);
@@ -145,20 +174,26 @@ function evaluateProfile(product: Product, profile: Profile): ProfileEvaluation 
 }
 
 function confidenceFor(product: Product): Confidence {
-  if (product.ingredients.length <= 3 && product.data_confidence !== "HIGH") return "LOW";
+  if (product.ingredients.length <= 3 && product.data_confidence !== "HIGH")
+    return "LOW";
   if (product.source === "LABEL_PHOTO") {
     return product.data_confidence === "HIGH" ? "MEDIUM" : "LOW";
   }
   return product.data_confidence;
 }
 
-function alternativesFor(product: Product, profiles: Profile[]): AlternativeProduct[] {
+function alternativesFor(
+  product: Product,
+  profiles: Profile[],
+): AlternativeProduct[] {
   const category = product.categories?.[0];
   if (!category) return [];
   return MOCK_PRODUCTS.filter((candidate) => {
     if (candidate.barcode === product.barcode) return false;
     if (!candidate.categories?.includes(category)) return false;
-    return profiles.every((p) => evaluateProfile(candidate, p).verdict === "SAFE");
+    return profiles.every(
+      (p) => evaluateProfile(candidate, p).verdict === "SAFE",
+    );
   })
     .slice(0, 3)
     .map((candidate) => ({
@@ -169,7 +204,10 @@ function alternativesFor(product: Product, profiles: Profile[]): AlternativeProd
     }));
 }
 
-export function evaluate(product: Product, profiles: Profile[]): EvaluationResult {
+export function evaluate(
+  product: Product,
+  profiles: Profile[],
+): EvaluationResult {
   const profile_evaluations = profiles.map((p) => evaluateProfile(product, p));
   const confidence = confidenceFor(product);
   const unsafe = profile_evaluations.some((e) => e.verdict !== "SAFE");
@@ -179,8 +217,7 @@ export function evaluate(product: Product, profiles: Profile[]): EvaluationResul
     HIGH: null,
     MEDIUM:
       "Some fields on this product record are incomplete — the ingredient list may not be the full one.",
-    LOW:
-      "We're less sure about this one. The record is sparse or was read from a photo — double-check the physical label.",
+    LOW: "We're less sure about this one. The record is sparse or was read from a photo — double-check the physical label.",
   };
 
   return {
@@ -205,10 +242,16 @@ export function compareVerdicts(
 ): { safer_pick: "A" | "B" | "TIE"; reason: string } {
   const score = (evals: ProfileEvaluation[]) =>
     evals.reduce((total, e) => {
-      const base = e.verdict === "UNSAFE" ? 100 : e.verdict === "CAUTION" ? 10 : 0;
+      const base =
+        e.verdict === "UNSAFE" ? 100 : e.verdict === "CAUTION" ? 10 : 0;
       const weight = e.flagged_ingredients.reduce(
         (sum, f) =>
-          sum + (f.profile_severity === "SEVERE" ? 5 : f.profile_severity === "MODERATE" ? 3 : 1),
+          sum +
+          (f.profile_severity === "SEVERE"
+            ? 5
+            : f.profile_severity === "MODERATE"
+              ? 3
+              : 1),
         0,
       );
       return total + base + weight;

@@ -85,7 +85,9 @@ export const mockApi: AaharApi = {
   async updateProfile(profileId: string, draft: ProfileDraft) {
     await delay();
     const next = profiles().map((p) =>
-      p.id === profileId ? { ...p, ...draft, id: p.id, can_edit: p.can_edit } : p,
+      p.id === profileId
+        ? { ...p, ...draft, id: p.id, can_edit: p.can_edit }
+        : p,
     );
     write(PROFILES_KEY, next);
     const updated = next.find((p) => p.id === profileId);
@@ -151,7 +153,10 @@ export const mockApi: AaharApi = {
     return {
       a,
       b,
-      ...compareVerdicts(a.evaluation.profile_evaluations, b.evaluation.profile_evaluations),
+      ...compareVerdicts(
+        a.evaluation.profile_evaluations,
+        b.evaluation.profile_evaluations,
+      ),
     };
   },
 
@@ -161,7 +166,9 @@ export const mockApi: AaharApi = {
   },
 
   async recordScan(scan: ScanResult) {
-    const existing = history().filter((s) => s.product.barcode !== scan.product.barcode);
+    const existing = history().filter(
+      (s) => s.product.barcode !== scan.product.barcode,
+    );
     write(HISTORY_KEY, [scan, ...existing].slice(0, 50));
   },
 };

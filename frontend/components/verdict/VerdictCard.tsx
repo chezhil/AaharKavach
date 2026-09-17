@@ -59,7 +59,12 @@ export function VerdictCard({
             {severe ? "Severe" : VERDICT_LABEL[evaluation.verdict]}
           </p>
         </div>
-        <Icon size={severe ? 32 : 26} strokeWidth={2.4} aria-hidden className="shrink-0" />
+        <Icon
+          size={severe ? 32 : 26}
+          strokeWidth={2.4}
+          aria-hidden
+          className="shrink-0"
+        />
       </header>
 
       <p className="mt-3 text-sm font-medium leading-relaxed opacity-90">
@@ -69,7 +74,10 @@ export function VerdictCard({
       {evaluation.flagged_ingredients.length > 0 ? (
         <ul className="mt-3 space-y-1.5">
           {evaluation.flagged_ingredients.map((flag, i) => (
-            <FlaggedIngredientCard key={`${flag.ingredient}-${i}`} flag={flag} />
+            <FlaggedIngredientCard
+              key={`${flag.ingredient}-${i}`}
+              flag={flag}
+            />
           ))}
         </ul>
       ) : null}

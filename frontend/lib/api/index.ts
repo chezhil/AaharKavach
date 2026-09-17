@@ -18,7 +18,8 @@ export async function runScan(
   input: { barcode: string } | { product: Product },
   profileIds: string[],
 ): Promise<ScanResult> {
-  const product = "product" in input ? input.product : await api.scanBarcode(input.barcode);
+  const product =
+    "product" in input ? input.product : await api.scanBarcode(input.barcode);
   const req: EvaluateRequest =
     product.source === "LABEL_PHOTO"
       ? { product, profile_ids: profileIds }

@@ -43,16 +43,16 @@ export function ProfileSwitcher() {
         </button>
       </div>
 
-      <ul className="-mx-3.5 mt-3 flex gap-2 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="-mx-3.5 mt-3 flex gap-2 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
         {profiles.map((profile) => {
           const active = activeIds.includes(profile.id);
           return (
-            <li key={profile.id}>
+            <li key={profile.id} className="md:min-w-[6rem] md:flex-1">
               <button
                 onClick={() => toggleActive(profile.id)}
                 aria-pressed={active}
                 className={cn(
-                  "relative flex w-[4.75rem] flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-all",
+                  "relative flex w-[4.75rem] flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-all md:w-full",
                   active
                     ? "bg-sky text-sky-fg"
                     : "bg-surface-hover text-fg-subtle hover:text-fg-muted",
@@ -63,7 +63,10 @@ export function ProfileSwitcher() {
                     "grid size-9 place-items-center rounded-full text-sm font-extrabold text-bg transition-opacity",
                     !active && "opacity-45",
                   )}
-                  style={{ background: accentVar[profile.accent] ?? "var(--accent-teal)" }}
+                  style={{
+                    background:
+                      accentVar[profile.accent] ?? "var(--accent-teal)",
+                  }}
                 >
                   {initials(profile.name)}
                 </span>
@@ -84,10 +87,10 @@ export function ProfileSwitcher() {
           );
         })}
 
-        <li>
+        <li className="md:min-w-[6rem] md:flex-1">
           <Link
             href="/profiles"
-            className="flex h-full w-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border-strong px-2 py-3 text-fg-subtle transition-colors hover:border-brand hover:text-brand-line"
+            className="flex h-full w-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border-strong px-2 py-3 text-fg-subtle transition-colors hover:border-brand hover:text-brand-line md:w-full"
           >
             <Plus size={18} />
             <span className="text-xs font-bold">Add</span>

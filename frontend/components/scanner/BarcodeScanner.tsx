@@ -21,7 +21,11 @@ function wipe(scanner: Html5Qrcode | null) {
   }
 }
 
-export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) => void }) {
+export function BarcodeScanner({
+  onDetected,
+}: {
+  onDetected: (barcode: string) => void;
+}) {
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
   const done = useRef(false);
@@ -30,7 +34,10 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
     let cancelled = false;
 
     (async () => {
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia
+      ) {
         setStatus("unsupported");
         return;
       }
@@ -38,10 +45,11 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
       let scanner: Html5Qrcode | null = null;
 
       try {
-        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } =
+          await import("html5-qrcode");
         if (cancelled) return;
 
-        scanner = new Html5Qrcode("scanner-region", {
+        const created = new Html5Qrcode("scanner-region", {
           verbose: false,
           formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
@@ -53,24 +61,36 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
             Html5QrcodeSupportedFormats.QR_CODE,
           ],
         });
+        scanner = created;
 
-        await scanner.start(
-          { facingMode: "environment" },
-          // A wide, short box matches the shape of a barcode.
-          { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
-          (decoded) => {
-            if (done.current) return;
-            done.current = true;
-            onDetected(decoded);
-          },
-          () => {
-            // Per-frame decode misses are constant and expected — ignore them.
-          },
-        );
+        const begin = (source: MediaTrackConstraints | string) =>
+          created.start(
+            source,
+            // A wide, short box matches the shape of a barcode.
+            { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
+            (decoded) => {
+              if (done.current) return;
+              done.current = true;
+              onDetected(decoded);
+            },
+            () => {
+              // Per-frame decode misses are constant and expected — ignore them.
+            },
+          );
+
+        try {
+          await begin({ facingMode: "environment" });
+        } catch {
+          // A laptop has no rear camera, so the environment constraint can be
+          // unsatisfiable — fall back to whatever device the machine does have.
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras.length === 0) throw new Error("no camera available");
+          await begin(cameras[0].id);
+        }
 
         // Tracked only once it is genuinely running: stop() throws on a
         // scanner that never started, so the cleanup path must never see one.
-        instance.current = scanner;
+        instance.current = created;
         if (!cancelled) setStatus("scanning");
       } catch {
         wipe(scanner);
@@ -134,7 +154,10 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
                 "right-0 bottom-0 border-r-2 border-b-2 rounded-br-lg",
               ] as const
             ).map((corner) => (
-              <span key={corner} className={`absolute size-6 border-brand ${corner}`} />
+              <span
+                key={corner}
+                className={`absolute size-6 border-brand ${corner}`}
+              />
             ))}
             <span className="animate-sweep absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-brand shadow-[0_0_12px_2px_var(--brand)]" />
           </div>

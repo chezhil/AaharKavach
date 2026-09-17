@@ -15,8 +15,8 @@ export default function HistoryPage() {
       <header className="px-1">
         <h1 className="display text-2xl">Scan history</h1>
         <p className="mt-1 text-sm text-fg-subtle">
-          Every product you&apos;ve checked, newest first. Tap one to re-run it against whoever
-          is selected now.
+          Every product you&apos;ve checked, newest first. Tap one to re-run it
+          against whoever is selected now.
         </p>
       </header>
 
@@ -35,7 +35,7 @@ export default function HistoryPage() {
           }
         />
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           {history.map((scan) => (
             <HistoryRow key={scan.id} scan={scan} />
           ))}

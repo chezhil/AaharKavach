@@ -18,7 +18,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${BASE}${path}`, {
       ...init,
       headers: {
-        ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(init?.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
         ...init?.headers,
       },
     });
@@ -41,19 +43,28 @@ export const httpApi: AaharApi = {
   listProfiles: () => request<Profile[]>("/api/profiles"),
 
   createProfile: (draft: ProfileDraft) =>
-    request<Profile>("/api/profiles", { method: "POST", body: JSON.stringify(draft) }),
+    request<Profile>("/api/profiles", {
+      method: "POST",
+      body: JSON.stringify(draft),
+    }),
 
   updateProfile: (id: string, draft: ProfileDraft) =>
-    request<Profile>(`/api/profiles/${id}`, { method: "PUT", body: JSON.stringify(draft) }),
+    request<Profile>(`/api/profiles/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(draft),
+    }),
 
   deleteProfile: (id: string) =>
     request<void>(`/api/profiles/${id}`, { method: "DELETE" }),
 
   async scanBarcode(barcode: string) {
     try {
-      return await request<Product>(`/api/scan/barcode?code=${encodeURIComponent(barcode)}`);
+      return await request<Product>(
+        `/api/scan/barcode?code=${encodeURIComponent(barcode)}`,
+      );
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) throw new ProductNotFoundError(barcode);
+      if (err instanceof ApiError && err.status === 404)
+        throw new ProductNotFoundError(barcode);
       throw err;
     }
   },
@@ -65,10 +76,16 @@ export const httpApi: AaharApi = {
   },
 
   evaluate: (req: EvaluateRequest) =>
-    request<EvaluationResult>("/api/evaluate", { method: "POST", body: JSON.stringify(req) }),
+    request<EvaluationResult>("/api/evaluate", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
 
   compare: (req: CompareRequest) =>
-    request<CompareResult>("/api/compare", { method: "POST", body: JSON.stringify(req) }),
+    request<CompareResult>("/api/compare", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
 
   listHistory: () => request<ScanResult[]>("/api/history"),
 

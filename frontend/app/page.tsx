@@ -57,7 +57,9 @@ export default function ScanPage() {
         setOpen(false);
         router.push(`/result/${scan.product.barcode}`);
       } catch {
-        setError("We couldn't read that label. Try a straighter, brighter photo.");
+        setError(
+          "We couldn't read that label. Try a straighter, brighter photo.",
+        );
       } finally {
         setBusy(false);
       }
@@ -85,14 +87,14 @@ export default function ScanPage() {
     <div className="space-y-3">
       <ProfileSwitcher />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <button
           onClick={launch}
-          className="tile group relative col-span-2 min-h-[11.5rem] bg-brand p-5 text-left text-brand-fg"
+          className="tile group relative col-span-2 min-h-[11.5rem] bg-brand p-5 text-left text-brand-fg md:row-span-2 md:min-h-[21rem] md:p-6"
         >
           <span
             aria-hidden
-            className="display pointer-events-none absolute -right-4 bottom-0 select-none text-[5.5rem] leading-none opacity-[0.11]"
+            className="display pointer-events-none absolute -right-4 bottom-0 select-none text-[5.5rem] leading-none opacity-[0.11] md:text-[9rem]"
           >
             कवच
           </span>
@@ -100,47 +102,63 @@ export default function ScanPage() {
             <span className="grid size-14 place-items-center rounded-2xl bg-brand-fg/15 transition-transform group-hover:scale-105">
               <ScanLine size={28} strokeWidth={2.5} />
             </span>
-            <span className="display mt-auto pt-6 text-[2rem]">
+            <span className="display mt-auto pt-6 text-[2rem] md:text-[3rem]">
               Scan a
               <br />
               product
             </span>
-            <span className="mt-1.5 text-sm font-bold opacity-75">{checkingLine}</span>
+            <span className="mt-1.5 text-sm font-bold opacity-75">
+              {checkingLine}
+            </span>
           </span>
         </button>
 
-        <Link href="/profiles" className="tile bg-sky p-4 text-sky-fg">
+        <Link
+          href="/profiles"
+          className="tile flex flex-col bg-sky p-4 text-sky-fg transition-[filter] hover:brightness-105"
+        >
           <Users size={20} strokeWidth={2.5} />
-          <p className="display mt-6 text-[2.5rem]">{profiles.length}</p>
+          <p className="display mt-auto pt-6 text-[2.5rem]">
+            {profiles.length}
+          </p>
           <p className="text-xs font-bold uppercase tracking-wider opacity-70">
             in the household
           </p>
         </Link>
 
-        <div className="tile bg-surface p-4">
-          <p className="display text-[2.5rem] text-brand-line">{SYNONYM_COUNT}</p>
+        <div className="tile flex flex-col bg-surface p-4">
+          <p className="display text-[2.5rem] text-brand-line">
+            {SYNONYM_COUNT}
+          </p>
           <p className="text-xs font-bold uppercase tracking-wider text-fg-subtle">
             hidden allergen names indexed
           </p>
           <p className="mt-2 text-xs leading-relaxed text-fg-subtle">
-            Casein, whey, maida, E322 — all traced back to the allergen they are.
+            Casein, whey, maida, E322 — all traced back to the allergen they
+            are.
           </p>
         </div>
 
         <Link
           href="/compare"
-          className="tile col-span-2 flex items-center gap-3 bg-surface p-4 transition-colors hover:bg-surface-hover"
+          className="tile col-span-2 flex items-center gap-3 bg-surface p-4 transition-colors hover:bg-surface-hover md:col-span-2"
         >
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sky text-sky-fg">
             <Columns2 size={20} strokeWidth={2.5} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="display block text-base">Compare two products</span>
+            <span className="display block text-base">
+              Compare two products
+            </span>
             <span className="mt-0.5 block text-xs text-fg-subtle">
               See which one clears more of your household
             </span>
           </span>
-          <ArrowRight size={18} className="shrink-0 text-fg-subtle" aria-hidden />
+          <ArrowRight
+            size={18}
+            className="shrink-0 text-fg-subtle"
+            aria-hidden
+          />
         </Link>
       </div>
 
@@ -152,7 +170,7 @@ export default function ScanPage() {
               See all
             </Link>
           </div>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
             {recent.map((scan) => (
               <HistoryRow key={scan.id} scan={scan} />
             ))}
@@ -161,7 +179,7 @@ export default function ScanPage() {
       ) : (
         <section className="tile bg-surface p-4">
           <h2 className="display text-base">How it reads a label</h2>
-          <ol className="mt-3 space-y-2.5 text-sm text-fg-muted">
+          <ol className="mt-3 grid gap-2.5 text-sm text-fg-muted md:grid-cols-2">
             {[
               "Looks the barcode up in Open Food Facts.",
               "Expands every ingredient through an allergen synonym index — casein becomes dairy, E120 becomes carmine.",
@@ -176,7 +194,11 @@ export default function ScanPage() {
               </li>
             ))}
           </ol>
-          <Button variant="sky" className="mt-4 w-full" onClick={launch}>
+          <Button
+            variant="sky"
+            className="mt-4 w-full md:w-auto"
+            onClick={launch}
+          >
             Try it with the demo catalogue
           </Button>
         </section>

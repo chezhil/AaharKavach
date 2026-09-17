@@ -85,7 +85,7 @@ function CompareInner() {
     return (
       <div
         className={cn(
-          "tile relative flex min-h-[7.5rem] flex-col p-3 transition-colors",
+          "tile relative flex min-h-[7.5rem] flex-col p-3 transition-colors md:min-h-[10rem] md:p-4",
           winner ? "bg-safe text-safe-fg" : "bg-surface",
         )}
       >
@@ -105,10 +105,17 @@ function CompareInner() {
             >
               <X size={14} />
             </button>
-            <p className={cn("display pr-6 text-sm leading-snug", winner ? "mt-8" : "mt-2")}>
+            <p
+              className={cn(
+                "display pr-6 text-sm leading-snug md:text-base",
+                winner ? "mt-8" : "mt-2",
+              )}
+            >
               {product?.name ?? "Loading…"}
             </p>
-            <p className="mt-0.5 text-xs opacity-70">{product?.brand ?? barcode}</p>
+            <p className="mt-0.5 text-xs opacity-70">
+              {product?.brand ?? barcode}
+            </p>
             <span className="mt-auto pt-2">
               {which === "A" && result ? (
                 <ConfidenceBadge confidence={result.a.evaluation.confidence} />
@@ -150,7 +157,10 @@ function CompareInner() {
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe">
+        <p
+          role="alert"
+          className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
+        >
           {error}
         </p>
       ) : null}
@@ -170,29 +180,32 @@ function CompareInner() {
                 ? "It's a tie"
                 : `${result.safer_pick === "A" ? result.a.product.name : result.b.product.name} is the safer pick`}
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-fg-muted">{result.reason}</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+              {result.reason}
+            </p>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-fg-muted">Person by person</h2>
-            <ul className="space-y-2">
+            <h2 className="text-sm font-semibold text-fg-muted">
+              Person by person
+            </h2>
+            <ul className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
               {result.a.evaluation.profile_evaluations.map((evalA) => {
                 const evalB = result.b.evaluation.profile_evaluations.find(
                   (e) => e.profile_id === evalA.profile_id,
                 );
                 if (!evalB) return null;
                 return (
-                  <li
-                    key={evalA.profile_id}
-                    className="tile bg-surface p-3"
-                  >
+                  <li key={evalA.profile_id} className="tile bg-surface p-3">
                     <p className="display mb-2 text-sm">{evalA.profile_name}</p>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1.5">
                         <VerdictPill verdict={evalA.verdict} />
                         <p className="text-xs leading-relaxed text-fg-subtle">
                           {evalA.flagged_ingredients.length > 0
-                            ? evalA.flagged_ingredients.map((f) => f.ingredient).join(", ")
+                            ? evalA.flagged_ingredients
+                                .map((f) => f.ingredient)
+                                .join(", ")
                             : "No matches"}
                         </p>
                       </div>
@@ -200,7 +213,9 @@ function CompareInner() {
                         <VerdictPill verdict={evalB.verdict} />
                         <p className="text-xs leading-relaxed text-fg-subtle">
                           {evalB.flagged_ingredients.length > 0
-                            ? evalB.flagged_ingredients.map((f) => f.ingredient).join(", ")
+                            ? evalB.flagged_ingredients
+                                .map((f) => f.ingredient)
+                                .join(", ")
                             : "No matches"}
                         </p>
                       </div>
@@ -212,12 +227,18 @@ function CompareInner() {
           </section>
 
           <div className="flex gap-2">
-            <Link href={`/result/${result.a.product.barcode}`} className="flex-1">
+            <Link
+              href={`/result/${result.a.product.barcode}`}
+              className="flex-1"
+            >
               <Button variant="secondary" size="sm" className="w-full">
                 Full detail A <ArrowRight size={14} />
               </Button>
             </Link>
-            <Link href={`/result/${result.b.product.barcode}`} className="flex-1">
+            <Link
+              href={`/result/${result.b.product.barcode}`}
+              className="flex-1"
+            >
               <Button variant="secondary" size="sm" className="w-full">
                 Full detail B <ArrowRight size={14} />
               </Button>
@@ -244,7 +265,11 @@ function CompareInner() {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={<p className="py-10 text-center text-sm text-fg-subtle">Loading…</p>}>
+    <Suspense
+      fallback={
+        <p className="py-10 text-center text-sm text-fg-subtle">Loading…</p>
+      }
+    >
       <CompareInner />
     </Suspense>
   );

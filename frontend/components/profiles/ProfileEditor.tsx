@@ -43,16 +43,21 @@ const newId = () => `r_${Math.random().toString(36).slice(2, 8)}`;
 
 export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
   const [name, setName] = useState(profile?.name ?? "");
-  const [role, setRole] = useState<HouseholdRole>(profile?.household_role ?? "MEMBER");
+  const [role, setRole] = useState<HouseholdRole>(
+    profile?.household_role ?? "MEMBER",
+  );
   const [accent, setAccent] = useState(profile?.accent ?? "teal");
-  const [restrictions, setRestrictions] = useState<Restriction[]>(profile?.restrictions ?? []);
+  const [restrictions, setRestrictions] = useState<Restriction[]>(
+    profile?.restrictions ?? [],
+  );
   const [draftLabel, setDraftLabel] = useState("");
   const [saving, setSaving] = useState(false);
 
   const addRestriction = (label: string) => {
     const clean = label.trim();
     if (!clean) return;
-    if (restrictions.some((r) => r.label.toLowerCase() === clean.toLowerCase())) return;
+    if (restrictions.some((r) => r.label.toLowerCase() === clean.toLowerCase()))
+      return;
     setRestrictions((current) => [
       ...current,
       { id: newId(), label: clean, severity: "MODERATE" },
@@ -89,7 +94,10 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
     >
       <div className="space-y-6">
         <div className="space-y-2">
-          <label htmlFor="profile-name" className="text-sm font-semibold text-fg-muted">
+          <label
+            htmlFor="profile-name"
+            className="text-sm font-semibold text-fg-muted"
+          >
             Name
           </label>
           <input
@@ -124,7 +132,9 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
         </div>
 
         <div className="space-y-2">
-          <span className="text-sm font-semibold text-fg-muted">Household role</span>
+          <span className="text-sm font-semibold text-fg-muted">
+            Household role
+          </span>
           <div className="grid grid-cols-3 gap-1 rounded-xl bg-bg p-1">
             {ROLES.map((option) => (
               <button
@@ -153,7 +163,9 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
         </div>
 
         <div className="space-y-3">
-          <span className="text-sm font-semibold text-fg-muted">Restrictions</span>
+          <span className="text-sm font-semibold text-fg-muted">
+            Restrictions
+          </span>
 
           {restrictions.length > 0 ? (
             <ul className="space-y-2">
@@ -239,7 +251,12 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
           ) : null}
         </div>
 
-        <Button size="lg" className="w-full" onClick={save} disabled={!name.trim() || saving}>
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={save}
+          disabled={!name.trim() || saving}
+        >
           {saving ? "Saving…" : profile ? "Save changes" : "Add to household"}
         </Button>
       </div>

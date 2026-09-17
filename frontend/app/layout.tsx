@@ -6,7 +6,10 @@ import { AppProvider } from "@/lib/store/app-store";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 // Variable width axis — the display face is set wide and heavy.
 const archivo = Archivo({

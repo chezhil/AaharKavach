@@ -21,7 +21,9 @@ export function FlaggedIngredientCard({ flag }: { flag: FlaggedIngredient }) {
         className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-black/10"
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold">{flag.ingredient}</span>
+          <span className="block truncate text-sm font-bold">
+            {flag.ingredient}
+          </span>
           <span className="mt-0.5 flex items-center gap-1.5 text-xs opacity-75">
             {flag.cross_reactive ? (
               <GitBranch size={11} className="shrink-0" aria-hidden />
@@ -35,7 +37,10 @@ export function FlaggedIngredientCard({ flag }: { flag: FlaggedIngredient }) {
         <ChevronDown
           size={15}
           aria-hidden
-          className={cn("shrink-0 opacity-60 transition-transform", open && "rotate-180")}
+          className={cn(
+            "shrink-0 opacity-60 transition-transform",
+            open && "rotate-180",
+          )}
         />
       </button>
       {open ? (

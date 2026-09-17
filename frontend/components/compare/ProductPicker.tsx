@@ -20,9 +20,13 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
   const { history } = useApp();
   const [typed, setTyped] = useState("");
 
-  const recent = history.filter((s) => s.product.barcode !== exclude).slice(0, 6);
+  const recent = history
+    .filter((s) => s.product.barcode !== exclude)
+    .slice(0, 6);
   const catalogue = MOCK_PRODUCTS.filter(
-    (p) => p.barcode !== exclude && !recent.some((s) => s.product.barcode === p.barcode),
+    (p) =>
+      p.barcode !== exclude &&
+      !recent.some((s) => s.product.barcode === p.barcode),
   );
 
   const row = (barcode: string, name: string, sub: string) => (
@@ -78,7 +82,9 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
 
         {recent.length > 0 ? (
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-fg-muted">Recently scanned</h3>
+            <h3 className="text-sm font-semibold text-fg-muted">
+              Recently scanned
+            </h3>
             <ul className="space-y-1.5">
               {recent.map((scan) =>
                 row(
@@ -93,10 +99,16 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
 
         {usingMocks && catalogue.length > 0 ? (
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-fg-muted">Demo catalogue</h3>
+            <h3 className="text-sm font-semibold text-fg-muted">
+              Demo catalogue
+            </h3>
             <ul className="space-y-1.5">
               {catalogue.map((product) =>
-                row(product.barcode, product.name, product.brand ?? product.barcode),
+                row(
+                  product.barcode,
+                  product.name,
+                  product.brand ?? product.barcode,
+                ),
               )}
             </ul>
           </section>

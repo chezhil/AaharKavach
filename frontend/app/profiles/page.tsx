@@ -6,11 +6,16 @@ import { ProfileEditor } from "@/components/profiles/ProfileEditor";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { useApp } from "@/lib/store/app-store";
-import { HOUSEHOLD_ROLE_LABEL, SEVERITY_LABEL, type Profile } from "@/lib/types";
+import {
+  HOUSEHOLD_ROLE_LABEL,
+  SEVERITY_LABEL,
+  type Profile,
+} from "@/lib/types";
 import { accentVar, cn, initials, severityStyles } from "@/lib/utils";
 
 export default function ProfilesPage() {
-  const { profiles, createProfile, updateProfile, deleteProfile, loading } = useApp();
+  const { profiles, createProfile, updateProfile, deleteProfile, loading } =
+    useApp();
   const [editing, setEditing] = useState<Profile | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -21,7 +26,8 @@ export default function ProfilesPage() {
         <div>
           <h1 className="display text-2xl">Household</h1>
           <p className="mt-1 text-sm text-fg-subtle">
-            Everyone you check products against, and how serious each restriction is.
+            Everyone you check products against, and how serious each
+            restriction is.
           </p>
         </div>
         <Button size="sm" onClick={() => setAdding(true)} className="shrink-0">
@@ -36,7 +42,11 @@ export default function ProfilesPage() {
           title="No one here yet"
           body="Add the people you shop for. Each can have their own restrictions and severities."
           action={
-            <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAdding(true)}
+            >
               <Plus size={15} />
               Add a person
             </Button>
@@ -44,16 +54,15 @@ export default function ProfilesPage() {
         />
       ) : null}
 
-      <ul className="space-y-3">
+      <ul className="grid gap-3 md:grid-cols-2">
         {profiles.map((profile) => (
-          <li
-            key={profile.id}
-            className="tile bg-surface p-4"
-          >
+          <li key={profile.id} className="tile bg-surface p-4">
             <div className="flex items-start gap-3">
               <span
                 className="grid size-10 shrink-0 place-items-center rounded-full text-sm font-bold text-bg"
-                style={{ background: accentVar[profile.accent] ?? "var(--accent-teal)" }}
+                style={{
+                  background: accentVar[profile.accent] ?? "var(--accent-teal)",
+                }}
               >
                 {initials(profile.name)}
               </span>
@@ -118,13 +127,21 @@ export default function ProfilesPage() {
                 })}
               </ul>
             ) : (
-              <p className="mt-3 text-xs text-fg-subtle">No restrictions set.</p>
+              <p className="mt-3 text-xs text-fg-subtle">
+                No restrictions set.
+              </p>
             )}
 
             {confirming === profile.id ? (
               <div className="animate-rise mt-3 flex items-center gap-2 rounded-xl border border-unsafe-border bg-unsafe-soft p-2.5">
-                <p className="flex-1 text-xs text-unsafe">Remove {profile.name}?</p>
-                <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                <p className="flex-1 text-xs text-unsafe">
+                  Remove {profile.name}?
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirming(null)}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -144,8 +161,9 @@ export default function ProfilesPage() {
       </ul>
 
       <p className="tile bg-surface p-3.5 text-xs leading-relaxed text-fg-subtle">
-        Who can edit whose restrictions is decided by Cedar policy on the backend, not by this
-        screen. A child&apos;s profile stays read-only here even if you are signed in as them.
+        Who can edit whose restrictions is decided by Cedar policy on the
+        backend, not by this screen. A child&apos;s profile stays read-only here
+        even if you are signed in as them.
       </p>
 
       {adding ? (
