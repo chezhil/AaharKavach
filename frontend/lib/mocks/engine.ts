@@ -61,13 +61,14 @@ function matchIngredient(ingredientName: string, allergen: string): boolean {
     return false;
   }
 
+  // Only the ingredient may contain the synonym, never the other way round:
+  // matching a synonym against the label would read plain "Butter" as the
+  // peanut synonym "peanut butter". Terse forms ("milk", "wheat") are listed
+  // as synonyms in their own right instead.
   const needles = ALLERGEN_SYNONYMS[allergen] ?? [norm(allergen)];
   return needles.some((n) => {
     const needle = norm(n);
-    if (hay === needle) return true;
-    if (containsPhrase(hay, needle)) return true;
-    // The label may be terser than the synonym ("Milk" vs "milk solids").
-    return hay.length >= 3 && containsPhrase(needle, hay);
+    return hay === needle || containsPhrase(hay, needle);
   });
 }
 

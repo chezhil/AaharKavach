@@ -91,6 +91,19 @@ export const ALLERGEN_SYNONYMS: Record<string, string[]> = {
   "Insect-derived (Carmine)": ["carmine", "cochineal", "e120", "carminic acid"],
   Mustard: ["mustard", "sarson", "rai"],
   Gelatin: ["gelatin", "gelatine"],
+  // Not allergens — additives whose source the label never states. Matched for
+  // diet restrictions (vegetarian/vegan/Jain), deliberately as a soft caution.
+  "Possibly animal-derived (E-number)": [
+    "e631",
+    "e635",
+    "e627",
+    "e471",
+    "e920",
+    "e441",
+    "e542",
+    "disodium inosinate",
+    "disodium ribonucleotides",
+  ],
 };
 
 /**
@@ -126,6 +139,7 @@ export const RESTRICTION_ALIASES: Record<string, string[]> = {
     "Fish / Shellfish",
     "Gelatin",
     "Insect-derived (Carmine)",
+    "Possibly animal-derived (E-number)",
   ],
   vegan: [
     "Dairy / Milk",
@@ -133,8 +147,14 @@ export const RESTRICTION_ALIASES: Record<string, string[]> = {
     "Fish / Shellfish",
     "Gelatin",
     "Insect-derived (Carmine)",
+    "Possibly animal-derived (E-number)",
   ],
-  jain: ["Fish / Shellfish", "Egg", "Gelatin"],
+  jain: [
+    "Fish / Shellfish",
+    "Egg",
+    "Gelatin",
+    "Possibly animal-derived (E-number)",
+  ],
   mustard: ["Mustard"],
   carmine: ["Insect-derived (Carmine)"],
 };
@@ -170,9 +190,9 @@ export const INGREDIENT_EXPLAINERS: Record<string, string> = {
   e330: "Citric acid — a common sour-tasting preservative, usually made by fermenting sugar.",
   e500: "Sodium bicarbonate — ordinary baking soda, used as a raising agent.",
   e503: "Ammonium bicarbonate — another raising agent, used in crisp biscuits.",
-  e627: "Disodium guanylate — a flavour enhancer, almost always paired with MSG.",
+  e627: "Disodium guanylate — a flavour enhancer, almost always paired with MSG. Usually fermented from yeast, occasionally animal-sourced.",
   e631: "Disodium inosinate — a savoury flavour enhancer; can be fish or meat derived.",
-  e635: "Disodium ribonucleotides — a flavour booster blending E627 and E631.",
+  e635: "Disodium ribonucleotides — a flavour booster blending E627 and E631. The E631 half can be fish or meat derived, and labels rarely say which.",
   e150d:
     "Caramel colour (sulphite ammonia process) — the brown colour in colas and sauces.",
   "sodium caseinate":

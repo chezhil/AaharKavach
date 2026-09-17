@@ -115,7 +115,31 @@ npm run build     # typecheck + production build
 npx eslint .      # lint
 ```
 
-Worth clicking through by hand: scan `5000159461122` (Snickers) with all three profiles
-selected — it should return severe for Aryan, caution for Aaditya and Naman, good data
-confidence, and suggest the nut-free dark chocolate as an alternative. Then scan
-`8904004401234` (a sparse local record) to see the low-confidence path.
+Verified end to end against the mocks (production build, phone and laptop widths):
+
+| Path | Barcode | What you should see |
+|---|---|---|
+| Severity scaling | `5000159461122` Snickers | Severe for Aryan (peanut), caution for Aaditya (soy) and Naman (egg), good data |
+| Hidden dairy | `8901063152762` Good Day | Butter *and* milk solids flagged for Aryan; gluten + soy for Aaditya |
+| Cross-reactivity | `8901030865278` Banana chips | Naman cautioned on latex↔banana, severity softened from moderate to mild |
+| Ambiguous additives | `8901491101837` Lay's | Naman cautioned on E627/E631 as possibly animal-derived |
+| Low confidence | `8904004401234` Namkeen | "Thin data" badge plus the double-check-the-label note |
+| Not in database | any unknown code | Empty state that deep-links to the label-photo tab (`/?scan=photo`) |
+| Label photo | photo tab | Product reads as "from label photo", confidence drops to low |
+| Safe alternatives | Snickers | Suggests the nut-free dark chocolate, which is genuinely clear |
+| Compare | `/compare?a=8901491101837&b=8904223830012` | Millet crunchies win, person-by-person breakdown |
+| Profiles | — | Add/edit/delete, severity per restriction, Naman locked by `can_edit: false` |
+
+`lib/mocks/engine.ts` is deterministic, so these are stable. To re-run the whole
+catalogue against the whole household at once, bundle and run it directly:
+
+```bash
+npx esbuild --bundle --platform=node --format=esm --alias:@=. --outfile=/tmp/sweep.mjs <your-script>.ts && node /tmp/sweep.mjs
+```
+
+**Not verified here:** a real camera decoding a real barcode. The scanner falls
+back from `facingMode: "environment"` to any available device (laptops have no
+rear camera), and the blocked-camera state is correct, but decoding needs
+hardware — test it once on a phone and a laptop before recording the demo.
+The camera also needs `localhost` or HTTPS; reaching a dev server over a LAN IP
+from a phone will not get camera permission without a tunnel.
