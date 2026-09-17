@@ -1,0 +1,10 @@
+# AaharKavach — Role 2 (Data / OpenSearch / Open Food Facts)
+
+# Core HTTP + data
+requests>=2.31
+
+# OpenSearch client (optional at runtime — fuzzy matcher is the fallback)
+opensearch-py>=2.4
+
+# Dev / test
+pytest>=8.0
