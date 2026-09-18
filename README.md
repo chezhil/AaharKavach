@@ -75,6 +75,33 @@ NEXT_PUBLIC_USE_MOCKS=false                     # true → run the UI standalone
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # or the API Gateway URL
 ```
 
+### Switching to AWS
+
+Both AWS services are behind one environment variable each — the code is
+already written for both.
+
+```bash
+brew install awscli
+aws configure                 # Access Key ID + Secret from the IAM console
+./scripts/check_aws.sh        # read-only pre-flight: credentials, region, models
+```
+
+Then in `.env`:
+
+```bash
+AAHAR_USE_AGENT=true
+AAHAR_MODEL_PROVIDER=bedrock          # was groq
+AAHAR_BEDROCK_MODEL=<id from the pre-flight output>
+AWS_REGION=<your region>
+AAHAR_OCR=textract                    # was tesseract
+```
+
+Check `"reasoning"` in any evaluate response afterwards: `"strands"` means the
+agent ran, `"deterministic"` means it fell back to the rulebook.
+
+Model access has to be enabled per-region in the Bedrock console first —
+credentials alone are not enough.
+
 ### Deploying
 
 ```bash
