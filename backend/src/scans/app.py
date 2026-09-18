@@ -26,13 +26,30 @@ def lambda_handler(event, context):
         return run(lambda: api.scan_barcode_endpoint(query(event, "code")))
 
     if method == "POST" and "label" in path:
-        body = event.get("body") or ""
-        raw = body.encode("utf-8", "replace") if isinstance(body, str) else bytes(body)
+        import base64
         import re
+
+        body = event.get("body") or ""
+        # API Gateway base64-encodes binary bodies.
+        if event.get("isBase64Encoded"):
+            raw = base64.b64decode(body)
+        else:
+            raw = body.encode("utf-8", "replace") if isinstance(body, str) else bytes(body)
 
         hit = re.search(rb'filename="([^"]*)"', raw)
         filename = hit.group(1).decode("utf-8", "replace") if hit else "label.jpg"
-        return run(lambda: api.scan_label_endpoint(filename))
+
+        image = b""
+        if hit:
+            split = raw.find(b"\r\n\r\n", hit.end())
+            if split != -1:
+                image = raw[split + 4 :]
+                boundary = re.match(rb"(--[^\r\n]+)", raw)
+                if boundary:
+                    cut = image.find(b"\r\n" + boundary.group(1))
+                    if cut != -1:
+                        image = image[:cut]
+        return run(lambda: api.scan_label_endpoint(filename, image))
 
     if method == "POST" and "url" in path:
         return run(lambda: api.scan_url_endpoint(caller, json_body(event)))

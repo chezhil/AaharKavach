@@ -6,3 +6,7 @@ cedarpy>=3.0.0
 requests>=2.31
 # Optional: only needed for AAHAR_MODEL_PROVIDER=groq (OpenAI-compatible API).
 # openai>=1.0
+# Label-photo OCR. Tesseract is the current stand-in — replace with AWS
+# Textract (AAHAR_OCR=textract) once an AWS account is available.
+pytesseract>=0.3.10
+Pillow>=10.0

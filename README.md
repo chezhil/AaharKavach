@@ -51,6 +51,7 @@ looking for.
 | **Strands Agents SDK** | The reasoning path that cross-checks ingredients against each profile and writes the explanations. Optional at runtime — see *Reasoning* below. |
 | **Amazon Bedrock** | Hosts the model the Strands agent calls. |
 | **OpenSearch** | Indexes the allergen ontology, E-number table, cross-reactivity map and ingredient descriptions. The same data resolves locally when no cluster is attached. |
+| **Textract** | Reads the ingredients panel from a label photo. Currently stood in for by Tesseract locally — `AAHAR_OCR=textract` switches it. |
 | **Open Food Facts** | Public barcode database for product records (not AWS, but the external data source).
 
 ## Running it
@@ -173,8 +174,11 @@ Worth checking by hand, all against the bundled catalogue so they are stable:
 
 ## Honest limits
 
-- The label-photo path returns a low-confidence placeholder record; OCR/vision is not
-  wired up yet, but the confidence warning it triggers is real.
+- **Label-photo OCR runs on Tesseract, which is a stand-in.** It is weaker than
+  AWS Textract on the shiny, curved packaging food labels actually come on.
+  Swap with `AAHAR_OCR=textract` once an AWS account exists — nothing else
+  changes. Tesseract needs `brew install tesseract`; without it the endpoint
+  returns 503 rather than guessing.
 - The Strands agent path is implemented and importable but has not been run against a
   live Bedrock model — the deterministic path is what the demo shows.
 - Caller identity is passed via headers rather than Cognito, so the Cedar rules can be

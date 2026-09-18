@@ -224,23 +224,46 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     store.record_scan(scan)
     return 200, scan.to_dict()
 
-def scan_label_endpoint(filename: str) -> tuple[int, Any]:
-    """Label-photo fallback.
+def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, Any]:
+    """Read a photographed ingredients panel.
 
-    OCR/vision is Role 2's to add; until then this returns a low-confidence
-    record so the whole path — and the confidence warning it triggers — is real
-    and demonstrable rather than a dead button.
+    OCR transcribes, a deterministic parser splits the list, and the verdict is
+    computed later from the household's restrictions — so a misread label
+    cannot influence whether something is reported safe.
+
+    Confidence is capped at MEDIUM however clean the read: a photo of one
+    packet is not a verified product record.
     """
-    stem = (filename or "").rsplit(".", 1)[0] or "Photographed label"
+    from .label_parse import parse_label
+    from .ocr import OcrUnavailable, read_label
+
+    if not image_bytes:
+        raise ApiError(400, "No photo was uploaded")
+
+    try:
+        ocr = read_label(image_bytes)
+    except OcrUnavailable as exc:
+        logger.warning("OCR unavailable: %s", exc)
+        raise ApiError(503, f"Label reading isn't set up on the server ({exc})")
+    except Exception as exc:
+        logger.warning("OCR failed: %s", exc)
+        raise ApiError(422, "We couldn't read that photo. Try again with more light.")
+
+    parsed = parse_label(ocr.text)
+    if not parsed.found_ingredients:
+        raise ApiError(
+            422,
+            "We couldn't find an ingredient list in that photo — get the "
+            "ingredients panel square in frame and try again.",
+        )
+
+    stem = (filename or "").rsplit(".", 1)[0].replace("_", " ").strip()
     product = Product(
         barcode=f"photo_{uuid.uuid4().hex[:8]}",
-        name=stem,
+        name=parsed.product_name or stem or "Photographed label",
         brand=None,
-        ingredients=[
-            ingredient_from_token(t)
-            for t in ("Refined Wheat Flour", "Milk Solids", "Soy Lecithin")
-        ],
-        data_confidence="LOW",
+        ingredients=[ingredient_from_token(t) for t in parsed.ingredients],
+        data_confidence=ocr.quality(),
         source="LABEL_PHOTO",
     )
     return 200, product.to_dict()

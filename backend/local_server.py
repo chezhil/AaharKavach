@@ -74,9 +74,27 @@ ROUTES = [
 ]
 
 
-def _filename_from_multipart(raw: bytes) -> str:
+def _parse_multipart(raw: bytes) -> tuple[str, bytes]:
+    """Pull the filename and file content out of a multipart body.
+
+    Small enough to do by hand: one file part, no nesting.
+    """
     hit = re.search(rb'filename="([^"]*)"', raw)
-    return hit.group(1).decode("utf-8", "replace") if hit else "label.jpg"
+    filename = hit.group(1).decode("utf-8", "replace") if hit else "label.jpg"
+
+    # Content starts after the blank line ending this part's headers.
+    split = raw.find(b"\r\n\r\n", hit.end() if hit else 0)
+    if split == -1:
+        return filename, b""
+    body = raw[split + 4 :]
+
+    # ...and ends at the closing boundary.
+    boundary = re.match(rb"(--[^\r\n]+)", raw)
+    if boundary:
+        cut = body.find(b"\r\n" + boundary.group(1))
+        if cut != -1:
+            body = body[:cut]
+    return filename, body
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -187,7 +205,8 @@ class Handler(BaseHTTPRequestHandler):
             return api.scan_url_endpoint(caller, self._json_body())
 
         if method == "POST" and path == "/api/scan/label":
-            return api.scan_label_endpoint(_filename_from_multipart(self._body()))
+            filename, image = _parse_multipart(self._body())
+            return api.scan_label_endpoint(filename, image)
 
         if method == "POST" and path == "/api/evaluate":
             return api.evaluate_endpoint(caller, self._json_body())
