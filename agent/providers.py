@@ -9,6 +9,7 @@ can be answered today against Ollama (free, local) or the Anthropic API, and the
 switch to Bedrock is then one environment variable — not a rewrite.
 
     AAHAR_MODEL_PROVIDER=bedrock    # default; needs AWS credentials
+    AAHAR_MODEL_PROVIDER=groq       # needs GROQ_API_KEY + `pip install openai`
     AAHAR_MODEL_PROVIDER=anthropic  # needs ANTHROPIC_API_KEY + `pip install anthropic`
     AAHAR_MODEL_PROVIDER=ollama     # needs a local ollama + `pip install ollama`
     AAHAR_MODEL_PROVIDER=litellm    # anything LiteLLM supports
@@ -58,6 +59,31 @@ def build_model():
             region_name=os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"),
         )
 
+    if provider == "groq":
+        # Groq speaks the OpenAI wire format, so the OpenAI provider reaches it
+        # with a different base_url. Fast and has a free tier, which makes it a
+        # practical stand-in for Bedrock while an AWS account is pending.
+        try:
+            from strands.models.openai import OpenAIModel
+        except ImportError as exc:
+            raise ProviderUnavailable("pip install openai") from exc
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise ProviderUnavailable(
+                "Set GROQ_API_KEY (get one free at console.groq.com/keys)."
+            )
+        return OpenAIModel(
+            client_args={
+                "api_key": api_key,
+                "base_url": os.environ.get(
+                    "GROQ_BASE_URL", "https://api.groq.com/openai/v1"
+                ),
+            },
+            # Needs tool-calling support for the knowledge-base lookups.
+            model_id=configured_id or "llama-3.3-70b-versatile",
+            params={"temperature": 0},
+        )
+
     if provider == "anthropic":
         try:
             from strands.models.anthropic import AnthropicModel
@@ -92,7 +118,7 @@ def build_model():
 
     raise ProviderUnavailable(
         f"Unknown AAHAR_MODEL_PROVIDER '{provider}'. "
-        "Use bedrock, anthropic, ollama or litellm."
+        "Use bedrock, groq, anthropic, ollama or litellm."
     )
 
 
