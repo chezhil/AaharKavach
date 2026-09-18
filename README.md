@@ -117,9 +117,12 @@ only place that translates between a role's internal shape and that contract.
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest data/tests agent/tests backend/tests -q   # 54 tests
+.venv/bin/python -m pytest          # 54 tests (paths come from pytest.ini)
 cd frontend && npm run build && npx eslint .
 ```
+
+Role 1's agent tests skip themselves unless you also install
+`agent/requirements.txt`, since the Strands SDK is optional at runtime.
 
 Worth checking by hand, all against the bundled catalogue so they are stable:
 

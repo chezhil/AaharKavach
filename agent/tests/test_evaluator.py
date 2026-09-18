@@ -1,4 +1,12 @@
 from unittest.mock import patch, MagicMock
+
+import pytest
+
+# The Strands SDK is an optional dependency: the backend falls back to the
+# deterministic rulebook without it, so the suite should skip rather than fail
+# on a machine that has not installed agent/requirements.txt.
+pytest.importorskip("strands", reason="pip install -r agent/requirements.txt")
+
 from agent.evaluator import evaluate_product
 from agent.models import EvaluationResult
 
