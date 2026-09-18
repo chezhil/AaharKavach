@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AaharKavach Backend
+  SAM Template for API API, Profiles, Scans, and History
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: python3.11
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        PROFILES_TABLE: !Ref ProfilesTable
+        HISTORY_TABLE: !Ref HistoryTable
+
+Resources:
+  # DynamoDB Tables
+  ProfilesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AaharKavach-Profiles
+      AttributeDefinitions:
+        - AttributeName: householdId
+          AttributeType: S
+        - AttributeName: profileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: householdId
+          KeyType: HASH
+        - AttributeName: profileId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  HistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AaharKavach-ScanHistory
+      AttributeDefinitions:
+        - AttributeName: householdId
+          AttributeType: S
+        - AttributeName: scanId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: householdId
+          KeyType: HASH
+        - AttributeName: scanId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  # Lambda Functions
+  ProfilesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: profiles.app.lambda_handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProfilesTable
+      Events:
+        ProfilesApi:
+          Type: Api
+          Properties:
+            Path: /api/profiles
+            Method: ANY
+
+  ScansFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: scans.app.lambda_handler
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref HistoryTable
+      Events:
+        BarcodeScanApi:
+          Type: Api
+          Properties:
+            Path: /api/scan/barcode
+            Method: POST
+        EvaluateApi:
+          Type: Api
+          Properties:
+            Path: /api/evaluate
+            Method: POST
+
+  CompareFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: compare.app.lambda_handler
+      Events:
+        CompareApi:
+          Type: Api
+          Properties:
+            Path: /api/compare
+            Method: POST
+
+  HistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: history.app.lambda_handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref HistoryTable
+      Events:
+        HistoryApi:
+          Type: Api
+          Properties:
+            Path: /api/history
+            Method: GET
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/"
