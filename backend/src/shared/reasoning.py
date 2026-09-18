@@ -244,6 +244,32 @@ def evaluate_deterministic(
     )
 
 
+def _corroborating_flag(
+    flag: FlaggedIngredient, profile: Profile
+) -> FlaggedIngredient | None:
+    """The knowledge base's own version of this flag, or None.
+
+    Returns the *index's* reading rather than a yes/no, because the agent's
+    severity and cross-reactive markers cannot be trusted: on banana chips it
+    reported a latex cross-reaction as a direct MODERATE hit, which turned a
+    CAUTION into an UNSAFE. Severity comes from the profile, cross-reactivity
+    from the ontology; only the prose is the model's.
+    """
+    for restriction in profile.restrictions:
+        wanted = allergen_ids_for(restriction.label)
+        token = _norm(restriction.label)
+        diet = token if token in DIET_RESTRICTIONS else None
+        if not wanted and not diet:
+            continue
+        for match in match_ingredient(flag.ingredient):
+            rebuilt = _flag_for(match, restriction, wanted, diet)
+            if rebuilt is not None:
+                # Keep the agent's wording, take the facts from the index.
+                rebuilt.explanation = flag.explanation or rebuilt.explanation
+                return rebuilt
+    return None
+
+
 def _corroborated(flag: FlaggedIngredient, profile: Profile) -> bool:
     """Can the knowledge base back this flag for this person?"""
     wanted: set[str] = set()
@@ -290,8 +316,9 @@ def reconcile(result: EvaluationResult, profiles: list[Profile]) -> EvaluationRe
 
         supported: list[FlaggedIngredient] = []
         for flag in evaluation.flagged_ingredients:
-            if _corroborated(flag, profile):
-                supported.append(flag)
+            rebuilt = _corroborating_flag(flag, profile)
+            if rebuilt is not None:
+                supported.append(rebuilt)
             else:
                 flag.unverified = True
                 flag.profile_severity = "MILD"

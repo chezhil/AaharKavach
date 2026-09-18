@@ -304,3 +304,35 @@ def test_measurements_are_not_ingredients():
         assert is_quantity(token), token
     for token in ("Taurine", "Salt", "E322", "Vitamin B12", "Soy Lecithin"):
         assert not is_quantity(token), token
+
+
+def test_upstream_outage_is_not_reported_as_not_found(monkeypatch):
+    """A rate-limited lookup must not claim the product doesn't exist.
+
+    "Not in the database" sends someone to photograph a label when waiting
+    a moment would have worked.
+    """
+    from data.client.openfoodfacts import OffApiError
+
+    def rate_limited(barcode, *a, **k):
+        raise OffApiError("Open Food Facts rate limit hit — try again shortly")
+
+    monkeypatch.setattr("data.services.scan_barcode", rate_limited)
+
+    # A barcode the bundled catalogue cannot cover.
+    with pytest.raises(api.ApiError) as exc:
+        api.lookup_product("1111111111111")
+    assert exc.value.status == 503
+    assert "again" in exc.value.message.lower()
+
+
+def test_outage_still_falls_back_to_the_bundled_catalogue(monkeypatch):
+    from data.client.openfoodfacts import OffApiError
+
+    def rate_limited(barcode, *a, **k):
+        raise OffApiError("rate limited")
+
+    monkeypatch.setattr("data.services.scan_barcode", rate_limited)
+    product = api.lookup_product("5000159461122")   # in the catalogue
+    assert product.source == "OFFLINE_CATALOGUE"
+    assert product.ingredients

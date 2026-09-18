@@ -28,7 +28,11 @@ DEFAULT_ENGINE = "tesseract"
 
 
 class OcrUnavailable(RuntimeError):
-    """The chosen OCR engine isn't installed or configured."""
+    """The chosen OCR engine isn't installed or configured — a server problem."""
+
+
+class UnreadableImage(ValueError):
+    """The upload isn't a usable image — the caller's problem, not the server's."""
 
 
 @dataclass
@@ -85,7 +89,7 @@ def _tesseract(image_bytes: bytes) -> OcrResult:
         image = Image.open(io.BytesIO(image_bytes))
         image.load()
     except Exception as exc:
-        raise OcrUnavailable("That file doesn't look like an image") from exc
+        raise UnreadableImage("That file doesn't look like an image") from exc
 
     # Greyscale helps on the low-contrast printing typical of ingredient panels.
     if image.mode not in ("L", "RGB"):
@@ -181,5 +185,5 @@ def read_label(image_bytes: bytes) -> OcrResult:
             f"Unknown AAHAR_OCR '{engine}'. Use tesseract, textract or vision."
         )
     if not image_bytes:
-        raise OcrUnavailable("No image was uploaded")
+        raise UnreadableImage("No image was uploaded")
     return ENGINES[engine](image_bytes)

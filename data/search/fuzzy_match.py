@@ -21,7 +21,11 @@ from ..mappings.e_numbers import ALIAS_INDEX, lookup_additive, E_NUMBERS
 from ..mappings.cross_reactivity import CROSS_REACTIVITY_TABLE
 from ..mappings.descriptions import DESCRIPTION_ALIAS_INDEX, lookup_description
 
-MIN_FUZZY_RATIO = 0.82
+# Raised from 0.82: "calcium carbonate" vs "calcium caseinate" scores 0.824,
+# which flagged chalk as milk and made an oat drink UNSAFE for a dairy
+# allergy. Genuine near-misses score far higher — "soy lecithin"/"soya
+# lecithin" is 0.96, "milk solids"/"milk solid" 0.95 — so 0.88 separates them.
+MIN_FUZZY_RATIO = 0.88
 
 
 @dataclass

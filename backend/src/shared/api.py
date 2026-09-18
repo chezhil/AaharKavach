@@ -136,21 +136,40 @@ def remove_profile(caller: Caller, profile_id: str) -> tuple[int, Any]:
 def lookup_product(barcode: str) -> Product:
     """Open Food Facts first, bundled catalogue as the fallback."""
     barcode = str(barcode).strip()
+    upstream_down = False
+
     try:
+        from data.client.openfoodfacts import OffApiError
         from data.services import scan_barcode
 
-        context = scan_barcode(barcode)
-        if context.product.is_found and context.product.ingredients:
-            scored = context.confidence.to_dict()
-            level = scored.get("confidence") or scored.get("level")
-            return product_from_record(context.product, confidence=level)
-        logger.info("OFF has no usable record for %s", barcode)
+        try:
+            context = scan_barcode(barcode)
+        except OffApiError as exc:
+            # Rate limit, timeout, 5xx — the product may well exist.
+            logger.warning("Open Food Facts unavailable for %s: %s", barcode, exc)
+            upstream_down = True
+        else:
+            if context.product.is_found and context.product.ingredients:
+                scored = context.confidence.to_dict()
+                level = scored.get("confidence") or scored.get("level")
+                return product_from_record(context.product, confidence=level)
+            logger.info("OFF has no usable record for %s", barcode)
     except Exception as exc:
-        logger.warning("Open Food Facts lookup failed for %s: %s", barcode, exc)
+        logger.warning("Product lookup failed for %s: %s", barcode, exc)
+        upstream_down = True
 
     fallback = catalogue.lookup(barcode)
     if fallback:
         return fallback
+
+    if upstream_down:
+        # Saying "not in the database" here is wrong and sends people to
+        # photograph a label when waiting would have worked.
+        raise ApiError(
+            503,
+            "The product database isn't responding right now. Try again in a "
+            "moment, or photograph the ingredients panel.",
+        )
     raise ApiError(404, f"No product found for barcode {barcode}")
 
 
@@ -235,13 +254,17 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
     packet is not a verified product record.
     """
     from .label_parse import parse_label
-    from .ocr import OcrUnavailable, read_label
+    from .ocr import OcrUnavailable, UnreadableImage, read_label
 
     if not image_bytes:
         raise ApiError(400, "No photo was uploaded")
 
     try:
         ocr = read_label(image_bytes)
+    except UnreadableImage as exc:
+        # The upload, not the server: saying "not set up" sends people to
+        # debug the wrong thing.
+        raise ApiError(422, f"{exc}. Upload a photo of the ingredients panel.")
     except OcrUnavailable as exc:
         logger.warning("OCR unavailable: %s", exc)
         raise ApiError(503, f"Label reading isn't set up on the server ({exc})")
