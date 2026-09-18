@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+/*
+ * AaharKavach — bento design system.
+ *
+ * Black canvas, saturated solid tiles, heavy display type. Locked to dark:
+ * the whole look depends on colour blocks reading against black, and a light
+ * variant would be a second, weaker design rather than the same one inverted.
+ *
+ * Each semantic colour comes in four parts:
+ *   --x        solid tile fill
+ *   --x-fg     text that sits on that fill
+ *   --x-soft   dark tint, for the same meaning on a dark card
+ *   --x-line   the readable version of the hue against dark
+ *
+ * The verdict hues are the load-bearing ones. Brand orange and unsafe crimson
+ * are deliberately far apart in hue (25 vs 355) and carry opposite text
+ * colours, and every verdict also ships an icon and a word — never colour alone.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #08090a;
+  --bg-elevated: #121316;
+  --surface: #1a1b1f;
+  --surface-hover: #24252b;
+  --border: #2a2c33;
+  --border-strong: #3d404a;
+
+  --fg: #fafafa;
+  --fg-muted: #a5a7b0;
+  --fg-subtle: #74767f;
+
+  --brand: #ff5c16;
+  --brand-strong: #ff7a3d;
+  --brand-fg: #150803;
+  --brand-soft: #2c1408;
+  --brand-line: #ff8a52;
+
+  --sky: #a9c9f2;
+  --sky-fg: #071320;
+  --sky-soft: #131f2d;
+  --sky-line: #a9c9f2;
+
+  --safe: #3ddc84;
+  --safe-fg: #04190d;
+  --safe-soft: #0f2a1b;
+  --safe-line: #55e896;
+
+  --caution: #ffc22e;
+  --caution-fg: #1a1203;
+  --caution-soft: #2c2208;
+  --caution-line: #ffd05a;
+
+  --unsafe: #f4243b;
+  --unsafe-fg: #fff1f2;
+  --unsafe-soft: #2e0c12;
+  --unsafe-line: #ff6072;
+
+  --accent-violet: #c4a5ff;
+  --accent-amber: #ffc22e;
+  --accent-teal: #6fe3d0;
+  --accent-rose: #ff9ab0;
+  --accent-sky: #a9c9f2;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-subtle: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
+
+  --color-sky: var(--sky);
+  --color-sky-fg: var(--sky-fg);
+  --color-sky-soft: var(--sky-soft);
+  --color-sky-line: var(--sky-line);
+
+  --color-safe: var(--safe);
+  --color-safe-fg: var(--safe-fg);
+  --color-safe-soft: var(--safe-soft);
+  --color-safe-line: var(--safe-line);
+
+  --color-caution: var(--caution);
+  --color-caution-fg: var(--caution-fg);
+  --color-caution-soft: var(--caution-soft);
+  --color-caution-line: var(--caution-line);
+
+  --color-unsafe: var(--unsafe);
+  --color-unsafe-fg: var(--unsafe-fg);
+  --color-unsafe-soft: var(--unsafe-soft);
+  --color-unsafe-line: var(--unsafe-line);
+
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-sky: var(--accent-sky);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-geist-sans), sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-tile: 1.5rem;
+  --radius-chip: 0.875rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* Wide, heavy, slightly tightened — the bento headline voice. */
+.display {
+  font-family: var(--font-archivo), var(--font-geist-sans), sans-serif;
+  font-weight: 800;
+  font-stretch: 120%;
+  letter-spacing: -0.015em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+/* The app is a phone-width column, centred on a desktop screen. */
+.app-shell {
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+/* On a wider screen the column opens up into a real multi-column bento. */
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 46rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    max-width: 70rem;
+  }
+}
+
+/* Room for the floating nav pill; on desktop the nav moves into the header. */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+}
+
+@media (min-width: 768px) {
+  .safe-bottom {
+    padding-bottom: 3rem;
+  }
+}
+
+/* Every bento tile: same corner, same inner padding rhythm. */
+.tile {
+  border-radius: var(--radius-tile);
+  overflow: hidden;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-sheet {
+  animation: sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A bottom sheet on a phone is a centred dialog on a laptop. */
+@media (min-width: 768px) {
+  .animate-sheet {
+    animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(-46%);
+  }
+  50% {
+    transform: translateY(46%);
+  }
+  100% {
+    transform: translateY(-46%);
+  }
+}
+
+/* The laser line in the scanner viewfinder. */
+.animate-sweep {
+  animation: sweep 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-sheet,
+  .animate-sweep {
+    animation: none;
+  }
+}
+
+/* html5-qrcode injects its own chrome; we only want the video. */
+#scanner-region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border-radius: 1.25rem;
+}
+
+#scanner-region img[alt="Info icon"],
+#scanner-region__dashboard_section_csr span,
+#scanner-region__header_message {
+  display: none !important;
+}
