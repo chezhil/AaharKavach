@@ -275,29 +275,61 @@ export default function ResultPage() {
             </p>
             {evaluation.safe_alternatives &&
             evaluation.safe_alternatives.length > 0 ? (
-              <ul className="mt-3 space-y-1.5">
-                {evaluation.safe_alternatives.map((alt) => (
-                  <li key={alt.barcode}>
-                    <Link
-                      href={`/result/${alt.barcode}`}
-                      className="flex items-center gap-2 rounded-xl bg-surface-hover px-3 py-2.5 transition-colors hover:brightness-125"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold">
-                          {alt.name}
-                        </span>
-                        {alt.brand ? (
-                          <span className="block truncate text-xs text-fg-subtle">
-                            {alt.brand}
-                          </span>
+              <ul className="mt-3 space-y-3">
+                {evaluation.safe_alternatives.map((alt) => {
+                  const isSynth = alt.barcode.startsWith("synth_");
+                  return (
+                    <li key={alt.barcode} className="flex flex-col gap-2 rounded-xl bg-surface-hover px-3 py-2.5 transition-colors">
+                      <div className="flex items-start gap-2">
+                        {alt.image_url ? (
+                          <img src={alt.image_url} alt={alt.name} className="size-10 shrink-0 rounded object-cover" />
                         ) : null}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
-                        Clear
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold">
+                            {alt.name}
+                          </span>
+                          {alt.brand ? (
+                            <span className="block truncate text-xs text-fg-subtle">
+                              {alt.brand}
+                            </span>
+                          ) : null}
+                        </span>
+                        {alt.household_cleared ? (
+                           <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg" title={alt.household_status || ""}>
+                             Safe for All
+                           </span>
+                        ) : (
+                           <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
+                             Clear
+                           </span>
+                        )}
+                      </div>
+                      
+                      {alt.eliminated_allergens && alt.eliminated_allergens.length > 0 && (
+                        <div className="text-xs text-fg-subtle">
+                          <span className="font-semibold text-safe">Eliminates:</span> {alt.eliminated_allergens.join(", ")}
+                        </div>
+                      )}
+                      
+                      {alt.why_it_works && (
+                        <div className="text-xs italic text-fg-subtle">
+                          {alt.why_it_works}
+                        </div>
+                      )}
+                      
+                      {!isSynth && (
+                         <div className="mt-1 flex gap-2">
+                           <Link href={`/result/${alt.barcode}`} className="flex-1 text-center rounded bg-black/10 py-1.5 text-xs font-semibold hover:bg-black/20">
+                             View Details
+                           </Link>
+                           <Link href={`/compare?a=${product.barcode}&b=${alt.barcode}`} className="flex-1 text-center rounded bg-black/10 py-1.5 text-xs font-semibold hover:bg-black/20">
+                             Compare Side-by-Side
+                           </Link>
+                         </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </section>

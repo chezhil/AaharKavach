@@ -101,6 +101,13 @@ export interface AlternativeProduct {
   name: string;
   brand?: string | null;
   reason: string;
+  image_url?: string | null;
+  category?: string | null;
+  why_it_works?: string | null;
+  eliminated_allergens?: string[];
+  household_cleared?: boolean;
+  household_status?: string | null;
+  tags?: string[];
 }
 
 export interface ScanResult {

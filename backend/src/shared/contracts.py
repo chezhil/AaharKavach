@@ -130,6 +130,13 @@ class AlternativeProduct:
     name: str
     brand: str | None
     reason: str
+    image_url: str | None = None
+    category: str | None = None
+    why_it_works: str | None = None
+    eliminated_allergens: list[str] = field(default_factory=list)
+    household_cleared: bool = False
+    household_status: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

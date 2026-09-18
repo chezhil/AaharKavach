@@ -16,7 +16,6 @@ import ipaddress
 import socket
 import urllib.request
 from html.parser import HTMLParser
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
 MAX_BYTES = 512 * 1024

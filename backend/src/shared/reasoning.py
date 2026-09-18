@@ -178,8 +178,26 @@ def evaluate_profile(
     for restriction in profile.restrictions:
         wanted = allergen_ids_for(restriction.label)
         diet = _norm(restriction.label) if _norm(restriction.label) in DIET_RESTRICTIONS else None
+        
+        # 1. Custom Restriction Substring Matching
         if not wanted and not diet:
+            custom_term = _norm(restriction.label)
+            for ingredient_name in matches_by_token.keys():
+                if custom_term in _norm(ingredient_name):
+                    flag = FlaggedIngredient(
+                        ingredient=ingredient_name,
+                        matched_allergen=restriction.label,
+                        profile_severity=restriction.severity,
+                        explanation=f"Matches your custom restriction: {restriction.label}",
+                        cross_reactive=False,
+                    )
+                    key = (_base_ingredient(flag.ingredient), restriction.id)
+                    rank = 0  # custom matches take top priority
+                    if key not in best or rank < best[key][0]:
+                        best[key] = (rank, flag)
             continue
+            
+        # 2. Ontology Matching
         for matches in matches_by_token.values():
             for match in matches:
                 flag = _flag_for(match, restriction, wanted, diet)
@@ -259,8 +277,19 @@ def _corroborating_flag(
         wanted = allergen_ids_for(restriction.label)
         token = _norm(restriction.label)
         diet = token if token in DIET_RESTRICTIONS else None
+        
         if not wanted and not diet:
+            custom_term = _norm(restriction.label)
+            if custom_term in _norm(flag.ingredient):
+                return FlaggedIngredient(
+                    ingredient=flag.ingredient,
+                    matched_allergen=restriction.label,
+                    profile_severity=restriction.severity,
+                    explanation=flag.explanation or f"Matches your custom restriction: {restriction.label}",
+                    cross_reactive=False,
+                )
             continue
+            
         for match in match_ingredient(flag.ingredient):
             rebuilt = _flag_for(match, restriction, wanted, diet)
             if rebuilt is not None:
@@ -274,11 +303,18 @@ def _corroborated(flag: FlaggedIngredient, profile: Profile) -> bool:
     """Can the knowledge base back this flag for this person?"""
     wanted: set[str] = set()
     diets = set()
+    custom_terms = set()
     for restriction in profile.restrictions:
         wanted |= allergen_ids_for(restriction.label)
         token = _norm(restriction.label)
         if token in DIET_RESTRICTIONS:
             diets.add(token)
+        elif not allergen_ids_for(restriction.label):
+            custom_terms.add(token)
+
+    for custom_term in custom_terms:
+        if custom_term in _norm(flag.ingredient):
+            return True
 
     for match in match_ingredient(flag.ingredient):
         if match.match_type in ("exact", "synonym", "fuzzy") and match.allergen_id in wanted:

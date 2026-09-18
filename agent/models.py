@@ -47,3 +47,19 @@ class IngredientExplainer(BaseModel):
 class CompareSummary(BaseModel):
     safer_choice: str = Field(description="Which of the two products is safer, or 'NEITHER' or 'EQUAL'")
     explanation: str = Field(description="Side-by-side comparison explaining the reasoning")
+
+class SwapItAlternative(BaseModel):
+    barcode: str = Field(description="Synthetic barcode, e.g., 'synth_123', or a real one if available")
+    name: str = Field(description="The name of the alternative product")
+    brand: Optional[str] = Field(default=None, description="The brand of the alternative product")
+    reason: str = Field(description="Short reason why it was suggested (fallback for older clients)")
+    image_url: Optional[str] = Field(default=None, description="A valid image URL if known, else None")
+    category: Optional[str] = Field(default=None, description="Product category, e.g., 'Snacks > Popcorn'")
+    why_it_works: Optional[str] = Field(default=None, description="Why this works for the taste/format profile")
+    eliminated_allergens: List[str] = Field(default_factory=list, description="Which allergens were eliminated compared to the original")
+    household_cleared: bool = Field(default=False, description="True if it is safe for all provided household profiles")
+    household_status: Optional[str] = Field(default=None, description="Short summary of the household clearance (e.g. 'Safe for all 3 members')")
+    tags: List[str] = Field(default_factory=list, description="Relevant dietary or product tags (e.g. '100% Vegan')")
+
+class SwapItResult(BaseModel):
+    alternatives: List[SwapItAlternative] = Field(default_factory=list, description="The generated safe alternatives")

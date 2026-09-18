@@ -151,14 +151,13 @@ def evaluate_with_agent(
         return None
     try:
         from agent.evaluator import evaluate_product
-    except ImportError as exc:
-        logger.info("Strands SDK unavailable: %s", exc)
+        raw = evaluate_product(
+            _product_payload(product), _profiles_payload(profiles), known_matches
+        )
+        return _coerce(raw, profiles)
+    except Exception as exc:
+        logger.warning("Agent evaluation failed: %s", exc)
         return None
-
-    raw = evaluate_product(
-        _product_payload(product), _profiles_payload(profiles), known_matches
-    )
-    return _coerce(raw, profiles)
 
 
 def extract_webpage(webpage_text: str):
@@ -172,11 +171,10 @@ def extract_webpage(webpage_text: str):
         return None
     try:
         from agent.evaluator import extract_product_from_webpage
-    except ImportError as exc:
-        logger.info("Strands SDK unavailable: %s", exc)
+        extraction = extract_product_from_webpage(webpage_text)
+        if extraction is None or not getattr(extraction, "found_ingredients", False):
+            return None
+        return extraction
+    except Exception as exc:
+        logger.warning("Webpage extraction failed: %s", exc)
         return None
-
-    extraction = extract_product_from_webpage(webpage_text)
-    if extraction is None or not getattr(extraction, "found_ingredients", False):
-        return None
-    return extraction

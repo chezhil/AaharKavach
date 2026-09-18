@@ -21,7 +21,6 @@ def test_qr_scan():
     
     # Let's mock the urllib request to return a known HTML
     import urllib.request
-    from io import BytesIO
     
     class MockResponse:
         def read(self):
@@ -30,8 +29,6 @@ def test_qr_scan():
             return self
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
-            
-    original_urlopen = urllib.request.urlopen
     
     def mock_urlopen(req, timeout=None):
         return MockResponse()

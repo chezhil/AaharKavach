@@ -61,7 +61,7 @@ def verify_bedrock():
         print("\nPASS: The response conforms exactly to the required JSON schema and correctly identified Sodium Caseinate.")
         
     except Exception as e:
-        print(f"\nFAIL: Failed to evaluate using Bedrock.")
+        print("\nFAIL: Failed to evaluate using Bedrock.")
         print(f"Error details: {str(e)}")
         sys.exit(1)
 

@@ -128,18 +128,21 @@ export function ScanSheet({
                   <input
                     value={typed}
                     onChange={(e) =>
-                      setTyped(e.target.value.replace(/\D/g, ""))
+                      // Allow typing non-digits if the user might be typing a URL, 
+                      // or just remove the replace restriction to support URLs and 
+                      // rely on isValidBarcode or startsWith("http") for submission validation.
+                      setTyped(e.target.value.trim())
                     }
                     onKeyDown={(e) => e.key === "Enter" && submitTyped()}
-                    inputMode="numeric"
+                    inputMode="text"
                     autoFocus
-                    placeholder="8901063152762"
-                    aria-label="Barcode number"
+                    placeholder="8901063152762 or https://..."
+                    aria-label="Barcode number or URL"
                     className="h-12 flex-1 rounded-xl border border-border-subtle bg-bg px-3.5 font-mono text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
                   />
                   <Button
                     onClick={submitTyped}
-                    disabled={!isValidBarcode(typed)}
+                    disabled={(!isValidBarcode(typed) && !typed.startsWith("http")) || !typed}
                   >
                     Check
                   </Button>
