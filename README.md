@@ -102,12 +102,15 @@ AAHAR_USE_AGENT=true
 AAHAR_MODEL_PROVIDER=bedrock
 AAHAR_BEDROCK_MODEL=<id from `aws bedrock list-inference-profiles`>
 
-# Or prove the same agent without an AWS account. Groq is the default in
-# dev.sh and its key is committed, so this works with no setup:
-AAHAR_MODEL_PROVIDER=groq       # pip install openai; GROQ_API_KEY overrides the default
+# Or prove the same agent without an AWS account. Groq is what dev.sh uses:
+AAHAR_MODEL_PROVIDER=groq       # pip install openai, set GROQ_API_KEY
 AAHAR_MODEL_PROVIDER=ollama     # pip install ollama, then `ollama serve` (local, free)
 AAHAR_MODEL_PROVIDER=anthropic  # pip install anthropic, set ANTHROPIC_API_KEY
 ```
+
+Put credentials in a `.env` at the repo root (`cp .env.example .env`) — it is
+gitignored and loaded on startup. Without one the agent is skipped and the
+deterministic rulebook answers, so a fresh clone still works.
 
 Strands drives all of these behind one `Agent` API, so the prompts, the tools
 and the structured-output schema are identical whichever you pick. That matters:

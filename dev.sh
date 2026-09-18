@@ -14,9 +14,10 @@ if [ ! -d frontend/node_modules ]; then
   (cd frontend && npm install)
 fi
 
-# Run the real Strands agent by default. The key is committed (see
-# agent/providers.py), so this works with no setup. Set AAHAR_USE_AGENT=false
-# for instant, offline scans when you don't want a model call in the loop.
+# Run the real Strands agent by default. Credentials come from the gitignored
+# .env at the repo root (copy .env.example). Without one the agent is skipped
+# and the deterministic rulebook answers, which is a safe default rather than
+# an error. Set AAHAR_USE_AGENT=false to skip the model call entirely.
 export AAHAR_USE_AGENT="${AAHAR_USE_AGENT:-true}"
 export AAHAR_MODEL_PROVIDER="${AAHAR_MODEL_PROVIDER:-groq}"
 
