@@ -37,8 +37,7 @@ def evaluate_product(barcode: str, profiles: List[Dict[str, Any]]) -> Evaluation
     evaluator_agent = Agent(
         system_prompt=SYSTEM_PROMPT_EVALUATOR,
         tools=[tool_lookup_ingredient_details, tool_check_cross_reactivity],
-        model=BEDROCK_MODEL,
-        response_schema=EvaluationResult
+        model=BEDROCK_MODEL
     )
     
     # 3. Construct the prompt
@@ -53,10 +52,12 @@ def evaluate_product(barcode: str, profiles: List[Dict[str, Any]]) -> Evaluation
     """
     
     # 4. Execute the agent
-    result = evaluator_agent(prompt)
+    result = evaluator_agent(
+        prompt,
+        structured_output_model=EvaluationResult
+    )
     
-    # Depending on SDK version, result might be parsed automatically via response_schema
-    return result
+    return result.structured_output
 
 def explain_ingredient(ingredient: str) -> IngredientExplainer:
     """
@@ -64,12 +65,11 @@ def explain_ingredient(ingredient: str) -> IngredientExplainer:
     """
     explainer_agent = Agent(
         system_prompt=SYSTEM_PROMPT_EXPLAINER,
-        tools=[tool_lookup_ingredient_details],
-        response_schema=IngredientExplainer
+        tools=[tool_lookup_ingredient_details]
     )
     
     prompt = f"Explain the ingredient: {ingredient}"
-    return explainer_agent(prompt)
+    return explainer_agent(prompt, structured_output_model=IngredientExplainer).structured_output
 
 def compare_products(barcode1: str, barcode2: str, profiles: List[Dict[str, Any]]) -> CompareSummary:
     """
@@ -80,17 +80,16 @@ def compare_products(barcode1: str, barcode2: str, profiles: List[Dict[str, Any]
     eval2 = evaluate_product(barcode2, profiles)
     
     compare_agent = Agent(
-        system_prompt=SYSTEM_PROMPT_COMPARE,
-        response_schema=CompareSummary
+        system_prompt=SYSTEM_PROMPT_COMPARE
     )
     
     prompt = f"""
     Product 1 Evaluation:
-    {eval1.json(indent=2)}
+    {eval1.model_dump_json(indent=2)}
     
     Product 2 Evaluation:
-    {eval2.json(indent=2)}
+    {eval2.model_dump_json(indent=2)}
     
     Write a brief side-by-side summary highlighting which is the safer choice and why.
     """
-    return compare_agent(prompt)
+    return compare_agent(prompt, structured_output_model=CompareSummary).structured_output
