@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from strands import Agent, tool
 from .models import EvaluationResult, IngredientExplainer, CompareSummary
 from .prompts import SYSTEM_PROMPT_EVALUATOR, SYSTEM_PROMPT_EXPLAINER, SYSTEM_PROMPT_COMPARE
-from .tools import lookup_ingredient_details, check_cross_reactivity, get_product_data
+from .tools import lookup_ingredient_details, check_cross_reactivity
 
 # Bedrock model ids are account- and region-specific and the model must be
 # enabled in the console first, so this is configuration, not a constant.
@@ -25,13 +25,11 @@ def tool_check_cross_reactivity(allergen_name: str) -> str:
     """
     return json.dumps(check_cross_reactivity(allergen_name))
 
-def evaluate_product(barcode: str, profiles: List[Dict[str, Any]]) -> EvaluationResult:
+def evaluate_product(product_data: Dict[str, Any], profiles: List[Dict[str, Any]]) -> EvaluationResult:
     """
     Core entrypoint for the Strands AI Agent.
     Evaluates a product against multiple user profiles.
     """
-    # 1. Fetch raw product data (Role 2)
-    product_data = get_product_data(barcode)
     
     # 2. Setup the Evaluator Agent
     evaluator_agent = Agent(
@@ -71,13 +69,13 @@ def explain_ingredient(ingredient: str) -> IngredientExplainer:
     prompt = f"Explain the ingredient: {ingredient}"
     return explainer_agent(prompt, structured_output_model=IngredientExplainer).structured_output
 
-def compare_products(barcode1: str, barcode2: str, profiles: List[Dict[str, Any]]) -> CompareSummary:
+def compare_products(product1_data: Dict[str, Any], product2_data: Dict[str, Any], profiles: List[Dict[str, Any]]) -> CompareSummary:
     """
     Compares two products and evaluates which is safer for the given profiles.
     """
     # Evaluate both first
-    eval1 = evaluate_product(barcode1, profiles)
-    eval2 = evaluate_product(barcode2, profiles)
+    eval1 = evaluate_product(product1_data, profiles)
+    eval2 = evaluate_product(product2_data, profiles)
     
     compare_agent = Agent(
         system_prompt=SYSTEM_PROMPT_COMPARE

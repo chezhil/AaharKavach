@@ -11,7 +11,7 @@ from typing import Any
 
 from data.search.fuzzy_match import match_ingredient
 from data.mappings.cross_reactivity import CROSS_REACTIVITY_TABLE
-from data.services import scan_barcode
+
 
 
 def lookup_ingredient_details(ingredient_name: str) -> dict[str, Any]:
@@ -44,16 +44,3 @@ def check_cross_reactivity(allergen_name: str) -> list[str]:
     )
 
 
-def get_product_data(barcode: str) -> dict[str, Any]:
-    """Fetch and normalise a product through Role 2's facade."""
-    context = scan_barcode(str(barcode))
-    product = context.product
-    return {
-        "barcode": product.barcode,
-        "name": product.product_name,
-        "brand": product.brands,
-        "ingredients": list(product.ingredients or []),
-        "confidence_score": context.confidence.to_dict().get("confidence", product.confidence),
-        "data_quality": context.data_quality,
-        "is_found": product.is_found,
-    }

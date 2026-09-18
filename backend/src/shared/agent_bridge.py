@@ -111,5 +111,15 @@ def evaluate_with_agent(product: Product, profiles: list[Profile]) -> Evaluation
         logger.info("Strands SDK unavailable: %s", exc)
         return None
 
-    raw = evaluate_product(product.barcode, _profiles_payload(profiles))
+    raw = evaluate_product(
+        {
+            "barcode": product.barcode,
+            "name": product.product_name,
+            "brand": product.brands,
+            "ingredients": list(product.ingredients or []),
+            "confidence_score": product.confidence,
+            "is_found": product.is_found,
+        }, 
+        _profiles_payload(profiles)
+    )
     return _coerce(raw, profiles)
