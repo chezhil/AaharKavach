@@ -11,8 +11,9 @@ from .prompts import (
 )
 from .tools import lookup_ingredient_details, check_cross_reactivity
 
-# Bedrock model ids are account- and region-specific and the model must be
-# enabled in the console first, so this is configuration, not a constant.
+from .providers import build_model
+
+# Kept for callers that only check whether a model is configured.
 BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 # Convert mock tool functions to strands tools
@@ -40,7 +41,7 @@ def evaluate_product(product_data: Dict[str, Any], profiles: List[Dict[str, Any]
     evaluator_agent = Agent(
         system_prompt=SYSTEM_PROMPT_EVALUATOR,
         tools=[tool_lookup_ingredient_details, tool_check_cross_reactivity],
-        model=BEDROCK_MODEL
+        model=build_model(),
     )
     
     # 3. Construct the prompt
@@ -74,7 +75,7 @@ def extract_product_from_webpage(webpage_text: str) -> WebpageExtraction:
         # No knowledge-base tools here on purpose: this step transcribes, it
         # does not reason about allergens.
         tools=[],
-        model=BEDROCK_MODEL,
+        model=build_model(),
     )
 
     prompt = (

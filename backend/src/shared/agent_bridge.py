@@ -26,6 +26,23 @@ logger = logging.getLogger(__name__)
 BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 
+def agent_is_available() -> bool:
+    """True when some model provider is installed and configured.
+
+    Not Bedrock-specific on purpose: the same agent runs against Ollama or the
+    Anthropic API, which is how the reasoning path gets proven before an AWS
+    account exists.
+    """
+    if os.environ.get("AAHAR_USE_AGENT", "").lower() != "true":
+        return False
+    try:
+        from agent.providers import is_configured
+
+        return is_configured()
+    except ImportError:
+        return False
+
+
 def _product_payload(product: Product) -> dict[str, Any]:
     """Canonical Product -> plain JSON for the prompt.
 
@@ -122,8 +139,8 @@ def _coerce(raw: Any, profiles: list[Profile]) -> EvaluationResult | None:
 
 
 def evaluate_with_agent(product: Product, profiles: list[Profile]) -> EvaluationResult | None:
-    if not BEDROCK_MODEL:
-        logger.info("AAHAR_BEDROCK_MODEL is unset — skipping the agent")
+    if not agent_is_available():
+        logger.info("No model provider configured — skipping the agent")
         return None
     try:
         from agent.evaluator import evaluate_product
@@ -141,8 +158,8 @@ def extract_webpage(webpage_text: str):
     Deliberately returns no verdict: the caller runs the extracted ingredients
     through the deterministic matcher, so page content cannot decide safety.
     """
-    if not BEDROCK_MODEL:
-        logger.info("AAHAR_BEDROCK_MODEL is unset — cannot read product pages")
+    if not agent_is_available():
+        logger.info("No model provider configured — cannot read product pages")
         return None
     try:
         from agent.evaluator import extract_product_from_webpage

@@ -180,12 +180,12 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     if not text:
         raise ApiError(422, "That page has no readable text")
 
-    from .agent_bridge import BEDROCK_MODEL, extract_webpage
+    from .agent_bridge import agent_is_available, extract_webpage
 
     # Distinguish "not configured" from "nothing on the page" — telling someone
     # a page has no ingredients when the reader is switched off sends them
     # hunting for the wrong problem.
-    if os.environ.get("AAHAR_USE_AGENT", "").lower() != "true" or not BEDROCK_MODEL:
+    if not agent_is_available():
         raise ApiError(
             503,
             "Reading product pages needs the AI reader, which isn't switched on. "

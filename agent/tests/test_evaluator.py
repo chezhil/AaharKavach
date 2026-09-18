@@ -34,6 +34,7 @@ def _agent_returning(structured):
     return cls, instance
 
 
+@patch("agent.evaluator.build_model", lambda: object())
 @patch("agent.evaluator.Agent")
 def test_evaluate_product_unwraps_structured_output(agent_cls):
     expected = EvaluationResult(
@@ -52,6 +53,7 @@ def test_evaluate_product_unwraps_structured_output(agent_cls):
     assert instance.call_args.kwargs["structured_output_model"] is EvaluationResult
 
 
+@patch("agent.evaluator.build_model", lambda: object())
 @patch("agent.evaluator.Agent")
 def test_webpage_extraction_returns_ingredients_not_a_verdict(agent_cls):
     """The page reader transcribes; it must not be handed the verdict schema."""

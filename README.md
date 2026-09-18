@@ -92,12 +92,26 @@ handler with only the package on `sys.path`, the way Lambda does.
 
 ### Reasoning: agent or rulebook
 
-Evaluation runs through Role 1's Strands agent when you set:
+Evaluation runs through Role 1's Strands agent when a model provider is
+configured:
 
 ```bash
 AAHAR_USE_AGENT=true
-AAHAR_BEDROCK_MODEL=<a model id enabled in your Bedrock account>
+
+# The submission target — needs an AWS account with the model enabled.
+AAHAR_MODEL_PROVIDER=bedrock
+AAHAR_BEDROCK_MODEL=<id from `aws bedrock list-inference-profiles`>
+
+# Or prove the same agent locally, with no AWS account:
+AAHAR_MODEL_PROVIDER=ollama     # pip install ollama, then `ollama serve`
+AAHAR_MODEL_PROVIDER=anthropic  # pip install anthropic, set ANTHROPIC_API_KEY
 ```
+
+Strands drives all of these behind one `Agent` API, so the prompts, the tools
+and the structured-output schema are identical whichever you pick. That matters:
+it means "does the agent produce a valid verdict for this schema?" can be
+answered before an AWS account exists, and moving to Bedrock is one environment
+variable rather than a rewrite.
 
 Otherwise — and whenever the agent errors — a **deterministic rulebook** resolves every
 ingredient through the same knowledge base and applies the same severity rules. Each
