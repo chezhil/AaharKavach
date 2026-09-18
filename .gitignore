@@ -41,3 +41,16 @@ next-env.d.ts
 # Next.js auto-generates these agent rule files on every dev run
 frontend/AGENTS.md
 frontend/CLAUDE.md
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local dev storage (seeded on first run)
+.local-db.json
+backend/tests/.pytest-db.json
+
+# SAM build output
+backend/.aws-sam/

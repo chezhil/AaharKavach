@@ -1,12 +1,14 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  AaharKavach Backend
-  SAM Template for API API, Profiles, Scans, and History
+  AaharKavach — serverless backend.
+  Profiles (Cedar-gated), barcode/label scanning, agent evaluation,
+  compare and scan history.
 
 Globals:
   Function:
-    Timeout: 10
+    Timeout: 29
+    MemorySize: 512
     Runtime: python3.11
     Architectures:
       - x86_64
@@ -14,9 +16,19 @@ Globals:
       Variables:
         PROFILES_TABLE: !Ref ProfilesTable
         HISTORY_TABLE: !Ref HistoryTable
+        AAHAR_HOUSEHOLD_ID: hh_1
+        # Set to "true" and give AAHAR_BEDROCK_MODEL a model enabled in your
+        # account to route reasoning through Role 1's Strands agent. Left off,
+        # the deterministic rulebook answers instead.
+        AAHAR_USE_AGENT: "false"
+        AAHAR_BEDROCK_MODEL: ""
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Aahar-User,X-Aahar-Role,X-Aahar-Household'"
+      AllowOrigin: "'*'"
 
 Resources:
-  # DynamoDB Tables
   ProfilesTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -40,16 +52,16 @@ Resources:
       AttributeDefinitions:
         - AttributeName: householdId
           AttributeType: S
-        - AttributeName: scanId
+        # Range key is the timestamp so a query returns newest-first directly.
+        - AttributeName: timestamp
           AttributeType: S
       KeySchema:
         - AttributeName: householdId
           KeyType: HASH
-        - AttributeName: scanId
+        - AttributeName: timestamp
           KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
 
-  # Lambda Functions
   ProfilesFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -59,10 +71,17 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProfilesTable
       Events:
-        ProfilesApi:
+        Collection:
           Type: Api
           Properties:
             Path: /api/profiles
+            Method: ANY
+        # Edit and delete address a single profile; without this route the
+        # frontend's PUT/DELETE 403 at the gateway before reaching Cedar.
+        Item:
+          Type: Api
+          Properties:
+            Path: /api/profiles/{id}
             Method: ANY
 
   ScansFunction:
@@ -71,15 +90,23 @@ Resources:
       CodeUri: src/
       Handler: scans.app.lambda_handler
       Policies:
-        - DynamoDBWritePolicy:
+        # Evaluation reads the household before it can judge anything.
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProfilesTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref HistoryTable
       Events:
-        BarcodeScanApi:
+        BarcodeLookup:
           Type: Api
           Properties:
             Path: /api/scan/barcode
+            Method: GET
+        LabelPhoto:
+          Type: Api
+          Properties:
+            Path: /api/scan/label
             Method: POST
-        EvaluateApi:
+        Evaluate:
           Type: Api
           Properties:
             Path: /api/evaluate
@@ -90,8 +117,11 @@ Resources:
     Properties:
       CodeUri: src/
       Handler: compare.app.lambda_handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProfilesTable
       Events:
-        CompareApi:
+        Compare:
           Type: Api
           Properties:
             Path: /api/compare
@@ -106,7 +136,7 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref HistoryTable
       Events:
-        HistoryApi:
+        History:
           Type: Api
           Properties:
             Path: /api/history
@@ -114,5 +144,11 @@ Resources:
 
 Outputs:
   ApiEndpoint:
-    Description: "API Gateway endpoint URL for Prod stage"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/"
+    Description: API Gateway base URL — set NEXT_PUBLIC_API_BASE_URL to this
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  ProfilesTableName:
+    Description: DynamoDB table holding household profiles
+    Value: !Ref ProfilesTable
+  HistoryTableName:
+    Description: DynamoDB table holding scan history
+    Value: !Ref HistoryTable

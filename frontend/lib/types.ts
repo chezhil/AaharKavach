@@ -43,7 +43,12 @@ export interface Ingredient {
   explainer?: string | null;
 }
 
-export type ProductSource = "OPEN_FOOD_FACTS" | "LABEL_PHOTO" | "MANUAL";
+export type ProductSource =
+  | "OPEN_FOOD_FACTS"
+  | "LABEL_PHOTO"
+  | "MANUAL"
+  /** Served from the backend's bundled catalogue when Open Food Facts is unreachable. */
+  | "OFFLINE_CATALOGUE";
 
 export interface Product {
   barcode: string;

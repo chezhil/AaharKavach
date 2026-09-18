@@ -1,2 +1,6 @@
 boto3>=1.34.0
-cedarpolicy>=1.2.0
+# The Cedar Python binding is published as `cedarpy` — `cedarpolicy` does not
+# exist on PyPI, so the original pin could never install.
+cedarpy>=3.0.0
+# Role 2's knowledge base and Open Food Facts client are imported in-process.
+requests>=2.31

@@ -66,11 +66,46 @@ def _contains_whole(token: str, candidate: str) -> bool:
 
 
 def _hard_negative(ingredient: str, allergen_id: str) -> bool:
-    """Block known false-positive confusions."""
-    for bad in HARD_NEGATIVES.get(ingredient, []):
-        if bad == allergen_id:
+    """Block known false-positive confusions.
+
+    Checked by containment, not equality: "refined cocoa butter" has to be
+    blocked from `milk` just as surely as bare "cocoa butter".
+    """
+    for phrase, blocked in HARD_NEGATIVES.items():
+        if allergen_id not in blocked:
+            continue
+        if ingredient == phrase or _contains_whole(ingredient, phrase):
             return True
     return False
+
+
+def _scan_contained(norm: str) -> list[tuple[dict, str, float]]:
+    """Find ontology terms sitting *inside* a qualified ingredient token.
+
+    Real labels rarely name an allergen bare: they say "Refined Wheat Flour",
+    "Groundnut Oil", "Skimmed Milk Powder". Whole-token lookup misses all of
+    those, and the fuzzy ratio lands just under threshold, so they used to pass
+    as clean. This is an exact whole-word scan, so it stays precise.
+
+    Returns the longest matching term per allergen — "wheat flour" beats
+    "wheat" — so the reported evidence is the most specific one available.
+    """
+    hits: dict[str, tuple[dict, str, float]] = {}
+    for allergen_id, entry in ALLERGENS.items():
+        if _hard_negative(norm, allergen_id):
+            continue
+        best: tuple[str, float] | None = None
+        candidates = [(a, 1.0) for a in entry["aliases"]]
+        candidates += [(t["term"], t["confidence"]) for t in entry["synonym_terms"]]
+        for term, conf in candidates:
+            t = _normalise(term)
+            if not t or t == norm:
+                continue
+            if _contains_whole(norm, t) and (best is None or len(t) > len(best[0])):
+                best = (t, conf)
+        if best:
+            hits[allergen_id] = (entry, best[0], best[1])
+    return list(hits.values())
 
 
 def match_ingredient(ingredient: str) -> list[Match]:
@@ -103,6 +138,21 @@ def match_ingredient(ingredient: str) -> list[Match]:
             data=entry,
         ))
 
+    # 1b) Contained-term scan — catches qualified tokens exact lookup misses.
+    if not matches:
+        for entry, term, conf in _scan_contained(norm):
+            matches.append(Match(
+                ingredient=ingredient,
+                matched_allergen=entry["canonical_name"],
+                allergen_id=entry["allergen_id"],
+                match_type="synonym",
+                # Slightly below an exact hit: the label qualified the term.
+                confidence=min(conf, 0.95),
+                explanation=entry["manifestation"],
+                source_note=f'contained term "{term}"',
+                data=entry,
+            ))
+
     # 2) Additives via E-number / alias.
     additive = lookup_additive(norm) or lookup_additive(ingredient)
     if additive:
@@ -124,7 +174,7 @@ def match_ingredient(ingredient: str) -> list[Match]:
     # 3) Cross-reactivity trigger match.
     for row in CROSS_REACTIVITY_TABLE:
         trigger = _normalise(row["trigger"])
-        if norm == trigger:
+        if norm == trigger or (trigger and _contains_whole(norm, trigger)):
             matches.append(Match(
                 ingredient=ingredient,
                 matched_allergen=row["primary_allergy"],

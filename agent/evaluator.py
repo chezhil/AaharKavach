@@ -1,9 +1,14 @@
 import json
+import os
 from typing import List, Dict, Any
 from strands import Agent, tool
 from .models import EvaluationResult, IngredientExplainer, CompareSummary
 from .prompts import SYSTEM_PROMPT_EVALUATOR, SYSTEM_PROMPT_EXPLAINER, SYSTEM_PROMPT_COMPARE
 from .tools import lookup_ingredient_details, check_cross_reactivity, get_product_data
+
+# Bedrock model ids are account- and region-specific and the model must be
+# enabled in the console first, so this is configuration, not a constant.
+BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 # Convert mock tool functions to strands tools
 @tool
@@ -32,7 +37,7 @@ def evaluate_product(barcode: str, profiles: List[Dict[str, Any]]) -> Evaluation
     evaluator_agent = Agent(
         system_prompt=SYSTEM_PROMPT_EVALUATOR,
         tools=[tool_lookup_ingredient_details, tool_check_cross_reactivity],
-        model="anthropic.claude-3-haiku-20240307-v1:0", # Example for AWS Bedrock
+        model=BEDROCK_MODEL,
         response_schema=EvaluationResult
     )
     

@@ -1,14 +1,18 @@
-import { Camera, Package, ScanBarcode } from "lucide-react";
+import { Camera, Database, Package, ScanBarcode } from "lucide-react";
 import type { Product } from "@/lib/types";
 
-const SOURCE_LABEL = {
+const SOURCE_LABEL: Record<string, { icon: typeof Package; text: string }> = {
   OPEN_FOOD_FACTS: { icon: ScanBarcode, text: "Open Food Facts" },
   LABEL_PHOTO: { icon: Camera, text: "Read from label photo" },
   MANUAL: { icon: Package, text: "Entered manually" },
-} as const;
+  OFFLINE_CATALOGUE: { icon: Database, text: "Offline catalogue" },
+};
+
+// A source the backend adds later must not white-screen the result page.
+const UNKNOWN_SOURCE = { icon: Package, text: "Unknown source" };
 
 export function ProductHeader({ product }: { product: Product }) {
-  const source = SOURCE_LABEL[product.source];
+  const source = SOURCE_LABEL[product.source] ?? UNKNOWN_SOURCE;
   const Icon = source.icon;
 
   return (

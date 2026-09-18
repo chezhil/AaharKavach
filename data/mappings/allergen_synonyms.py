@@ -34,6 +34,14 @@ ALLERGENS = {
         "category": "major",
         "aliases": ["milk", "dairy", "lactose", "casein", "whey", "milk protein", "dairy product"],
         "synonym_terms": [
+            {"term": "toned milk", "confidence": 1.0},
+            {"term": "paneer", "confidence": 1.0},
+            {"term": "khoya", "confidence": 1.0},
+            {"term": "mawa", "confidence": 0.95},
+            {"term": "curd", "confidence": 0.95},
+            {"term": "dahi", "confidence": 0.95},
+            {"term": "milk solids", "confidence": 1.0},
+            {"term": "skimmed milk", "confidence": 1.0},
             {"term": "casein", "confidence": 1.0},
             {"term": "caseinate", "confidence": 1.0},
             {"term": "sodium caseinate", "confidence": 1.0},
@@ -99,6 +107,8 @@ ALLERGENS = {
         "category": "major",
         "aliases": ["peanut", "peanuts", "groundnut", "arachis", "goober"],
         "synonym_terms": [
+            {"term": "moongphali", "confidence": 1.0},
+            {"term": "arachis oil", "confidence": 1.0},
             {"term": "peanut", "confidence": 1.0},
             {"term": "groundnut", "confidence": 1.0},
             {"term": "arachis hypogaea", "confidence": 1.0},
@@ -122,6 +132,10 @@ ALLERGENS = {
         "category": "major",
         "aliases": ["almond", "walnut", "cashew", "pistachio", "hazelnut", "pecan", "brazil nut", "macadamia", "pine nut"],
         "synonym_terms": [
+            {"term": "kaju", "confidence": 1.0},
+            {"term": "badam", "confidence": 1.0},
+            {"term": "pista", "confidence": 1.0},
+            {"term": "akhrot", "confidence": 0.95},
             {"term": "almond", "confidence": 1.0},
             {"term": "almond flour", "confidence": 1.0},
             {"term": "walnut", "confidence": 1.0},
@@ -182,6 +196,14 @@ ALLERGENS = {
         "category": "major",
         "aliases": ["wheat", "gluten", "cereal", "wheat flour", "durum", "spelt", "seitan"],
         "synonym_terms": [
+            {"term": "maida", "confidence": 1.0},
+            {"term": "atta", "confidence": 1.0},
+            {"term": "suji", "confidence": 0.95},
+            {"term": "sooji", "confidence": 0.95},
+            {"term": "rava", "confidence": 0.95},
+            {"term": "barley", "confidence": 1.0},
+            {"term": "rye", "confidence": 1.0},
+            {"term": "dalia", "confidence": 0.9},
             {"term": "wheat", "confidence": 1.0},
             {"term": "wheat flour", "confidence": 1.0},
             {"term": "white flour", "confidence": 1.0},
@@ -287,6 +309,8 @@ ALLERGENS = {
         "category": "major",
         "aliases": ["sesame", "sesame seed", "tahini", "sesame oil", "benne"],
         "synonym_terms": [
+            {"term": "til", "confidence": 1.0},
+            {"term": "gingelly", "confidence": 0.95},
             {"term": "sesame", "confidence": 1.0},
             {"term": "sesame seed", "confidence": 1.0},
             {"term": "tahini", "confidence": 1.0},
@@ -404,11 +428,27 @@ ALLERGENS = {
 # e.g. buckwheat turns up with "wheat"; we must never flag it as gluten.
 HARD_NEGATIVES = {
     "buckwheat": ["wheat_gluten"],
+    "wheatgrass": ["wheat_gluten"],
     "sunflower": ["tree_nuts"],         # "sunflower seed butter" must not match "nut"
     "water chestnut": ["tree_nuts"],    # not a nut botanically; no allergy risk
     "coconut": ["tree_nuts"],           # not a tree nut for labelling purposes in EU
+    "nutmeg": ["tree_nuts"],            # a seed, not a nut
     "pineapple": ["pine_nut"],          # sub-string hazard — pineapple vs pine nut
     "rocket": ["mustard"],              # arugula source confusion, not mustard seed
+    # Phrase-level false friends. "butter" is a milk synonym, so containment
+    # matching would otherwise read cocoa butter and peanut butter as dairy.
+    "cocoa butter": ["milk"],
+    "shea butter": ["milk"],
+    "peanut butter": ["milk"],
+    "butterfly pea": ["milk"],
+    "butternut": ["milk", "tree_nuts"],
+    "coconut milk": ["milk"],
+    "almond milk": ["milk"],
+    "soy milk": ["milk"],
+    "soya milk": ["milk"],
+    "oat milk": ["milk"],
+    "rice milk": ["milk"],
+    "milk thistle": ["milk"],
 }
 
 

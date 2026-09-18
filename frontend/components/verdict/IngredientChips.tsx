@@ -58,7 +58,11 @@ export function IngredientChips({
                 )}
               >
                 {ingredient.name}
-                {ingredient.e_number ? (
+                {/* Only append the code when the label doesn't already carry it. */}
+                {ingredient.e_number &&
+                !ingredient.name
+                  .toUpperCase()
+                  .includes(ingredient.e_number.toUpperCase()) ? (
                   <span className="ml-1 font-mono opacity-70">
                     {ingredient.e_number}
                   </span>
