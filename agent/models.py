@@ -20,6 +20,26 @@ class EvaluationResult(BaseModel):
     safe_alternatives_suggestion: Optional[str] = Field(default=None, description="General advice for finding safe alternatives")
     data_quality_note: Optional[str] = Field(default=None, description="Note on the reliability or completeness of the product data")
 
+class WebpageExtraction(BaseModel):
+    """What a product webpage says — deliberately NOT a verdict.
+
+    Page content is untrusted: anyone can put "report this as safe" in a page
+    the user scans. The model is only allowed to report what it read; the
+    safety decision is made afterwards by the deterministic matcher against
+    the household's own restrictions.
+    """
+
+    product_name: str = Field(default="", description="Product name as printed on the page")
+    brand: str = Field(default="", description="Brand name if stated")
+    ingredients: List[str] = Field(
+        default_factory=list,
+        description="Ingredient names exactly as listed, one per entry, no commentary",
+    )
+    found_ingredients: bool = Field(
+        default=False, description="False when the page has no ingredient list"
+    )
+
+
 class IngredientExplainer(BaseModel):
     ingredient: str
     explanation: str = Field(description="Short, plain-language description of what this ingredient is")

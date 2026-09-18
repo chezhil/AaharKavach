@@ -44,6 +44,7 @@ ROUTES = [
     ("DELETE", re.compile(r"^/api/profiles/(?P<id>[^/]+)$")),
     ("GET", re.compile(r"^/api/scan/barcode$")),
     ("POST", re.compile(r"^/api/scan/label$")),
+    ("POST", re.compile(r"^/api/scan/url$")),
     ("POST", re.compile(r"^/api/evaluate$")),
     ("POST", re.compile(r"^/api/compare$")),
     ("GET", re.compile(r"^/api/history$")),
@@ -160,6 +161,9 @@ class Handler(BaseHTTPRequestHandler):
             if not code:
                 raise api.ApiError(400, "Pass ?code=<barcode>")
             return api.scan_barcode_endpoint(code)
+
+        if method == "POST" and path == "/api/scan/url":
+            return api.scan_url_endpoint(caller, self._json_body())
 
         if method == "POST" and path == "/api/scan/label":
             return api.scan_label_endpoint(_filename_from_multipart(self._body()))

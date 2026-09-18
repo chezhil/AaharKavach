@@ -10,6 +10,7 @@ Every response conforms to ``frontend/lib/types.ts``.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from typing import Any
 
@@ -157,80 +158,67 @@ def scan_barcode_endpoint(barcode: str) -> tuple[int, Any]:
     return 200, lookup_product(barcode).to_dict()
 
 def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    url = str(body.get("url", ""))
-    profile_ids = [str(p) for p in body.get("profile_ids", [])]
-    profiles = _resolve_profiles(caller, profile_ids)
-    
-    if not url.startswith("http"):
-        raise ApiError(400, "Invalid URL")
-        
-    import urllib.request
-    from urllib.error import URLError
-    from html.parser import HTMLParser
+    """Smart QR: read a product page, then judge it ourselves.
 
-    class Stripper(HTMLParser):
-        def __init__(self):
-            super().__init__()
-            self.reset()
-            self.strict = False
-            self.convert_charrefs = True
-            self.text = []
-            self.ignore = False
-            
-        def handle_starttag(self, tag, attrs):
-            if tag in ('script', 'style', 'nav', 'footer', 'header'):
-                self.ignore = True
-                
-        def handle_endtag(self, tag):
-            if tag in ('script', 'style', 'nav', 'footer', 'header'):
-                self.ignore = False
-                
-        def handle_data(self, d):
-            if not self.ignore and d.strip():
-                self.text.append(d.strip())
-                
-        def get_data(self):
-            return ' '.join(self.text)
+    The model only transcribes the page. The verdict is computed from the
+    household's restrictions by the same matcher every other scan uses, so a
+    page cannot influence whether it is reported safe.
+    """
+    from .urlfetch import UnsafeUrl, fetch_text
+
+    url = str(body.get("url", "")).strip()
+    profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
 
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=6) as response:
-            html = response.read().decode('utf-8', errors='ignore')
-            
-        s = Stripper()
-        s.feed(html)
-        text = s.get_data()[:4000]
-    except Exception as e:
-        raise ApiError(400, "Could not fetch webpage")
-        
-    import os
-    if os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
-        from backend.src.shared.agent_bridge import _profiles_payload, _coerce
-        try:
-            from agent.evaluator import evaluate_webpage_text
-            raw = evaluate_webpage_text(text, _profiles_payload(profiles))
-            result = _coerce(raw, profiles)
-            if result is None:
-                raise ApiError(400, "COULD_NOT_PARSE_INGREDIENTS")
-        except Exception as e:
-            raise ApiError(400, "COULD_NOT_PARSE_INGREDIENTS")
-    else:
-        raise ApiError(400, "Smart QR Code scanning requires the Strands AI agent to be enabled.")
+        text = fetch_text(url)
+    except UnsafeUrl as exc:
+        raise ApiError(400, str(exc))
+    except Exception as exc:
+        logger.warning("Could not fetch %s: %s", url, exc)
+        raise ApiError(400, "Couldn't open that link — check the connection and try again")
+
+    if not text:
+        raise ApiError(422, "That page has no readable text")
+
+    from .agent_bridge import BEDROCK_MODEL, extract_webpage
+
+    # Distinguish "not configured" from "nothing on the page" — telling someone
+    # a page has no ingredients when the reader is switched off sends them
+    # hunting for the wrong problem.
+    if os.environ.get("AAHAR_USE_AGENT", "").lower() != "true" or not BEDROCK_MODEL:
+        raise ApiError(
+            503,
+            "Reading product pages needs the AI reader, which isn't switched on. "
+            "Scan the barcode instead.",
+        )
+
+    extraction = extract_webpage(text)
+    if extraction is None:
+        raise ApiError(
+            422, "We couldn't find an ingredient list on that page — try the barcode instead"
+        )
 
     product = Product(
         barcode=url,
-        name="QR Scanned Product",
-        brand=None,
-        ingredients=[],
+        name=extraction.product_name or "Product from page",
+        brand=extraction.brand or None,
+        ingredients=[ingredient_from_token(t) for t in extraction.ingredients if t.strip()],
+        # Read off a webpage, not a verified record: never present as HIGH.
         data_confidence="LOW",
-        source="URL"
+        source="URL",
     )
-    
+    if not product.ingredients:
+        raise ApiError(
+            422, "We couldn't find an ingredient list on that page — try the barcode instead"
+        )
+
+    evaluation = evaluate(product, profiles, _alternatives(product, profiles))
+
     scan = ScanResult(
         id=f"scan_{uuid.uuid4().hex[:8]}",
         scanned_at=store.now_iso(),
         product=product,
-        evaluation=result,
+        evaluation=evaluation,
         profile_ids=[p.id for p in profiles],
     )
     store.record_scan(scan)

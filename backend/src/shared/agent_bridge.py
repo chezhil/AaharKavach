@@ -26,6 +26,26 @@ logger = logging.getLogger(__name__)
 BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 
+def _product_payload(product: Product) -> dict[str, Any]:
+    """Canonical Product -> plain JSON for the prompt.
+
+    These are `Product`'s field names, not Role 2's ProductRecord ones. Passing
+    `product_name`/`brands`/`is_found` here raised AttributeError, which the
+    caller swallowed — so the agent silently never ran.
+    """
+    return {
+        "barcode": product.barcode,
+        "name": product.name,
+        "brand": product.brand,
+        # Ingredient is a dataclass; json.dumps cannot serialise it directly.
+        "ingredients": [
+            {"name": i.name, "e_number": i.e_number} for i in product.ingredients
+        ],
+        "confidence_score": product.data_confidence,
+        "source": product.source,
+    }
+
+
 def _profiles_payload(profiles: list[Profile]) -> list[dict[str, Any]]:
     return [
         {
@@ -111,15 +131,26 @@ def evaluate_with_agent(product: Product, profiles: list[Profile]) -> Evaluation
         logger.info("Strands SDK unavailable: %s", exc)
         return None
 
-    raw = evaluate_product(
-        {
-            "barcode": product.barcode,
-            "name": product.product_name,
-            "brand": product.brands,
-            "ingredients": list(product.ingredients or []),
-            "confidence_score": product.confidence,
-            "is_found": product.is_found,
-        }, 
-        _profiles_payload(profiles)
-    )
+    raw = evaluate_product(_product_payload(product), _profiles_payload(profiles))
     return _coerce(raw, profiles)
+
+
+def extract_webpage(webpage_text: str):
+    """Transcribe a product page into name + ingredient strings, or None.
+
+    Deliberately returns no verdict: the caller runs the extracted ingredients
+    through the deterministic matcher, so page content cannot decide safety.
+    """
+    if not BEDROCK_MODEL:
+        logger.info("AAHAR_BEDROCK_MODEL is unset — cannot read product pages")
+        return None
+    try:
+        from agent.evaluator import extract_product_from_webpage
+    except ImportError as exc:
+        logger.info("Strands SDK unavailable: %s", exc)
+        return None
+
+    extraction = extract_product_from_webpage(webpage_text)
+    if extraction is None or not getattr(extraction, "found_ingredients", False):
+        return None
+    return extraction
