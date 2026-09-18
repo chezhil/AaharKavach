@@ -102,8 +102,9 @@ AAHAR_USE_AGENT=true
 AAHAR_MODEL_PROVIDER=bedrock
 AAHAR_BEDROCK_MODEL=<id from `aws bedrock list-inference-profiles`>
 
-# Or prove the same agent without an AWS account:
-AAHAR_MODEL_PROVIDER=groq       # pip install openai, set GROQ_API_KEY (free tier)
+# Or prove the same agent without an AWS account. Groq is the default in
+# dev.sh and its key is committed, so this works with no setup:
+AAHAR_MODEL_PROVIDER=groq       # pip install openai; GROQ_API_KEY overrides the default
 AAHAR_MODEL_PROVIDER=ollama     # pip install ollama, then `ollama serve` (local, free)
 AAHAR_MODEL_PROVIDER=anthropic  # pip install anthropic, set ANTHROPIC_API_KEY
 ```

@@ -70,7 +70,8 @@ def build_model():
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise ProviderUnavailable(
-                "Set GROQ_API_KEY (get one free at console.groq.com/keys)."
+                "Set GROQ_API_KEY — put it in the repo-root .env "
+                "(copy .env.example), or get one free at console.groq.com/keys."
             )
         return OpenAIModel(
             client_args={
@@ -80,7 +81,9 @@ def build_model():
                 ),
             },
             # Needs tool-calling support for the knowledge-base lookups.
-            model_id=configured_id or "llama-3.3-70b-versatile",
+            # Which models a Groq account can reach varies; list yours with
+            # `client.models.list()` if this one 404s.
+            model_id=configured_id or "openai/gpt-oss-120b",
             params={"temperature": 0},
         )
 

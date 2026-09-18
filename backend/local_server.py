@@ -32,6 +32,27 @@ sys.path.insert(0, str(ROOT / "backend" / "src"))  # shared/
 
 from shared import api  # noqa: E402
 
+
+def _load_dotenv() -> None:
+    """Read <repo>/.env into the environment if it exists.
+
+    Keeps credentials out of git while still being zero-setup: drop a .env in
+    the repo root and every run picks it up. Values already set in the
+    environment win, so `GROQ_API_KEY=... ./dev.sh` still overrides.
+    """
+    env_file = ROOT / ".env"
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+_load_dotenv()
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("aahar")
 
