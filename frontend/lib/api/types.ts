@@ -26,6 +26,8 @@ export interface AaharApi {
   scanBarcode(barcode: string): Promise<Product>;
   /** POST /api/scan/label (multipart: image) */
   scanLabel(file: File): Promise<Product>;
+  /** POST /api/scan/url */
+  scanUrl(url: string, profile_ids: string[]): Promise<ScanResult>;
   /** POST /api/evaluate */
   evaluate(req: EvaluateRequest): Promise<EvaluationResult>;
   /** POST /api/compare */

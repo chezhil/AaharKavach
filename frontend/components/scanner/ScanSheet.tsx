@@ -24,6 +24,7 @@ interface Props {
   onBarcode: (barcode: string) => void;
   onLabelPhoto: (file: File) => void;
   busy?: boolean;
+  busyMessage?: { title: string, desc: string };
   error?: string | null;
   /** Opens on this tab — used by the "photograph the label" deep link. */
   initialMode?: Mode;
@@ -35,6 +36,7 @@ export function ScanSheet({
   onBarcode,
   onLabelPhoto,
   busy,
+  busyMessage,
   error,
   initialMode = "camera",
 }: Props) {
@@ -52,7 +54,10 @@ export function ScanSheet({
   );
 
   const submitTyped = () => {
-    if (!isValidBarcode(typed)) return;
+    // If it's a URL, don't restrict to numbers, but typed input is currently numeric only in UI.
+    // Wait, the BarcodeScanner passes strings. `typed` is from the manual input.
+    // QR codes are usually scanned via camera anyway.
+    if (!isValidBarcode(typed) && !typed.startsWith("http")) return;
     onBarcode(typed.trim());
   };
 
@@ -105,10 +110,10 @@ export function ScanSheet({
               aria-hidden
             />
             <p className="text-sm font-semibold">
-              Checking against your household…
+              {busyMessage?.title || "Checking against your household…"}
             </p>
             <p className="text-xs text-fg-subtle">
-              Looking up the product, then reasoning over every ingredient.
+              {busyMessage?.desc || "Looking up the product, then reasoning over every ingredient."}
             </p>
           </div>
         ) : (

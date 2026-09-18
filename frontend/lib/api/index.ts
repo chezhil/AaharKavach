@@ -36,5 +36,14 @@ export async function runScan(
   return scan;
 }
 
+export async function runUrlScan(url: string, profileIds: string[]): Promise<ScanResult> {
+  const scan = await api.scanUrl(url, profileIds);
+  // Scan is recorded server-side
+  if (usingMocks) {
+    await api.recordScan(scan);
+  }
+  return scan;
+}
+
 export { ProductNotFoundError, ApiError } from "./types";
 export type { AaharApi } from "./types";

@@ -129,6 +129,33 @@ export const mockApi: AaharApi = {
     } satisfies Product;
   },
 
+  async scanUrl(url: string, profile_ids: string[]) {
+    await delay(1500);
+    const product = {
+      barcode: url,
+      name: "Mock Webpage Product",
+      brand: null,
+      categories: [],
+      data_confidence: "LOW",
+      source: "URL",
+      image_url: null,
+      ingredients: [
+        { name: "Sugar", e_number: null, explainer: null },
+        { name: "Cocoa Mass", e_number: null, explainer: null },
+      ],
+    } as Product;
+    
+    const evaluation = runEngine(product, selected(profile_ids));
+    
+    return {
+      id: `scan_${id()}`,
+      scanned_at: new Date().toISOString(),
+      product,
+      evaluation,
+      profile_ids,
+    } as ScanResult;
+  },
+
   async evaluate(req: EvaluateRequest): Promise<EvaluationResult> {
     await delay(700); // the agent is the slow bit
     return runEngine(resolveProduct(req), selected(req.profile_ids));

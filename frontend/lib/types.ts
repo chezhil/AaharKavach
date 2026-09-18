@@ -47,6 +47,7 @@ export type ProductSource =
   | "OPEN_FOOD_FACTS"
   | "LABEL_PHOTO"
   | "MANUAL"
+  | "URL"
   /** Served from the backend's bundled catalogue when Open Food Facts is unreachable. */
   | "OFFLINE_CATALOGUE";
 

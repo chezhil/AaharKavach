@@ -57,6 +57,33 @@ def evaluate_product(product_data: Dict[str, Any], profiles: List[Dict[str, Any]
     
     return result.structured_output
 
+def evaluate_webpage_text(webpage_text: str, profiles: List[Dict[str, Any]]) -> EvaluationResult:
+    """
+    Evaluates a product by extracting ingredients from webpage text.
+    """
+    evaluator_agent = Agent(
+        system_prompt=SYSTEM_PROMPT_EVALUATOR + "\n\nExtract the product name and ingredients list from this webpage text. Cross-check against the household restrictions and return the standard AaharKavach safety JSON.",
+        tools=[tool_lookup_ingredient_details, tool_check_cross_reactivity],
+        model=BEDROCK_MODEL
+    )
+    
+    prompt = f"""
+    Webpage Text (first 4000 chars):
+    {webpage_text}
+    
+    User Profiles to Evaluate Against:
+    {json.dumps(profiles, indent=2)}
+    
+    Extract the ingredients, evaluate the product, and provide the structured verdict.
+    """
+    
+    result = evaluator_agent(
+        prompt,
+        structured_output_model=EvaluationResult
+    )
+    
+    return result.structured_output
+
 def explain_ingredient(ingredient: str) -> IngredientExplainer:
     """
     Provides a short plain-language explanation of an ingredient.

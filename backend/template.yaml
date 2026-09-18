@@ -111,6 +111,11 @@ Resources:
           Properties:
             Path: /api/scan/label
             Method: POST
+        ScanUrl:
+          Type: Api
+          Properties:
+            Path: /api/scan/url
+            Method: POST
         Evaluate:
           Type: Api
           Properties:

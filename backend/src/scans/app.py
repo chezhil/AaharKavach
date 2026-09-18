@@ -34,7 +34,10 @@ def lambda_handler(event, context):
         filename = hit.group(1).decode("utf-8", "replace") if hit else "label.jpg"
         return run(lambda: api.scan_label_endpoint(filename))
 
-    if method == "POST":
+    if method == "POST" and "url" in path:
+        return run(lambda: api.scan_url_endpoint(caller, json_body(event)))
+
+    if method == "POST" and "evaluate" in path:
         return run(lambda: api.evaluate_endpoint(caller, json_body(event)))
 
     return respond(405, {"error": "Method not allowed"})

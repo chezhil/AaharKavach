@@ -8,9 +8,8 @@ import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
 import { ScanSheet, type ScanMode } from "@/components/scanner/ScanSheet";
 import { HistoryRow } from "@/components/history/HistoryRow";
 import { Button } from "@/components/ui/Button";
-import { api, ProductNotFoundError, runScan } from "@/lib/api";
+import { api, ProductNotFoundError, runScan, runUrlScan } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
-
 
 const SYNONYM_COUNT = 199; // Updated from the actual python index
 
@@ -26,16 +25,27 @@ function ScanHome() {
   const [open, setOpen] = useState(requested !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busyMessage, setBusyMessage] = useState<{title: string, desc: string} | undefined>(undefined);
 
   const handleBarcode = useCallback(
     async (barcode: string) => {
       setBusy(true);
       setError(null);
       try {
-        const scan = await runScan({ barcode }, activeIds);
+        let scan;
+        if (barcode.startsWith("http://") || barcode.startsWith("https://")) {
+            setBusyMessage({
+                title: "Smart QR Code detected! Analyzing product page...",
+                desc: "Extracting ingredients from the webpage and reasoning over them."
+            });
+            scan = await runUrlScan(barcode, activeIds);
+        } else {
+            setBusyMessage(undefined);
+            scan = await runScan({ barcode }, activeIds);
+        }
         addScan(scan);
         setOpen(false);
-        router.push(`/result/${scan.product.barcode}`);
+        router.push(`/result/${encodeURIComponent(scan.product.barcode)}`);
       } catch (err) {
         setError(
           err instanceof ProductNotFoundError
@@ -44,6 +54,7 @@ function ScanHome() {
         );
       } finally {
         setBusy(false);
+        setBusyMessage(undefined);
       }
     },
     [activeIds, addScan, router],
@@ -58,7 +69,7 @@ function ScanHome() {
         const scan = await runScan({ product }, activeIds);
         addScan(scan);
         setOpen(false);
-        router.push(`/result/${scan.product.barcode}`);
+        router.push(`/result/${encodeURIComponent(scan.product.barcode)}`);
       } catch {
         setError(
           "We couldn't read that label. Try a straighter, brighter photo.",
@@ -233,6 +244,7 @@ function ScanHome() {
         onBarcode={handleBarcode}
         onLabelPhoto={handleLabelPhoto}
         busy={busy}
+        busyMessage={busyMessage}
         error={error}
         initialMode={initialMode}
       />

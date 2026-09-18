@@ -156,6 +156,85 @@ def lookup_product(barcode: str) -> Product:
 def scan_barcode_endpoint(barcode: str) -> tuple[int, Any]:
     return 200, lookup_product(barcode).to_dict()
 
+def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
+    url = str(body.get("url", ""))
+    profile_ids = [str(p) for p in body.get("profile_ids", [])]
+    profiles = _resolve_profiles(caller, profile_ids)
+    
+    if not url.startswith("http"):
+        raise ApiError(400, "Invalid URL")
+        
+    import urllib.request
+    from urllib.error import URLError
+    from html.parser import HTMLParser
+
+    class Stripper(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.reset()
+            self.strict = False
+            self.convert_charrefs = True
+            self.text = []
+            self.ignore = False
+            
+        def handle_starttag(self, tag, attrs):
+            if tag in ('script', 'style', 'nav', 'footer', 'header'):
+                self.ignore = True
+                
+        def handle_endtag(self, tag):
+            if tag in ('script', 'style', 'nav', 'footer', 'header'):
+                self.ignore = False
+                
+        def handle_data(self, d):
+            if not self.ignore and d.strip():
+                self.text.append(d.strip())
+                
+        def get_data(self):
+            return ' '.join(self.text)
+
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=6) as response:
+            html = response.read().decode('utf-8', errors='ignore')
+            
+        s = Stripper()
+        s.feed(html)
+        text = s.get_data()[:4000]
+    except Exception as e:
+        raise ApiError(400, "Could not fetch webpage")
+        
+    import os
+    if os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
+        from backend.src.shared.agent_bridge import _profiles_payload, _coerce
+        try:
+            from agent.evaluator import evaluate_webpage_text
+            raw = evaluate_webpage_text(text, _profiles_payload(profiles))
+            result = _coerce(raw, profiles)
+            if result is None:
+                raise ApiError(400, "COULD_NOT_PARSE_INGREDIENTS")
+        except Exception as e:
+            raise ApiError(400, "COULD_NOT_PARSE_INGREDIENTS")
+    else:
+        raise ApiError(400, "Smart QR Code scanning requires the Strands AI agent to be enabled.")
+
+    product = Product(
+        barcode=url,
+        name="QR Scanned Product",
+        brand=None,
+        ingredients=[],
+        data_confidence="LOW",
+        source="URL"
+    )
+    
+    scan = ScanResult(
+        id=f"scan_{uuid.uuid4().hex[:8]}",
+        scanned_at=store.now_iso(),
+        product=product,
+        evaluation=result,
+        profile_ids=[p.id for p in profiles],
+    )
+    store.record_scan(scan)
+    return 200, scan.to_dict()
 
 def scan_label_endpoint(filename: str) -> tuple[int, Any]:
     """Label-photo fallback.

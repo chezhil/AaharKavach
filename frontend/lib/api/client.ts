@@ -75,6 +75,13 @@ export const httpApi: AaharApi = {
     return request<Product>("/api/scan/label", { method: "POST", body: form });
   },
 
+  scanUrl(url: string, profile_ids: string[]) {
+    return request<ScanResult>("/api/scan/url", { 
+      method: "POST", 
+      body: JSON.stringify({ url, profile_ids }) 
+    });
+  },
+
   evaluate: (req: EvaluateRequest) =>
     request<EvaluationResult>("/api/evaluate", {
       method: "POST",
