@@ -17,6 +17,7 @@ account is available: set AAHAR_OCR=textract, nothing else changes.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import os
@@ -186,4 +187,25 @@ def read_label(image_bytes: bytes) -> OcrResult:
         )
     if not image_bytes:
         raise UnreadableImage("No image was uploaded")
-    return ENGINES[engine](image_bytes)
+
+    # Same photo, same engine, same answer — and Textract bills per page.
+    from . import cache
+
+    key = cache.key_for(engine, hashlib.sha256(image_bytes).hexdigest())
+    hit = cache.get("ocr", key)
+    if hit is not None:
+        return OcrResult(
+            blocks=[OcrBlock(text=b["text"], confidence=b["confidence"]) for b in hit["blocks"]],
+            engine=hit["engine"],
+        )
+
+    result = ENGINES[engine](image_bytes)
+    cache.put(
+        "ocr",
+        key,
+        {
+            "engine": result.engine,
+            "blocks": [{"text": b.text, "confidence": b.confidence} for b in result.blocks],
+        },
+    )
+    return result

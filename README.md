@@ -75,6 +75,25 @@ NEXT_PUBLIC_USE_MOCKS=false                     # true → run the UI standalone
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # or the API Gateway URL
 ```
 
+### Caching
+
+Anything billed or rate-limited is cached to `.cache/` (gitignored) and reused:
+
+| Cached | Why |
+|---|---|
+| Open Food Facts lookups | the API rate-limits, and a rehearsal rescans the same products |
+| Textract OCR, keyed on the image | billed per page; the same demo label gets scanned repeatedly |
+| Agent evaluations, keyed on ingredients + household | billed per token, and unchanged ingredients give the same answer |
+
+Deterministic reasoning is not cached — it is already instant and free. A second
+scan of the same product makes **no network calls at all**: a label photo goes
+from 2.3s to 2ms.
+
+```bash
+rm -rf .cache          # start fresh
+AAHAR_CACHE=off        # bypass entirely
+```
+
 ### Switching to AWS
 
 Both AWS services are behind one environment variable each — the code is

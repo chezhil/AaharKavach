@@ -364,8 +364,48 @@ def evaluate(
                 }
                 for e in baseline.profile_evaluations
             ]
+            from . import cache
+            from .contracts import (
+                FlaggedIngredient as _Flag,
+                ProfileEvaluation as _Eval,
+            )
+
+            # Same product, same household, same answer — and Bedrock bills
+            # per token. Keyed on the ingredients rather than the barcode so an
+            # updated record re-asks.
+            cache_key = cache.key_for(
+                "agent",
+                product.barcode,
+                [i.name for i in product.ingredients],
+                [(p.id, [(r.label, r.severity) for r in p.restrictions]) for p in profiles],
+            )
+            payload = cache.get("agent", cache_key)
+            if payload is not None:
+                result = EvaluationResult(
+                    confidence=payload["confidence"],
+                    profile_evaluations=[
+                        _Eval(
+                            profile_id=e["profile_id"],
+                            profile_name=e["profile_name"],
+                            verdict=e["verdict"],
+                            summary=e["summary"],
+                            flagged_ingredients=[_Flag(**f) for f in e["flagged_ingredients"]],
+                        )
+                        for e in payload["profile_evaluations"]
+                    ],
+                    safe_alternatives_suggestion=payload.get("safe_alternatives_suggestion"),
+                    data_quality_note=payload.get("data_quality_note"),
+                    reasoning="strands",
+                )
+                result.safe_alternatives = alternatives or []
+                return reconcile(result, profiles)
+
             result = evaluate_with_agent(product, profiles, known)
             if result is not None:
+                stored = result.to_dict()
+                stored.pop("safe_alternatives", None)
+                stored.pop("reasoning", None)
+                cache.put("agent", cache_key, stored)
                 result.safe_alternatives = alternatives or []
                 return reconcile(result, profiles)
         except Exception as exc:

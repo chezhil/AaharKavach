@@ -54,3 +54,6 @@ backend/tests/.pytest-db.json
 
 # SAM build output
 backend/.aws-sam/
+
+# Cached AWS / Open Food Facts responses
+.cache/

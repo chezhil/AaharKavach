@@ -138,6 +138,15 @@ def lookup_product(barcode: str) -> Product:
     barcode = str(barcode).strip()
     upstream_down = False
 
+    # Open Food Facts rate-limits, and a rehearsal scans the same handful of
+    # products over and over.
+    from . import cache
+
+    cache_key = cache.key_for("product", barcode)
+    cached_product = cache.get("product", cache_key)
+    if cached_product is not None:
+        return _product_from_payload(cached_product)
+
     try:
         from data.client.openfoodfacts import OffApiError
         from data.services import scan_barcode
@@ -152,7 +161,9 @@ def lookup_product(barcode: str) -> Product:
             if context.product.is_found and context.product.ingredients:
                 scored = context.confidence.to_dict()
                 level = scored.get("confidence") or scored.get("level")
-                return product_from_record(context.product, confidence=level)
+                product = product_from_record(context.product, confidence=level)
+                cache.put("product", cache_key, product.to_dict())
+                return product
             logger.info("OFF has no usable record for %s", barcode)
     except Exception as exc:
         logger.warning("Product lookup failed for %s: %s", barcode, exc)
