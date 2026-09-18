@@ -25,7 +25,7 @@ Globals:
   Api:
     Cors:
       AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,X-Aahar-User,X-Aahar-Role,X-Aahar-Household'"
+      AllowHeaders: "'Content-Type,Authorization,X-Api-Key,X-Aahar-User,X-Aahar-Role,X-Aahar-Household'"
       AllowOrigin: "'*'"
 
 Resources:
@@ -95,6 +95,11 @@ Resources:
             TableName: !Ref ProfilesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref HistoryTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
       Events:
         BarcodeLookup:
           Type: Api
@@ -120,6 +125,11 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ProfilesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
       Events:
         Compare:
           Type: Api
