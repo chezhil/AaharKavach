@@ -8,7 +8,7 @@ import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
 import { ScanSheet, type ScanMode } from "@/components/scanner/ScanSheet";
 import { HistoryRow } from "@/components/history/HistoryRow";
 import { Button } from "@/components/ui/Button";
-import { api, ProductNotFoundError, runScan, runUrlScan } from "@/lib/api";
+import { ApiError, ProductNotFoundError, api, runScan, runUrlScan } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
 
 const SYNONYM_COUNT = 199; // Updated from the actual python index
@@ -47,10 +47,15 @@ function ScanHome() {
         setOpen(false);
         router.push(`/result/${encodeURIComponent(scan.product.barcode)}`);
       } catch (err) {
+        // The API's messages are written for people — "that link points to a
+        // private address", "the AI reader isn't switched on". Burying them
+        // behind one generic line sends users to debug the wrong thing.
         setError(
           err instanceof ProductNotFoundError
             ? `Barcode ${err.barcode} isn't in Open Food Facts. Try photographing the label instead.`
-            : "Something went wrong looking that up. Try again in a moment.",
+            : err instanceof ApiError && err.message
+              ? err.message
+              : "Something went wrong looking that up. Try again in a moment.",
         );
       } finally {
         setBusy(false);

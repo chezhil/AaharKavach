@@ -29,10 +29,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       `Can't reach the API at ${BASE}. Is \`sam local start-api\` running?`,
     );
   }
-  if (res.status === 404) throw new ApiError("Not found", 404);
   if (!res.ok) {
+    // The API answers {"error": "..."}; showing the raw JSON to a user is worse
+    // than saying nothing, and these messages are written to be read.
     const body = await res.text().catch(() => "");
-    throw new ApiError(body || `Request failed with ${res.status}`, res.status);
+    let message = body;
+    try {
+      const parsed = JSON.parse(body) as { error?: string };
+      if (parsed?.error) message = parsed.error;
+    } catch {
+      // Not JSON — fall back to the raw body.
+    }
+    if (res.status === 404) throw new ApiError(message || "Not found", 404);
+    throw new ApiError(message || `Request failed with ${res.status}`, res.status);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
