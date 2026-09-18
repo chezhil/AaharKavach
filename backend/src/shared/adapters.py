@@ -78,6 +78,27 @@ _ARTEFACTS = re.compile(r"^[\s*_\-–—\"'`]+|[\s*_\"'`]+$")
 _MARKUP = re.compile(r"_+")
 
 
+# Quantities and measurements that ride along in an ingredient list. "300ppm"
+# came from "CAFFEINE 30mg/100ml (300ppm)" and rendered as its own ingredient.
+_QUANTITY_ONLY = re.compile(
+    r"^\(?\s*\d+(\.\d+)?\s*"
+    r"(ppm|mg|g|kg|ml|l|%|kcal|kj|iu|mcg|µg)?"
+    r"\s*(/\s*\d*\s*(g|ml|l|kg))?\s*\)?$",
+    re.IGNORECASE,
+)
+
+
+def is_quantity(token: str) -> bool:
+    """True for tokens that are a measurement, not an ingredient."""
+    cleaned = token.strip().strip("()[] ")
+    if not cleaned:
+        return True
+    if _QUANTITY_ONLY.match(cleaned):
+        return True
+    # Anything with no letters at all is not an ingredient name.
+    return not any(c.isalpha() for c in cleaned)
+
+
 def _tidy(token: str) -> str:
     cleaned = _MARKUP.sub(" ", token)
     cleaned = _ARTEFACTS.sub("", cleaned)
@@ -114,7 +135,11 @@ def product_from_record(record: ProductRecord, confidence: str | None = None) ->
         brand=record.brands or None,
         image_url=record.image_url,
         categories=list(record.categories or []),
-        ingredients=[ingredient_from_token(t) for t in (record.ingredients or []) if t.strip()],
+        ingredients=[
+            ingredient_from_token(t)
+            for t in (record.ingredients or [])
+            if t.strip() and not is_quantity(t)
+        ],
         # Role 2 returns the score in a separate ConfidenceResult; the record's
         # own field is left at UNKNOWN, so the caller passes it in.
         data_confidence=_confidence(confidence or record.confidence),

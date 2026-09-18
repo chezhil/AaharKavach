@@ -138,7 +138,11 @@ def _coerce(raw: Any, profiles: list[Profile]) -> EvaluationResult | None:
     )
 
 
-def evaluate_with_agent(product: Product, profiles: list[Profile]) -> EvaluationResult | None:
+def evaluate_with_agent(
+    product: Product,
+    profiles: list[Profile],
+    known_matches: Any = None,
+) -> EvaluationResult | None:
     if not agent_is_available():
         logger.info("No model provider configured — skipping the agent")
         return None
@@ -148,7 +152,9 @@ def evaluate_with_agent(product: Product, profiles: list[Profile]) -> Evaluation
         logger.info("Strands SDK unavailable: %s", exc)
         return None
 
-    raw = evaluate_product(_product_payload(product), _profiles_payload(profiles))
+    raw = evaluate_product(
+        _product_payload(product), _profiles_payload(profiles), known_matches
+    )
     return _coerce(raw, profiles)
 
 

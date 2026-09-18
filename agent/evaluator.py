@@ -31,27 +31,43 @@ def tool_check_cross_reactivity(allergen_name: str) -> str:
     """
     return json.dumps(check_cross_reactivity(allergen_name))
 
-def evaluate_product(product_data: Dict[str, Any], profiles: List[Dict[str, Any]]) -> EvaluationResult:
+def evaluate_product(
+    product_data: Dict[str, Any],
+    profiles: List[Dict[str, Any]],
+    known_matches: Any = None,
+) -> EvaluationResult:
     """
     Core entrypoint for the Strands AI Agent.
     Evaluates a product against multiple user profiles.
     """
-    
-    # 2. Setup the Evaluator Agent
+
+    # No tools: the deterministic pass has already resolved every ingredient
+    # against the ontology, and its findings go into the prompt below. Letting
+    # the agent re-discover them cost 3-5 model round trips per scan — about
+    # 29 seconds, and free-tier rate limits — for facts the caller already had.
     evaluator_agent = Agent(
         system_prompt=SYSTEM_PROMPT_EVALUATOR,
-        tools=[tool_lookup_ingredient_details, tool_check_cross_reactivity],
+        tools=[],
         model=build_model(),
     )
-    
-    # 3. Construct the prompt
+
+    matches_block = ""
+    if known_matches:
+        matches_block = (
+            "\n    Ingredient matches already resolved against the allergen "
+            "knowledge base. These are authoritative — use them, do not "
+            "contradict them, and do not introduce allergens that are not "
+            "listed here:\n"
+            f"    {json.dumps(known_matches, indent=2)}\n"
+        )
+
     prompt = f"""
     Product Data:
     {json.dumps(product_data, indent=2)}
-    
+
     User Profiles to Evaluate Against:
     {json.dumps(profiles, indent=2)}
-    
+{matches_block}
     Evaluate the product and provide the structured verdict.
     """
     

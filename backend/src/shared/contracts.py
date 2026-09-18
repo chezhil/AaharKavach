@@ -97,6 +97,10 @@ class FlaggedIngredient:
     profile_severity: Severity
     explanation: str
     cross_reactive: bool = False
+    # True when the model raised this but the knowledge base cannot corroborate
+    # it. Shown separately and never allowed to drive the verdict, because a
+    # claim with nothing behind it should not read like a matched allergen.
+    unverified: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

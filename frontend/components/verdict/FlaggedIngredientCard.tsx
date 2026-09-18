@@ -14,7 +14,13 @@ export function FlaggedIngredientCard({ flag }: { flag: FlaggedIngredient }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <li className="overflow-hidden rounded-xl bg-black/10">
+    <li
+      className={cn(
+        "overflow-hidden rounded-xl bg-black/10",
+        // Softer, and visibly not one of the confirmed matches.
+        flag.unverified && "opacity-75 ring-1 ring-inset ring-current/20",
+      )}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -32,7 +38,7 @@ export function FlaggedIngredientCard({ flag }: { flag: FlaggedIngredient }) {
           </span>
         </span>
         <span className="shrink-0 rounded-full bg-black/15 px-2 py-0.5 text-[0.62rem] font-extrabold uppercase tracking-wider">
-          {SEVERITY_LABEL[flag.profile_severity]}
+          {flag.unverified ? "Unconfirmed" : SEVERITY_LABEL[flag.profile_severity]}
         </span>
         <ChevronDown
           size={15}
@@ -44,9 +50,15 @@ export function FlaggedIngredientCard({ flag }: { flag: FlaggedIngredient }) {
         />
       </button>
       {open ? (
-        <p className="animate-rise bg-black/10 px-3 py-2.5 text-sm leading-relaxed opacity-90">
-          {flag.explanation}
-        </p>
+        <div className="animate-rise bg-black/10 px-3 py-2.5 text-sm leading-relaxed opacity-90">
+          <p>{flag.explanation}</p>
+          {flag.unverified ? (
+            <p className="mt-2 text-xs font-semibold opacity-80">
+              We couldn&apos;t confirm this against our ingredient database, so it
+              hasn&apos;t affected the verdict. Worth checking the label yourself.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </li>
   );

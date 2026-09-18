@@ -244,20 +244,103 @@ def evaluate_deterministic(
     )
 
 
+def _corroborated(flag: FlaggedIngredient, profile: Profile) -> bool:
+    """Can the knowledge base back this flag for this person?"""
+    wanted: set[str] = set()
+    diets = set()
+    for restriction in profile.restrictions:
+        wanted |= allergen_ids_for(restriction.label)
+        token = _norm(restriction.label)
+        if token in DIET_RESTRICTIONS:
+            diets.add(token)
+
+    for match in match_ingredient(flag.ingredient):
+        if match.match_type in ("exact", "synonym", "fuzzy") and match.allergen_id in wanted:
+            return True
+        if match.match_type == "additive":
+            if {str(t) for t in match.data.get("allergen_tags", [])} & wanted:
+                return True
+            if diets & ANIMAL_SOURCE_DIETS and _is_animal_derived(match.data):
+                return True
+        if match.match_type == "cross_reactivity":
+            primary = _norm(str(match.data.get("primary_allergy", "")))
+            if primary and (primary in wanted or allergen_ids_for(primary) & wanted):
+                return True
+    return False
+
+
+def reconcile(result: EvaluationResult, profiles: list[Profile]) -> EvaluationResult:
+    """Keep the model honest about what it can actually support.
+
+    The agent reaches past the knowledge base into its own training data. On a
+    Monster Energy scan it flagged taurine as animal-derived — outdated (the
+    commercial product is synthetic), absent from the index, and different on
+    every run, while the rulebook said SAFE. A verdict that changes because a
+    model was reachable is the wrong property for an allergen app.
+
+    So: flags the index can corroborate stand and drive the verdict. Flags it
+    cannot are kept as context, marked unverified, capped at MILD, and excluded
+    from the verdict.
+    """
+    by_id = {p.id: p for p in profiles}
+    for evaluation in result.profile_evaluations:
+        profile = by_id.get(evaluation.profile_id)
+        if profile is None:
+            continue
+
+        supported: list[FlaggedIngredient] = []
+        for flag in evaluation.flagged_ingredients:
+            if _corroborated(flag, profile):
+                supported.append(flag)
+            else:
+                flag.unverified = True
+                flag.profile_severity = "MILD"
+                supported.append(flag)
+                logger.info(
+                    "Agent flagged %r for %s with no knowledge-base support",
+                    flag.ingredient, evaluation.profile_name,
+                )
+
+        evaluation.flagged_ingredients = supported
+        # The verdict follows only what the index can stand behind.
+        evaluation.verdict = _verdict([f for f in supported if not f.unverified])
+    return result
+
+
 def evaluate(
     product: Product,
     profiles: list[Profile],
     alternatives: list[AlternativeProduct] | None = None,
 ) -> EvaluationResult:
     """Agent first when enabled, deterministic rulebook otherwise."""
+    baseline = evaluate_deterministic(product, profiles, alternatives)
+
     if os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
         try:
             from .agent_bridge import evaluate_with_agent
 
-            result = evaluate_with_agent(product, profiles)
+            # Hand the agent what the ontology already found. It writes the
+            # verdict and the plain-English prose; it does not go looking for
+            # allergens the knowledge base has not confirmed.
+            known = [
+                {
+                    "profile_name": e.profile_name,
+                    "flagged": [
+                        {
+                            "ingredient": f.ingredient,
+                            "allergen": f.matched_allergen,
+                            "severity": f.profile_severity,
+                            "cross_reactive": f.cross_reactive,
+                        }
+                        for f in e.flagged_ingredients
+                    ],
+                }
+                for e in baseline.profile_evaluations
+            ]
+            result = evaluate_with_agent(product, profiles, known)
             if result is not None:
                 result.safe_alternatives = alternatives or []
-                return result
+                return reconcile(result, profiles)
         except Exception as exc:
             logger.warning("Strands agent unavailable (%s) — using the rulebook", exc)
-    return evaluate_deterministic(product, profiles, alternatives)
+    return baseline

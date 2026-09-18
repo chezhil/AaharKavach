@@ -219,3 +219,88 @@ def test_policy_path_can_be_overridden(tmp_path, monkeypatch):
     from shared import cedar_utils
 
     assert cedar_utils._find_policy_file() == policy
+
+
+# ------------------------------------------- agent / rulebook boundary
+
+
+def test_agent_flags_without_index_support_are_marked_and_defanged():
+    """The model reaches past the knowledge base; the verdict must not follow.
+
+    Regression for a Monster Energy scan where the agent flagged taurine as
+    animal-derived — outdated, absent from the index, and different on every
+    run, while the rulebook said SAFE.
+    """
+    from shared.contracts import EvaluationResult, FlaggedIngredient, ProfileEvaluation
+    from shared.reasoning import reconcile
+
+    profile = Profile(
+        id="n", name="Naman",
+        restrictions=[Restriction("r1", "Vegetarian", "MILD")],
+    )
+    result = EvaluationResult(
+        confidence="MEDIUM",
+        profile_evaluations=[
+            ProfileEvaluation(
+                profile_id="n", profile_name="Naman", verdict="CAUTION",
+                summary="Potential animal-derived ingredients.",
+                flagged_ingredients=[
+                    FlaggedIngredient(
+                        ingredient="Taurine",
+                        matched_allergen="Animal-derived",
+                        profile_severity="MODERATE",
+                        explanation="Taurine is often derived from animal sources.",
+                    )
+                ],
+            )
+        ],
+    )
+
+    reconciled = reconcile(result, [profile])
+    evaluation = reconciled.profile_evaluations[0]
+
+    flag = evaluation.flagged_ingredients[0]
+    assert flag.unverified is True          # surfaced, not silently dropped
+    assert flag.profile_severity == "MILD"  # cannot masquerade as a firm match
+    assert evaluation.verdict == "SAFE"     # and cannot drive the verdict
+
+
+def test_reconcile_keeps_flags_the_index_supports():
+    from shared.contracts import EvaluationResult, FlaggedIngredient, ProfileEvaluation
+    from shared.reasoning import reconcile
+
+    profile = Profile(
+        id="k", name="Aryan",
+        restrictions=[Restriction("r1", "Peanuts", "SEVERE")],
+    )
+    result = EvaluationResult(
+        confidence="HIGH",
+        profile_evaluations=[
+            ProfileEvaluation(
+                profile_id="k", profile_name="Aryan", verdict="UNSAFE",
+                summary="Contains peanuts.",
+                flagged_ingredients=[
+                    FlaggedIngredient(
+                        ingredient="Peanuts", matched_allergen="Peanuts",
+                        profile_severity="SEVERE",
+                        explanation="Peanuts are a severe allergen for Aryan.",
+                    )
+                ],
+            )
+        ],
+    )
+
+    evaluation = reconcile(result, [profile]).profile_evaluations[0]
+    assert evaluation.flagged_ingredients[0].unverified is False
+    assert evaluation.flagged_ingredients[0].profile_severity == "SEVERE"
+    assert evaluation.verdict == "UNSAFE"
+
+
+def test_measurements_are_not_ingredients():
+    """"300ppm" came off a caffeine line and rendered as its own chip."""
+    from shared.adapters import is_quantity
+
+    for token in ("300ppm", "30mg/100ml", "(400 mg/100ml)", "12%", "100g", "2"):
+        assert is_quantity(token), token
+    for token in ("Taurine", "Salt", "E322", "Vitamin B12", "Soy Lecithin"):
+        assert not is_quantity(token), token

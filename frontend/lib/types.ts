@@ -70,6 +70,12 @@ export interface FlaggedIngredient {
   explanation: string;
   /** True when the match came from cross-reactivity rather than a direct hit. */
   cross_reactive?: boolean;
+  /**
+   * The model raised this but the knowledge base couldn't corroborate it.
+   * Shown as context, never as a matched allergen, and it never drives the
+   * verdict — otherwise an unsupported claim reads like a confirmed one.
+   */
+  unverified?: boolean;
 }
 
 export interface ProfileEvaluation {
