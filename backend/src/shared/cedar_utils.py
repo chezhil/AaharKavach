@@ -14,13 +14,37 @@ below is deliberately the same.
 from __future__ import annotations
 
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-POLICY_DIR = Path(__file__).resolve().parent.parent.parent / "policies"
-POLICY_FILE = POLICY_DIR / "policies.cedar"
+def _find_policy_file() -> Path:
+    """Locate policies.cedar in both layouts.
+
+    In the repo this file is backend/src/shared/cedar_utils.py, so the policies
+    sit three levels up. In a Lambda package it is <task_root>/shared/, and the
+    policies are copied to <task_root>/policies. Getting this wrong is silent:
+    the read fails, Cedar fails closed, and every profile request 403s.
+    """
+    here = Path(__file__).resolve()
+    override = os.environ.get("AAHAR_CEDAR_POLICIES")
+    candidates = [Path(override)] if override else []
+    candidates += [
+        here.parent.parent / "policies" / "policies.cedar",          # Lambda package
+        here.parent.parent.parent / "policies" / "policies.cedar",   # repo checkout
+        Path.cwd() / "policies" / "policies.cedar",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    # Return the repo-shaped path so the error message points somewhere useful.
+    return here.parent.parent.parent / "policies" / "policies.cedar"
+
+
+POLICY_FILE = _find_policy_file()
+POLICY_DIR = POLICY_FILE.parent
 
 try:  # pragma: no cover - depends on the environment
     import cedarpy

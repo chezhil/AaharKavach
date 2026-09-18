@@ -186,3 +186,36 @@ def test_member_cannot_delete_a_profile_through_the_api():
     with pytest.raises(api.ApiError) as exc:
         api.remove_profile(MEMBER, "kid_1")
     assert exc.value.status == 403
+
+
+# --------------------------------------------------- deployment layout
+
+
+def test_cedar_policy_file_is_found():
+    """Fails closed if missing, so every profile request would 403 on AWS."""
+    from shared.cedar_utils import POLICY_FILE
+
+    assert POLICY_FILE.is_file(), f"Cedar policies not found at {POLICY_FILE}"
+
+
+def test_cedar_policy_lookup_handles_the_lambda_layout(tmp_path, monkeypatch):
+    """In a Lambda package the policies sit beside the code, not a level up."""
+    from shared import cedar_utils
+
+    lambda_root = tmp_path / "task"
+    (lambda_root / "shared").mkdir(parents=True)
+    (lambda_root / "policies").mkdir()
+    (lambda_root / "policies" / "policies.cedar").write_text("// test")
+
+    monkeypatch.setattr(cedar_utils, "__file__", str(lambda_root / "shared" / "cedar_utils.py"))
+    found = cedar_utils._find_policy_file()
+    assert found == lambda_root / "policies" / "policies.cedar"
+
+
+def test_policy_path_can_be_overridden(tmp_path, monkeypatch):
+    policy = tmp_path / "custom.cedar"
+    policy.write_text("// test")
+    monkeypatch.setenv("AAHAR_CEDAR_POLICIES", str(policy))
+    from shared import cedar_utils
+
+    assert cedar_utils._find_policy_file() == policy

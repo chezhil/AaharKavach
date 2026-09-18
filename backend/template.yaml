@@ -64,6 +64,9 @@ Resources:
 
   ProfilesFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      # data/ and agent/ live outside CodeUri; see the Makefile.
+      BuildMethod: makefile
     Properties:
       CodeUri: src/
       Handler: profiles.app.lambda_handler
@@ -86,6 +89,9 @@ Resources:
 
   ScansFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      # data/ and agent/ live outside CodeUri; see the Makefile.
+      BuildMethod: makefile
     Properties:
       CodeUri: src/
       Handler: scans.app.lambda_handler
@@ -124,6 +130,9 @@ Resources:
 
   CompareFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      # data/ and agent/ live outside CodeUri; see the Makefile.
+      BuildMethod: makefile
     Properties:
       CodeUri: src/
       Handler: compare.app.lambda_handler
@@ -144,6 +153,9 @@ Resources:
 
   HistoryFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      # data/ and agent/ live outside CodeUri; see the Makefile.
+      BuildMethod: makefile
     Properties:
       CodeUri: src/
       Handler: history.app.lambda_handler

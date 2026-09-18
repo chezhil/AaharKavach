@@ -77,10 +77,18 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # or the API Gateway URL
 ### Deploying
 
 ```bash
-cd backend && sam build && sam deploy --guided
+cd backend && sam build
+python ../scripts/check_lambda_package.py   # verify before you deploy
+sam deploy --guided
 ```
 
 Then point `NEXT_PUBLIC_API_BASE_URL` at the `ApiEndpoint` output.
+
+`sam build` only resolves pip dependencies — it cannot tell you that a handler
+imports something outside `CodeUri`, which deploys cleanly and then fails on
+every request. `backend/src/Makefile` is a custom builder that packages `data/`
+and `agent/` alongside the handlers, and `check_lambda_package.py` imports each
+handler with only the package on `sys.path`, the way Lambda does.
 
 ### Reasoning: agent or rulebook
 
