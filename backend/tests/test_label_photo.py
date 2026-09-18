@@ -111,3 +111,60 @@ def test_end_to_end_ocr_of_a_rendered_panel():
     assert product["data_confidence"] in ("MEDIUM", "LOW")
     names = " ".join(i["name"] for i in product["ingredients"]).lower()
     assert "wheat" in names or "maida" in names
+
+
+def test_ocr_falls_through_to_the_next_engine(monkeypatch):
+    """Textract can be held or unreachable; tesseract needs no network."""
+    import shared.ocr as ocr
+
+    monkeypatch.setenv("AAHAR_OCR", "textract")
+    monkeypatch.setenv("AAHAR_CACHE", "off")
+    monkeypatch.setitem(
+        ocr.ENGINES, "textract",
+        lambda _: (_ for _ in ()).throw(RuntimeError("held by verification")),
+    )
+    monkeypatch.setitem(
+        ocr.ENGINES, "tesseract",
+        lambda _: ocr.OcrResult([ocr.OcrBlock("INGREDIENTS: Sugar", 90.0)], "tesseract"),
+    )
+
+    result = ocr.read_label(b"fake-image-bytes")
+    assert result.engine == "tesseract"
+
+
+def test_a_bad_upload_is_not_retried_on_another_engine(monkeypatch):
+    """A corrupt file will fail everywhere — say so instead of trying twice."""
+    import shared.ocr as ocr
+
+    monkeypatch.setenv("AAHAR_OCR", "textract")
+    monkeypatch.setenv("AAHAR_CACHE", "off")
+    tried = []
+
+    def unreadable(_):
+        tried.append("textract")
+        raise ocr.UnreadableImage("not an image")
+
+    def should_not_run(_):
+        tried.append("tesseract")
+        return ocr.OcrResult([], "tesseract")
+
+    monkeypatch.setitem(ocr.ENGINES, "textract", unreadable)
+    monkeypatch.setitem(ocr.ENGINES, "tesseract", should_not_run)
+
+    with pytest.raises(ocr.UnreadableImage):
+        ocr.read_label(b"garbage")
+    assert tried == ["textract"]
+
+
+def test_every_engine_failing_gives_a_clean_error(monkeypatch):
+    import shared.ocr as ocr
+
+    monkeypatch.setenv("AAHAR_OCR", "textract")
+    monkeypatch.setenv("AAHAR_CACHE", "off")
+    for name in ("textract", "tesseract"):
+        monkeypatch.setitem(
+            ocr.ENGINES, name,
+            lambda _: (_ for _ in ()).throw(RuntimeError("down")),
+        )
+    with pytest.raises(ocr.OcrUnavailable):
+        ocr.read_label(b"bytes")

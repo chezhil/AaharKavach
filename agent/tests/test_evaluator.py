@@ -34,7 +34,7 @@ def _agent_returning(structured):
     return cls, instance
 
 
-@patch("agent.evaluator.build_model", lambda: object())
+@patch("agent.evaluator.build_model", lambda provider=None: object())
 @patch("agent.evaluator.Agent")
 def test_evaluate_product_unwraps_structured_output(agent_cls):
     expected = EvaluationResult(
@@ -51,9 +51,11 @@ def test_evaluate_product_unwraps_structured_output(agent_cls):
     assert result is expected
     # The schema must be passed at call time, not construction.
     assert instance.call_args.kwargs["structured_output_model"] is EvaluationResult
+    # And the result records which provider answered.
+    assert getattr(result, "_provider", None) in ("bedrock", "groq")
 
 
-@patch("agent.evaluator.build_model", lambda: object())
+@patch("agent.evaluator.build_model", lambda provider=None: object())
 @patch("agent.evaluator.Agent")
 def test_webpage_extraction_returns_ingredients_not_a_verdict(agent_cls):
     """The page reader transcribes; it must not be handed the verdict schema."""
@@ -72,3 +74,36 @@ def test_webpage_extraction_returns_ingredients_not_a_verdict(agent_cls):
     assert instance.call_args.kwargs["structured_output_model"] is WebpageExtraction
     # No allergen tools on the extractor — it has no reasoning job.
     assert agent_cls.call_args.kwargs["tools"] == []
+
+
+@patch("agent.evaluator.build_model", lambda provider=None: object())
+@patch("agent.evaluator.Agent")
+def test_the_chain_moves_on_when_a_provider_fails_mid_call(agent_cls, monkeypatch):
+    """Bedrock builds fine and then refuses the call while an account is held.
+
+    Retrying only construction would never reach the second provider.
+    """
+    monkeypatch.setenv("AAHAR_MODEL_PROVIDER", "bedrock")
+    monkeypatch.setenv("AAHAR_MODEL_FALLBACK", "groq")
+
+    expected = EvaluationResult(confidence="HIGH", profile_evaluations=[])
+    calls = []
+
+    def make_agent(*args, **kwargs):
+        instance = MagicMock()
+
+        def invoke(*a, **k):
+            calls.append(1)
+            if len(calls) == 1:          # first provider dies on invocation
+                raise RuntimeError("ValidationException: Operation not allowed")
+            return MagicMock(structured_output=expected)
+
+        instance.side_effect = invoke
+        return instance
+
+    agent_cls.side_effect = make_agent
+
+    result = evaluate_product(PRODUCT, PROFILES)
+    assert result is expected
+    assert len(calls) == 2, "should have retried on the second provider"
+    assert getattr(result, "_provider", None) == "groq"

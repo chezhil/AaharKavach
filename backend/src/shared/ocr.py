@@ -26,6 +26,14 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 
 DEFAULT_ENGINE = "tesseract"
+# Tried in order when the one before it errors. Textract can be held by account
+# verification or simply unreachable; tesseract needs no network at all, so the
+# pair covers each other. The result always reports which one actually ran.
+DEFAULT_FALLBACKS = {
+    "textract": ["tesseract"],
+    "tesseract": [],
+    "vision": ["tesseract"],
+}
 
 
 class OcrUnavailable(RuntimeError):
@@ -72,6 +80,17 @@ class OcrResult:
 
 def engine_name() -> str:
     return (os.environ.get("AAHAR_OCR") or DEFAULT_ENGINE).strip().lower()
+
+
+def engine_chain() -> list[str]:
+    """The engine to try, then its fallbacks. AAHAR_OCR_FALLBACK overrides."""
+    primary = engine_name()
+    override = os.environ.get("AAHAR_OCR_FALLBACK")
+    if override is not None:
+        rest = [e.strip().lower() for e in override.split(",") if e.strip()]
+    else:
+        rest = DEFAULT_FALLBACKS.get(primary, [])
+    return [primary] + [e for e in rest if e != primary]
 
 
 # ------------------------------------------------------------- tesseract
@@ -199,7 +218,27 @@ def read_label(image_bytes: bytes) -> OcrResult:
             engine=hit["engine"],
         )
 
-    result = ENGINES[engine](image_bytes)
+    last_error: Exception | None = None
+    result = None
+    for candidate in engine_chain():
+        if candidate not in ENGINES:
+            logger.warning("Unknown OCR engine %r in the chain — skipping", candidate)
+            continue
+        try:
+            result = ENGINES[candidate](image_bytes)
+            if candidate != engine:
+                logger.warning("%s unavailable — read the label with %s instead",
+                               engine, candidate)
+            break
+        except UnreadableImage:
+            raise            # the upload is bad; another engine won't help
+        except Exception as exc:
+            logger.warning("OCR engine %s failed: %s", candidate, exc)
+            last_error = exc
+
+    if result is None:
+        raise OcrUnavailable(f"No OCR engine could read the label ({last_error})")
+
     cache.put(
         "ocr",
         key,

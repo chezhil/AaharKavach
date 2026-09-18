@@ -75,9 +75,34 @@ NEXT_PUBLIC_USE_MOCKS=false                     # true → run the UI standalone
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # or the API Gateway URL
 ```
 
+### Fallbacks
+
+Both AWS services chain to a non-AWS engine rather than failing the request,
+and the response always says which one answered:
+
+| Configured | Falls back to | Reported as |
+|---|---|---|
+| Bedrock | Groq, then the deterministic rulebook | `strands:bedrock` / `strands:groq` / `deterministic` |
+| Textract | Tesseract | `engine` on the OCR result |
+
+The retry wraps the whole call, not just client construction — Bedrock builds
+fine and then refuses `ConverseStream` while an account is being verified, so
+retrying construction alone would never reach the second provider.
+
+`AAHAR_MODEL_FALLBACK` and `AAHAR_OCR_FALLBACK` override the chains; set either
+to `""` to disable.
+
 ### Caching
 
-Anything billed or rate-limited is cached to `.cache/` (gitignored) and reused:
+**Off by default** — a real run should exercise the real fallback path, and a
+cache hides which one answered. Turn it on for repeated testing, where
+re-billing Textract and Bedrock for identical inputs buys nothing:
+
+```bash
+AAHAR_CACHE=on
+```
+
+When on, results are stored in `.cache/` (gitignored) and reused:
 
 | Cached | Why |
 |---|---|
@@ -91,7 +116,6 @@ from 2.3s to 2ms.
 
 ```bash
 rm -rf .cache          # start fresh
-AAHAR_CACHE=off        # bypass entirely
 ```
 
 ### Switching to AWS

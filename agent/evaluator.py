@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import List, Dict, Any
 from strands import Agent, tool
@@ -11,9 +12,11 @@ from .prompts import (
 )
 from .tools import lookup_ingredient_details, check_cross_reactivity
 
-from .providers import build_model
+from .providers import build_model, provider_chain
 
 # Kept for callers that only check whether a model is configured.
+logger = logging.getLogger(__name__)
+
 BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 # Convert mock tool functions to strands tools
@@ -31,6 +34,35 @@ def tool_check_cross_reactivity(allergen_name: str) -> str:
     """
     return json.dumps(check_cross_reactivity(allergen_name))
 
+def _run_on_chain(system_prompt: str, prompt: str, schema, tools=None):
+    """Run a prompt on the first provider in the chain that answers.
+
+    Construction is not enough to prove a provider works: Bedrock builds fine
+    and then refuses ConverseStream while an account is being verified. So the
+    whole call is retried, not just the client.
+
+    Returns (parsed_output, provider_that_answered).
+    """
+    from .providers import ProviderUnavailable
+
+    last = None
+    for candidate in provider_chain():
+        try:
+            agent = Agent(
+                system_prompt=system_prompt,
+                tools=tools or [],
+                model=build_model(candidate),
+            )
+            parsed = agent(prompt, structured_output_model=schema).structured_output
+            if parsed is None:
+                raise ProviderUnavailable(f"{candidate} returned no structured output")
+            return parsed, candidate
+        except Exception as exc:
+            logger.warning("Model provider %s failed: %s", candidate, str(exc)[:160])
+            last = exc
+    raise ProviderUnavailable(f"No model provider answered ({last})")
+
+
 def evaluate_product(
     product_data: Dict[str, Any],
     profiles: List[Dict[str, Any]],
@@ -45,11 +77,7 @@ def evaluate_product(
     # against the ontology, and its findings go into the prompt below. Letting
     # the agent re-discover them cost 3-5 model round trips per scan — about
     # 29 seconds, and free-tier rate limits — for facts the caller already had.
-    evaluator_agent = Agent(
-        system_prompt=SYSTEM_PROMPT_EVALUATOR,
-        tools=[],
-        model=build_model(),
-    )
+
 
     matches_block = ""
     if known_matches:
@@ -72,12 +100,12 @@ def evaluate_product(
     """
     
     # 4. Execute the agent
-    result = evaluator_agent(
-        prompt,
-        structured_output_model=EvaluationResult
+    parsed, used_provider = _run_on_chain(
+        SYSTEM_PROMPT_EVALUATOR, prompt, EvaluationResult
     )
-    
-    return result.structured_output
+    # Recorded so the caller can say which vendor answered.
+    setattr(parsed, "_provider", used_provider)
+    return parsed
 
 def extract_product_from_webpage(webpage_text: str) -> WebpageExtraction:
     """Read a product page and report its name and ingredient list.

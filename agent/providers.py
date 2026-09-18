@@ -33,18 +33,39 @@ def provider_name() -> str:
     return (os.environ.get("AAHAR_MODEL_PROVIDER") or DEFAULT_PROVIDER).strip().lower()
 
 
+def provider_chain() -> list[str]:
+    """The provider to try, then its fallbacks.
+
+    Bedrock can be held by account verification or throttled; Groq is a
+    different vendor entirely, so one covers the other. Set
+    AAHAR_MODEL_FALLBACK to change it, or to "" to disable chaining.
+    """
+    primary = provider_name()
+    override = os.environ.get("AAHAR_MODEL_FALLBACK")
+    if override is not None:
+        rest = [p.strip().lower() for p in override.split(",") if p.strip()]
+    elif primary == "bedrock":
+        rest = ["groq"]
+    else:
+        rest = []
+    return [primary] + [p for p in rest if p != primary]
+
+
 def model_id() -> str:
     return os.environ.get("AAHAR_BEDROCK_MODEL", "").strip()
 
 
-def build_model():
+def build_model(provider: str | None = None):
     """Return a Strands model for the configured provider.
 
     Raises ProviderUnavailable with an actionable message rather than letting a
     bare ImportError surface three layers up.
     """
-    provider = provider_name()
+    provider = (provider or provider_name()).strip().lower()
     configured_id = model_id()
+    # A model id set for one vendor is meaningless to another.
+    if provider != provider_name():
+        configured_id = ""
 
     if provider == "bedrock":
         from strands.models.bedrock import BedrockModel
@@ -126,10 +147,11 @@ def build_model():
 
 
 def is_configured() -> bool:
-    """True when the agent could run — used to skip it without raising."""
-    try:
-        build_model()
-        return True
-    except Exception as exc:
-        logger.info("Model provider not ready: %s", exc)
-        return False
+    """True when *any* provider in the chain could run."""
+    for candidate in provider_chain():
+        try:
+            build_model(candidate)
+            return True
+        except Exception as exc:
+            logger.info("Provider %s not ready: %s", candidate, exc)
+    return False

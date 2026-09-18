@@ -40,7 +40,13 @@ _lock = threading.Lock()
 
 
 def enabled() -> bool:
-    return os.environ.get("AAHAR_CACHE", "on").strip().lower() not in ("off", "0", "false")
+    """Off by default.
+
+    Caching hides which path actually answered, and a real run should exercise
+    the real provider chain. Turn it on (AAHAR_CACHE=on) for repeated testing,
+    where re-billing Textract and Bedrock for identical inputs buys nothing.
+    """
+    return os.environ.get("AAHAR_CACHE", "off").strip().lower() in ("on", "1", "true")
 
 
 def key_for(*parts: Any) -> str:

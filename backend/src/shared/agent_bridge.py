@@ -129,12 +129,15 @@ def _coerce(raw: Any, profiles: list[Profile]) -> EvaluationResult | None:
         logger.warning("Agent returned %d/%d evaluations", len(parsed), len(profiles))
         return None
 
+    # Say which vendor answered: with chaining on, "strands" alone hides the
+    # fact that Bedrock was down and Groq picked it up.
+    provider = getattr(raw, "_provider", None)
     return EvaluationResult(
         confidence=str(data.get("confidence", "MEDIUM")).upper(),  # type: ignore[arg-type]
         profile_evaluations=parsed,
         safe_alternatives_suggestion=data.get("safe_alternatives_suggestion"),
         data_quality_note=data.get("data_quality_note"),
-        reasoning="strands",
+        reasoning=f"strands:{provider}" if provider else "strands",
     )
 
 

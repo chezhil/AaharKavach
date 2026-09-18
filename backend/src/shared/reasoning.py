@@ -395,7 +395,7 @@ def evaluate(
                     ],
                     safe_alternatives_suggestion=payload.get("safe_alternatives_suggestion"),
                     data_quality_note=payload.get("data_quality_note"),
-                    reasoning="strands",
+                    reasoning=payload.get("reasoning", "strands"),
                 )
                 result.safe_alternatives = alternatives or []
                 return reconcile(result, profiles)
@@ -404,7 +404,6 @@ def evaluate(
             if result is not None:
                 stored = result.to_dict()
                 stored.pop("safe_alternatives", None)
-                stored.pop("reasoning", None)
                 cache.put("agent", cache_key, stored)
                 result.safe_alternatives = alternatives or []
                 return reconcile(result, profiles)
