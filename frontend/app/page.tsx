@@ -10,12 +10,9 @@ import { HistoryRow } from "@/components/history/HistoryRow";
 import { Button } from "@/components/ui/Button";
 import { api, ProductNotFoundError, runScan } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
-import { ALLERGEN_SYNONYMS } from "@/lib/mocks/knowledge";
 
-const SYNONYM_COUNT = Object.values(ALLERGEN_SYNONYMS).reduce(
-  (total, names) => total + names.length,
-  0,
-);
+
+const SYNONYM_COUNT = 199; // Updated from the actual python index
 
 function ScanHome() {
   const router = useRouter();
