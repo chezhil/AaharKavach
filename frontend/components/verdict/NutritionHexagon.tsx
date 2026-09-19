@@ -93,7 +93,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
             <polygon 
               key={level}
               points={points}
-              className="fill-transparent stroke-gray-200 dark:stroke-gray-800"
+              className="fill-transparent stroke-gray-300 dark:stroke-gray-600"
               strokeWidth="1.5"
             />
           );
@@ -107,7 +107,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               key={i}
               x1={center} y1={center}
               x2={p.x} y2={p.y}
-              className="stroke-gray-200 dark:stroke-gray-800"
+              className="stroke-gray-300 dark:stroke-gray-600"
               strokeWidth="1.5"
             />
           );
@@ -116,7 +116,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
         {/* Draw Data Polygon */}
         <polygon 
           points={polygonPoints}
-          className="fill-indigo-500/30 stroke-indigo-600 dark:fill-indigo-400/40 dark:stroke-indigo-400"
+          className="fill-indigo-500/15 stroke-indigo-600 dark:fill-indigo-400/20 dark:stroke-indigo-400"
           strokeWidth="2.5"
           strokeLinejoin="round"
         />
@@ -134,7 +134,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               <circle 
                 cx={d.point.x} 
                 cy={d.point.y} 
-                r="4.5" 
+                r="2.5" 
                 className={cn(
                   "transition-colors duration-300",
                   d.isOverLimit 
