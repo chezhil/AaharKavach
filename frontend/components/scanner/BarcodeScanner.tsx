@@ -11,16 +11,6 @@ type Status = "starting" | "scanning" | "denied" | "unsupported";
  * import time, so it is imported lazily inside the effect — that also keeps it
  * out of the bundle for everyone who never opens the scanner.
  */
-/** Tear a scanner down without letting its own errors escape. */
-function wipe(scanner: Html5Qrcode | null) {
-  if (!scanner) return;
-  try {
-    scanner.clear();
-  } catch {
-    // Already unmounted — nothing to clean up.
-  }
-}
-
 export function BarcodeScanner({
   onDetected,
 }: {
@@ -29,6 +19,7 @@ export function BarcodeScanner({
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
   const done = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +84,7 @@ export function BarcodeScanner({
         instance.current = created;
         if (!cancelled) setStatus("scanning");
       } catch {
-        wipe(scanner);
+        try { if (scanner) scanner.clear(); } catch {}
         if (!cancelled) setStatus("denied");
       }
     })();
@@ -102,15 +93,32 @@ export function BarcodeScanner({
       cancelled = true;
       const scanner = instance.current;
       instance.current = null;
-      if (!scanner) return;
+      
+      // Stop media tracks using the container ref so it works even if unmounted from document
+      const container = containerRef.current;
+      if (container) {
+        const videoEl = container.querySelector("video") as HTMLVideoElement | null;
+        if (videoEl && videoEl.srcObject) {
+          const stream = videoEl.srcObject as MediaStream;
+          stream.getTracks().forEach((track) => {
+            track.stop();
+            track.enabled = false;
+          });
+          videoEl.srcObject = null;
+        }
+      }
+
+      if (!scanner) {
+        return;
+      }
       // stop() rejects *and* can throw synchronously; both end in the same place.
       try {
         Promise.resolve(scanner.stop()).then(
-          () => wipe(scanner),
-          () => wipe(scanner),
+          () => { try { scanner.clear(); } catch {} },
+          () => { try { scanner.clear(); } catch {} },
         );
       } catch {
-        wipe(scanner);
+        try { scanner.clear(); } catch {}
       }
     };
   }, [onDetected]);
@@ -133,7 +141,7 @@ export function BarcodeScanner({
 
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-strong bg-black">
-      <div id="scanner-region" className="size-full" />
+      <div id="scanner-region" ref={containerRef} className="size-full" />
 
       {status === "starting" ? (
         <div className="absolute inset-0 grid place-items-center bg-bg/80 text-fg-subtle">
