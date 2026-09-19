@@ -51,7 +51,11 @@ def lambda_handler(event, context):
         body = event.get("body") or ""
         # API Gateway base64-encodes binary bodies.
         if event.get("isBase64Encoded"):
-            raw = base64.b64decode(body)
+            import binascii
+            try:
+                raw = base64.b64decode(body)
+            except binascii.Error:
+                return respond(400, {"error": "Malformed base64 body"})
         else:
             raw = body.encode("utf-8", "replace") if isinstance(body, str) else bytes(body)
 

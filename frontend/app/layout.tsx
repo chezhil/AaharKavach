@@ -35,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
@@ -42,11 +43,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const stored = localStorage.getItem('theme');
+                var stored = localStorage.getItem('theme');
                 if (stored === 'light') {
                   document.documentElement.classList.remove('dark');
-                } else {
+                } else if (stored === 'dark') {
                   document.documentElement.classList.add('dark');
+                } else {
+                  // No stored preference: respect system prefers-color-scheme
+                  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                  }
                 }
               } catch (_) {
                 document.documentElement.classList.add('dark');

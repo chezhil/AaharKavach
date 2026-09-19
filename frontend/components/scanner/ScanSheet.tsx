@@ -50,16 +50,38 @@ export function ScanSheet({
   
   const { batchMode, toggleBatchMode, items, addItem, removeItem, clearCart } = useCartStore();
   const router = useRouter();
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs so handleDetected can read current values without being recreated
+  const batchModeRef = useRef(batchMode);
+  batchModeRef.current = batchMode;
+  const addItemRef = useRef(addItem);
+  addItemRef.current = addItem;
+
+  // Allowed upload MIME types and max size (10 MB)
+  const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   const handleAuditBatch = () => {
     if (items.length === 0) return;
-    onClose();
+    // Use handleClose to ensure camera tracks are cleaned up before navigating
+    handleClose();
     router.push("/batch-result");
+  };
+
+  const _validateFile = (file: File): boolean => {
+    if (!ALLOWED_MIMES.includes(file.type)) return false;
+    if (file.size > MAX_FILE_SIZE) return false;
+    return true;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Client-side file validation: enforce MIME and size before base64 conversion
+    if (!_validateFile(file)) {
+      e.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -68,6 +90,7 @@ export function ScanSheet({
         onLabelPhoto(base64);
       }
     };
+    reader.onerror = () => { /* silently handle corrupt file reads */ };
     reader.readAsDataURL(file);
     e.target.value = "";
   };
@@ -76,6 +99,8 @@ export function ScanSheet({
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
+    // Client-side file validation: enforce MIME and size before base64 conversion
+    if (!_validateFile(file)) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -84,6 +109,7 @@ export function ScanSheet({
         onLabelPhoto(base64);
       }
     };
+    reader.onerror = () => { /* silently handle corrupt file reads */ };
     reader.readAsDataURL(file);
   };
 
@@ -113,20 +139,24 @@ export function ScanSheet({
     onClose();
   }, [onClose]);
 
-  // Stable identity: BarcodeScanner restarts the camera when this changes.
+  // Truly stable identity: reads batchMode and addItem from refs so the camera
+  // is never restarted when the user toggles batch mode.
   const handleDetected = useCallback(
     (barcode: string) => {
-      if (navigator.vibrate) navigator.vibrate(40);
+      // SSR-safe navigator check
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(40);
       
-      if (batchMode) {
-        addItem(barcode);
+      if (batchModeRef.current) {
+        addItemRef.current(barcode);
         setToastMessage(`Added ${barcode} to Cart`);
-        setTimeout(() => setToastMessage(null), 2000);
+        // Clear any previous toast timer to prevent overlapping state updates
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToastMessage(null), 2000);
       } else {
         onBarcode(barcode);
       }
     },
-    [onBarcode, batchMode, addItem],
+    [onBarcode],
   );
 
   const submitTyped = () => {

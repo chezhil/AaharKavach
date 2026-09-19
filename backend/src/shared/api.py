@@ -61,29 +61,38 @@ def _can_edit(caller: Caller, item: dict[str, Any]) -> bool:
     )
 
 
-# ------------------------------------------------------------- profiles
+def history_endpoint(caller: Caller) -> tuple[int, Any]:
+    if not caller.household:
+        raise ApiError(403, "Not allowed to read this household")
+    return 200, store.list_history(household_id=caller.household)
 
 
 def list_profiles(caller: Caller) -> tuple[int, Any]:
     if not check_permission(caller.user_id, caller.role, caller.household,
                             "ReadProfile", "any", caller.user_id, caller.household):
         raise ApiError(403, "Not allowed to read this household")
-    items = store.list_profile_items()
+    items = store.list_profile_items(household_id=caller.household)
     return 200, [
         store.profile_from_item(i, can_edit=_can_edit(caller, i)).to_dict() for i in items
     ]
 
 
 def _profile_from_draft(draft: dict[str, Any], profile_id: str) -> Profile:
-    restrictions = [
-        Restriction(
-            id=str(r.get("id") or f"r_{i}"),
-            label=str(r.get("label", "")).strip(),
-            severity=str(r.get("severity", "MODERATE")).upper(),  # type: ignore[arg-type]
+    raw_restrictions = draft.get("restrictions") or []
+    restrictions = []
+    for i, r in enumerate(raw_restrictions):
+        if not isinstance(r, dict):
+            continue
+        label = str(r.get("label") or "").strip()
+        if not label or label.lower() == "none":
+            continue
+        restrictions.append(
+            Restriction(
+                id=str(r.get("id") or f"r_{i}"),
+                label=label,
+                severity=str(r.get("severity", "MODERATE")).upper(),  # type: ignore[arg-type]
+            )
         )
-        for i, r in enumerate(draft.get("restrictions", []))
-        if str(r.get("label", "")).strip()
-    ]
     return Profile(
         id=profile_id,
         name=str(draft.get("name", "")).strip() or "Unnamed",
@@ -196,7 +205,8 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     from .urlfetch import UnsafeUrl, fetch_text
 
     url = str(body.get("url", "")).strip()
-    profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
+    profile_ids = body.get("profile_ids") or []
+    profiles = _resolve_profiles(caller, [str(p) for p in profile_ids])
 
     try:
         text = fetch_text(url)
@@ -221,17 +231,25 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             "Scan the barcode instead.",
         )
 
-    extraction = extract_webpage(text)
+    try:
+        extraction = extract_webpage(text)
+    except Exception as exc:
+        logger.warning("AI extraction failed: %s", exc)
+        raise ApiError(503, "The AI reader is currently unavailable. Please try again later.")
+
     if extraction is None:
         raise ApiError(
             422, "We couldn't find an ingredient list on that page — try the barcode instead"
         )
 
+    raw_ingredients = extraction.ingredients or []
+    ingredients = [ingredient_from_token(t) for t in raw_ingredients if t and str(t).strip()]
+
     product = Product(
         barcode=url,
         name=extraction.product_name or "Product from page",
         brand=extraction.brand or None,
-        ingredients=[ingredient_from_token(t) for t in extraction.ingredients if t.strip()],
+        ingredients=ingredients,
         # Read off a webpage, not a verified record: never present as HIGH.
         data_confidence="LOW",
         source="URL",
@@ -282,7 +300,12 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
         logger.warning("OCR failed: %s", exc)
         raise ApiError(422, "We couldn't read that photo. Try again with more light.")
 
-    parsed = parse_label(ocr.text)
+    try:
+        parsed = parse_label(ocr.text)
+    except Exception as exc:
+        logger.warning("Parse label failed: %s", exc)
+        raise ApiError(422, "We couldn't parse the ingredients from that photo. Try a clearer image.")
+
     if not parsed.found_ingredients:
         raise ApiError(
             422,
@@ -372,14 +395,14 @@ def _product_from_payload(raw: dict[str, Any]) -> Product:
         name=str(raw.get("name", "Unknown product")),
         brand=raw.get("brand"),
         image_url=raw.get("image_url"),
-        categories=list(raw.get("categories", [])),
+        categories=list(raw.get("categories") or []),
         ingredients=[
             Ingredient(
                 name=str(i.get("name", "")),
                 e_number=i.get("e_number"),
                 explainer=i.get("explainer"),
             )
-            for i in raw.get("ingredients", [])
+            for i in (raw.get("ingredients") or [])
             if isinstance(i, dict) and i.get("name")
         ],
         data_confidence=str(raw.get("data_confidence", "LOW")).upper(),  # type: ignore[arg-type]
@@ -396,7 +419,7 @@ def _resolve_profiles(caller: Caller, profile_ids: list[str]) -> list[Profile]:
 
 
 def evaluate_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    profile_ids = [str(p) for p in body.get("profile_ids", [])]
+    profile_ids = [str(p) for p in (body.get("profile_ids") or [])]
     profiles = _resolve_profiles(caller, profile_ids)
 
     if body.get("product"):
@@ -424,13 +447,13 @@ def _score(evaluation: EvaluationResult) -> int:
     total = 0
     for e in evaluation.profile_evaluations:
         total += 100 if e.verdict == "UNSAFE" else 10 if e.verdict == "CAUTION" else 0
-        for f in e.flagged_ingredients:
-            total += {"SEVERE": 5, "MODERATE": 3, "MILD": 1}[f.profile_severity]
+        for f in (e.flagged_ingredients or []):
+            total += {"SEVERE": 5, "MODERATE": 3, "MILD": 1}.get(f.profile_severity, 3)
     return total
 
 
 def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
+    profiles = _resolve_profiles(caller, [str(p) for p in (body.get("profile_ids") or [])])
 
     def build(barcode: str | None, product_dict: dict[str, Any] | None) -> ScanResult:
         if product_dict:
@@ -515,9 +538,10 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
     return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}
 
 
-def audit_batch_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
+def audit_batch_endpoint(caller: Caller, body: dict[str, Any] | None) -> tuple[int, Any]:
     from .reasoning import evaluate
     
+    body = body or {}
     barcodes = body.get("barcodes", [])
     if not isinstance(barcodes, list) or not barcodes:
         raise ApiError(400, "barcodes list is required and must not be empty")
@@ -530,7 +554,7 @@ def audit_batch_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any
             raise ApiError(400, "household_id is required either in body or headers")
             
     # Resolve all profiles in this household
-    household_profiles = store.load_profiles()
+    household_profiles = store.load_profiles(household_id=household_id)
     if not household_profiles:
         raise ApiError(404, f"No profiles found for household {household_id}")
 
@@ -560,7 +584,7 @@ def audit_batch_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any
                         {
                             "ingredient": flag.ingredient,
                             "reason": flag.matched_allergen
-                        } for flag in eval_res.flagged_ingredients
+                        } for flag in (eval_res.flagged_ingredients or [])
                     ]
                 }
                 if eval_res.verdict == "UNSAFE":
@@ -587,13 +611,16 @@ def audit_batch_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any
                 "status": "KNOWN"
             })
         except ApiError as e:
-            if e.status == 404:
-                items.append({
-                    "barcode": str(barcode),
-                    "status": "UNKNOWN"
-                })
-            else:
-                raise
+            items.append({
+                "barcode": str(barcode),
+                "status": "UNKNOWN" if e.status == 404 else "UNAVAILABLE"
+            })
+        except Exception as e:
+            logger.error(f"Unexpected error processing barcode {barcode}: {e}")
+            items.append({
+                "barcode": str(barcode),
+                "status": "ERROR"
+            })
 
     return 200, {
         "summary": summary,

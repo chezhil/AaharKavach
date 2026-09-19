@@ -216,7 +216,7 @@ class Handler(BaseHTTPRequestHandler):
             return api.compare_endpoint(caller, self._json_body())
 
         if method == "GET" and path == "/api/history":
-            return api.history_endpoint()
+            return api.history_endpoint(caller)
 
         if method == "GET" and path == "/api/explain":
             token = (query.get("ingredient") or [""])[0]

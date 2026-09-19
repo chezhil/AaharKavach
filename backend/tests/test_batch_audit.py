@@ -3,7 +3,7 @@ from src.shared.api import audit_batch_endpoint, ApiError, Caller
 from src.shared import store
 
 # Dummy caller with a household ID
-mock_caller = Caller(headers={"x-aahar-household": "hh_test_runner"})
+mock_caller = Caller(headers={"x-aahar-household": store.HOUSEHOLD_ID})
 
 
 def test_batch_audit_empty_barcodes():

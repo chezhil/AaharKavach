@@ -60,8 +60,8 @@ export function HouseholdSafetyMatrix({ items, profiles }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {items.map((item) => (
-              <React.Fragment key={item.barcode}>
+            {items.map((item, idx) => (
+              <React.Fragment key={`${item.barcode}-${idx}`}>
                 <tr 
                   className={cn(
                     "transition-colors hover:bg-surface-hover cursor-pointer",

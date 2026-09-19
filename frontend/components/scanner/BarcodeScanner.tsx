@@ -28,6 +28,13 @@ export function BarcodeScanner({
   const streamRef = useRef<MediaStream | null>(null);
   const lastScannedMap = useRef<Record<string, number>>({});
 
+  // Stable refs so the decode callback always reads current values without
+  // being in the useEffect dep array (which would needlessly restart the camera).
+  const batchModeRef = useRef(batchMode);
+  batchModeRef.current = batchMode;
+  const onDetectedRef = useRef(onDetected);
+  onDetectedRef.current = onDetected;
+
   const killAllTracks = () => {
     // 1. Kill from streamRef
     if (streamRef.current) {
@@ -136,16 +143,18 @@ export function BarcodeScanner({
             { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
             (decoded) => {
               if (done.current || isCapturingRef.current) return;
-              if (batchMode) {
+              // Read from refs — not closure — to get current values without
+              // restarting the camera on batchMode toggle.
+              if (batchModeRef.current) {
                 const now = Date.now();
                 const lastScanned = lastScannedMap.current[decoded] || 0;
                 // 2.5-second cooldown per unique barcode
                 if (now - lastScanned < 2500) return;
                 lastScannedMap.current[decoded] = now;
-                onDetected(decoded);
+                onDetectedRef.current(decoded);
               } else {
                 done.current = true;
-                onDetected(decoded);
+                onDetectedRef.current(decoded);
               }
             },
             () => {
@@ -163,6 +172,14 @@ export function BarcodeScanner({
           await begin(cameras[0].id);
         }
 
+        // Guard: if unmount happened while begin() was in flight, stop the
+        // scanner now instead of orphaning it.
+        if (cancelled) {
+          try { await created.stop(); } catch {}
+          try { created.clear(); } catch {}
+          return;
+        }
+
         // Tracked only once it is genuinely running: stop() throws on a
         // scanner that never started, so the cleanup path must never see one.
         instance.current = created;
@@ -177,7 +194,10 @@ export function BarcodeScanner({
         }
       } catch {
         try {
-          if (scanner) scanner.clear();
+          if (scanner) {
+            try { scanner.stop(); } catch {}
+            scanner.clear();
+          }
         } catch {}
         if (!cancelled) setStatus("denied");
       }
@@ -235,7 +255,8 @@ export function BarcodeScanner({
         } catch {}
       }
     };
-  }, [onDetected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -249,10 +270,10 @@ export function BarcodeScanner({
     isCapturingRef.current = true;
     const canvas = document.createElement("canvas");
 
-    // Downscale to max 1600px width/height to avoid massive payloads
+    // Downscale to max 1200px width/height to keep base64 payload manageable
     let width = video.videoWidth;
     let height = video.videoHeight;
-    const MAX_DIM = 1600;
+    const MAX_DIM = 1200;
     if (width > MAX_DIM || height > MAX_DIM) {
       if (width > height) {
         height = Math.floor((height * MAX_DIM) / width);
@@ -268,11 +289,17 @@ export function BarcodeScanner({
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const base64Image = canvas.toDataURL("image/jpeg", 0.85);
-      // Clean up canvas
+      const base64Image = canvas.toDataURL("image/jpeg", 0.75);
+      // Release canvas bitmap memory
       canvas.width = 0;
       canvas.height = 0;
       onCaptureLabel(base64Image);
+    } else {
+      // GPU context exhausted — release canvas bitmap and allow retry
+      canvas.width = 0;
+      canvas.height = 0;
+      setIsCapturing(false);
+      isCapturingRef.current = false;
     }
   };
 

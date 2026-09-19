@@ -24,22 +24,27 @@ export default function BatchResultPage() {
       return;
     }
 
+    let cancelled = false;
+
     const runAudit = async () => {
       try {
         const barcodes = items.map(i => i.barcode);
         const householdId = "hh_1";
         
         const res = await api.auditBatch(barcodes, householdId);
-        setData(res);
+        // Guard: do not update state if component unmounted during fetch
+        if (!cancelled) setData(res);
       } catch (err: any) {
-        setError(err.message || "Failed to run batch audit");
+        if (!cancelled) setError(err.message || "Failed to run batch audit");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     runAudit();
-  }, [items, profiles, router]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (

@@ -45,20 +45,23 @@
   --sky-soft: #e0f2fe;
   --sky-line: #0284c7;
 
-  --safe: #ecfdf5;
+  --safe: #059669;
   --safe-fg: #022c22;
   --safe-soft: #d1fae5;
   --safe-line: #34d399;
+  --safe-border: #6ee7b7;
 
-  --caution: #fffbeb;
+  --caution: #d97706;
   --caution-fg: #451a03;
   --caution-soft: #fef3c7;
   --caution-line: #fbbf24;
+  --caution-border: #fcd34d;
 
-  --unsafe: #fff1f2;
+  --unsafe: #e11d48;
   --unsafe-fg: #4c0519;
   --unsafe-soft: #ffe4e6;
   --unsafe-line: #fb7185;
+  --unsafe-border: #fda4af;
 
   --accent-violet: #8b5cf6;
   --accent-amber: #f59e0b;
@@ -96,16 +99,19 @@
   --safe-fg: #04190d;
   --safe-soft: rgba(16, 185, 129, 0.1);
   --safe-line: rgba(16, 185, 129, 0.3);
+  --safe-border: rgba(16, 185, 129, 0.3);
 
   --caution: #f59e0b;
   --caution-fg: #1a1203;
   --caution-soft: rgba(245, 158, 11, 0.1);
   --caution-line: rgba(245, 158, 11, 0.3);
+  --caution-border: rgba(245, 158, 11, 0.3);
 
   --unsafe: #f43f5e;
   --unsafe-fg: #fff1f2;
   --unsafe-soft: rgba(244, 63, 94, 0.1);
   --unsafe-line: rgba(244, 63, 94, 0.3);
+  --unsafe-border: rgba(244, 63, 94, 0.3);
 
   --accent-violet: #c4a5ff;
   --accent-amber: #ffc22e;
@@ -119,6 +125,7 @@
   --color-bg-elevated: var(--bg-elevated);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
   --color-border-subtle: var(--border);
   --color-border-strong: var(--border-strong);
 
@@ -141,16 +148,19 @@
   --color-safe-fg: var(--safe-fg);
   --color-safe-soft: var(--safe-soft);
   --color-safe-line: var(--safe-line);
+  --color-safe-border: var(--safe-border);
 
   --color-caution: var(--caution);
   --color-caution-fg: var(--caution-fg);
   --color-caution-soft: var(--caution-soft);
   --color-caution-line: var(--caution-line);
+  --color-caution-border: var(--caution-border);
 
   --color-unsafe: var(--unsafe);
   --color-unsafe-fg: var(--unsafe-fg);
   --color-unsafe-soft: var(--unsafe-soft);
   --color-unsafe-line: var(--unsafe-line);
+  --color-unsafe-border: var(--unsafe-border);
 
   --color-accent-violet: var(--accent-violet);
   --color-accent-amber: var(--accent-amber);

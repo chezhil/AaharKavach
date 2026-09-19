@@ -61,14 +61,16 @@ def _read_local() -> dict[str, Any]:
         _write_local(data)
         return data
     try:
-        return json.loads(LOCAL_DB.read_text())
+        return json.loads(LOCAL_DB.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return _blank()
 
 
 def _write_local(data: dict[str, Any]) -> None:
     LOCAL_DB.parent.mkdir(parents=True, exist_ok=True)
-    LOCAL_DB.write_text(json.dumps(data, indent=2, default=str))
+    tmp = LOCAL_DB.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+    os.replace(tmp, LOCAL_DB)
 
 
 def _floats_to_decimal(value: Any) -> Any:
@@ -108,51 +110,54 @@ def _explanations_table():
 # -------------------------------------------------------------- profiles
 
 
-def list_profile_items() -> list[dict[str, Any]]:
+def list_profile_items(household_id: str | None = None) -> list[dict[str, Any]]:
+    hid = household_id or HOUSEHOLD_ID
     if _use_dynamo():
         from boto3.dynamodb.conditions import Key
 
         profiles_table, _ = _tables()
         resp = profiles_table.query(
-            KeyConditionExpression=Key("householdId").eq(HOUSEHOLD_ID)
+            KeyConditionExpression=Key("householdId").eq(hid)
         )
         return list(resp.get("Items", []))
     with _lock:
-        return list(_read_local()["profiles"])
+        return [p for p in _read_local()["profiles"] if p.get("householdId") == hid]
 
 
-def get_profile_item(profile_id: str) -> dict[str, Any] | None:
-    return next((p for p in list_profile_items() if str(p.get("profileId")) == profile_id), None)
+def get_profile_item(profile_id: str, household_id: str | None = None) -> dict[str, Any] | None:
+    return next((p for p in list_profile_items(household_id=household_id) if str(p.get("profileId")) == profile_id), None)
 
 
-def put_profile(profile: Profile, owner: str = "user_123") -> Profile:
-    item = item_from_profile(profile, HOUSEHOLD_ID, owner)
+def put_profile(profile: Profile, owner: str = "user_123", household_id: str | None = None) -> Profile:
+    hid = household_id or HOUSEHOLD_ID
+    item = item_from_profile(profile, hid, owner)
     if _use_dynamo():
         profiles_table, _ = _tables()
         profiles_table.put_item(Item=_floats_to_decimal(item))
         return profile
     with _lock:
         data = _read_local()
-        data["profiles"] = [p for p in data["profiles"] if p.get("profileId") != profile.id]
+        data["profiles"] = [p for p in data["profiles"] if not (p.get("profileId") == profile.id and p.get("householdId") == hid)]
         data["profiles"].append(item)
         _write_local(data)
     return profile
 
 
-def delete_profile(profile_id: str) -> None:
+def delete_profile(profile_id: str, household_id: str | None = None) -> None:
+    hid = household_id or HOUSEHOLD_ID
     if _use_dynamo():
         profiles_table, _ = _tables()
-        profiles_table.delete_item(Key={"householdId": HOUSEHOLD_ID, "profileId": profile_id})
+        profiles_table.delete_item(Key={"householdId": hid, "profileId": profile_id})
         return
     with _lock:
         data = _read_local()
-        data["profiles"] = [p for p in data["profiles"] if p.get("profileId") != profile_id]
+        data["profiles"] = [p for p in data["profiles"] if not (p.get("profileId") == profile_id and p.get("householdId") == hid)]
         _write_local(data)
 
 
-def load_profiles(profile_ids: list[str] | None = None, *, can_edit_for=None) -> list[Profile]:
+def load_profiles(profile_ids: list[str] | None = None, *, can_edit_for=None, household_id: str | None = None) -> list[Profile]:
     """Canonical profiles, optionally filtered to a selection."""
-    items = list_profile_items()
+    items = list_profile_items(household_id=household_id)
     if profile_ids:
         wanted = set(profile_ids)
         items = [i for i in items if str(i.get("profileId")) in wanted]
@@ -166,9 +171,10 @@ def load_profiles(profile_ids: list[str] | None = None, *, can_edit_for=None) ->
 # --------------------------------------------------------------- history
 
 
-def record_scan(scan: ScanResult) -> None:
+def record_scan(scan: ScanResult, household_id: str | None = None) -> None:
+    hid = household_id or HOUSEHOLD_ID
     item = {
-        "householdId": HOUSEHOLD_ID,
+        "householdId": hid,
         "scanId": scan.id,
         "timestamp": scan.scanned_at,
         "barcode": scan.product.barcode,
@@ -181,26 +187,27 @@ def record_scan(scan: ScanResult) -> None:
     with _lock:
         data = _read_local()
         # One row per product — a re-scan replaces the older answer.
-        data["history"] = [h for h in data["history"] if h.get("barcode") != scan.product.barcode]
+        data["history"] = [h for h in data["history"] if not (h.get("barcode") == scan.product.barcode and h.get("householdId") == hid)]
         data["history"].insert(0, item)
-        data["history"] = data["history"][:50]
+        data["history"] = [h for h in data["history"] if h.get("householdId") != hid] + [h for h in data["history"] if h.get("householdId") == hid][:50]
         _write_local(data)
 
 
-def list_history(limit: int = 50) -> list[dict[str, Any]]:
+def list_history(limit: int = 50, household_id: str | None = None) -> list[dict[str, Any]]:
+    hid = household_id or HOUSEHOLD_ID
     if _use_dynamo():
         from boto3.dynamodb.conditions import Key
 
         _, history_table = _tables()
         resp = history_table.query(
-            KeyConditionExpression=Key("householdId").eq(HOUSEHOLD_ID),
+            KeyConditionExpression=Key("householdId").eq(hid),
             ScanIndexForward=False,
             Limit=limit,
         )
         rows = list(resp.get("Items", []))
     else:
         with _lock:
-            rows = list(_read_local()["history"])[:limit]
+            rows = [r for r in _read_local()["history"] if r.get("householdId") == hid][:limit]
     rows.sort(key=lambda r: str(r.get("timestamp", "")), reverse=True)
     return [r["scan"] for r in rows if "scan" in r]
 
