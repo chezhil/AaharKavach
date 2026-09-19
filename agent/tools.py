@@ -10,8 +10,6 @@ from __future__ import annotations
 from typing import Any
 
 from data.search.fuzzy_match import match_ingredient
-from data.mappings.cross_reactivity import CROSS_REACTIVITY_TABLE
-
 
 
 def lookup_ingredient_details(ingredient_name: str) -> dict[str, Any]:
@@ -30,17 +28,3 @@ def lookup_ingredient_details(ingredient_name: str) -> dict[str, Any]:
         "matches": [m.to_dict() for m in matches],
         "description": next((m.explanation for m in matches if m.explanation), ""),
     }
-
-
-def check_cross_reactivity(allergen_name: str) -> list[str]:
-    """Ingredients that can trigger a reaction through cross-reactivity."""
-    needle = allergen_name.lower().strip()
-    return sorted(
-        {
-            str(row["trigger"])
-            for row in CROSS_REACTIVITY_TABLE
-            if needle in str(row.get("primary_allergy", "")).lower()
-        }
-    )
-
-

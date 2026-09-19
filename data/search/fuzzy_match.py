@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
 from ..mappings.allergen_synonyms import ALLERGENS, HARD_NEGATIVES, resolve_synonym
-from ..mappings.e_numbers import ALIAS_INDEX, lookup_additive, E_NUMBERS
+from ..mappings.e_numbers import lookup_additive
 from ..mappings.cross_reactivity import CROSS_REACTIVITY_TABLE
-from ..mappings.descriptions import DESCRIPTION_ALIAS_INDEX, lookup_description
+from ..mappings.descriptions import lookup_description
 
 # Raised from 0.82: "calcium carbonate" vs "calcium caseinate" scores 0.824,
 # which flagged chalk as milk and made an oat drink UNSAFE for a dairy

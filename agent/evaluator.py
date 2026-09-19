@@ -11,7 +11,7 @@ from .prompts import (
     SYSTEM_PROMPT_EXTRACT,
     SYSTEM_PROMPT_SWAP_IT,
 )
-from .tools import lookup_ingredient_details, check_cross_reactivity
+from .tools import lookup_ingredient_details
 
 from .providers import build_model, provider_chain
 
@@ -27,13 +27,6 @@ def tool_lookup_ingredient_details(ingredient_name: str) -> str:
     Look up an ingredient in the OpenSearch Knowledge Base to retrieve synonyms, E-number mappings, and base allergens.
     """
     return json.dumps(lookup_ingredient_details(ingredient_name))
-
-@tool
-def tool_check_cross_reactivity(allergen_name: str) -> str:
-    """
-    Check for known cross-reactivities for a given allergen.
-    """
-    return json.dumps(check_cross_reactivity(allergen_name))
 
 def _run_on_chain(system_prompt: str, prompt: str, schema, tools=None):
     """Run a prompt on the first provider in the chain that answers.

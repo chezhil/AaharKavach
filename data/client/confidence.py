@@ -138,37 +138,3 @@ def data_quality_note(result: ConfidenceResult) -> str:
                 "physical label before relying on this scan.")
     return ("Low confidence: product data is incomplete or unverified. This recommendation "
             "is a strong candidate for manual verification against the package label.")
-
-
-# Convenience scoring path from a raw OFF payload without pulling in
-# the full client (handy for tests and ML pipelines).
-def score_raw_product(product: dict[str, Any]) -> ConfidenceResult:
-    """Score a raw OFF `product` dict directly."""
-    from ..client.openfoodfacts import ProductRecord  # local import to avoid cycle
-
-    def _extract_list(key: str) -> list[str]:
-        val = product.get(key) or []
-        out = []
-        for item in val if isinstance(val, list) else [val]:
-            if isinstance(item, dict):
-                item = item.get("id") or item.get("text") or item.get("name")
-            if item:
-                out.append(str(item))
-        return out
-
-    ingredients, _raw = [], None
-    parsed = [i.get("text") for i in (product.get("ingredients") or [])]
-    ingredients = [p for p in parsed if p]
-
-    rec = ProductRecord(
-        barcode=str(product.get("code") or ""),
-        product_name=product.get("product_name"),
-        brands=", ".join(_extract_list("brands_tags") or _extract_list("brands")),
-        ingredients=ingredients,
-        ingredients_raw=product.get("ingredients_text"),
-        allergens=_extract_list("allergens_tags"),
-        image_url=product.get("image_front_url") or product.get("image_url"),
-        off_status_verbose=product.get("status_verbose"),
-        is_found=True,
-    )
-    return score_record(rec)

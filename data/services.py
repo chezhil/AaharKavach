@@ -16,7 +16,7 @@ from typing import Any
 
 from .client.openfoodfacts import OpenFoodFactsClient, ProductRecord, OffApiError, OffProductNotFound
 from .client.confidence import score_record, data_quality_note, ConfidenceResult
-from .search.fuzzy_match import Match, match_ingredient, match_ingredients
+from .search.fuzzy_match import Match, match_ingredients
 from .search.queries import enrich_ingredient
 from .alternative.suggestions import Suggestion, suggest_alternatives
 

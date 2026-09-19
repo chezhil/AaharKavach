@@ -58,21 +58,6 @@ logger = logging.getLogger("aahar")
 
 PORT = int(os.environ.get("PORT", "3001"))
 
-ROUTES = [
-    ("GET", re.compile(r"^/api/profiles$")),
-    ("POST", re.compile(r"^/api/profiles$")),
-    ("PUT", re.compile(r"^/api/profiles/(?P<id>[^/]+)$")),
-    ("DELETE", re.compile(r"^/api/profiles/(?P<id>[^/]+)$")),
-    ("GET", re.compile(r"^/api/scan/barcode$")),
-    ("POST", re.compile(r"^/api/scan/label$")),
-    ("POST", re.compile(r"^/api/scan/url$")),
-    ("POST", re.compile(r"^/api/evaluate$")),
-    ("POST", re.compile(r"^/api/compare$")),
-    ("GET", re.compile(r"^/api/history$")),
-    ("GET", re.compile(r"^/api/explain$")),
-    ("GET", re.compile(r"^/api/health$")),
-]
-
 
 def _parse_multipart(raw: bytes) -> tuple[str, bytes]:
     """Pull the filename and file content out of a multipart body.

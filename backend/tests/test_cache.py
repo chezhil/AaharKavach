@@ -1,7 +1,5 @@
 """The cache exists to keep billed calls and rate limits off the demo path."""
 
-import os
-
 import pytest
 
 from shared import cache

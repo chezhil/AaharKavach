@@ -8,7 +8,7 @@ the response is marked so the UI can say where the data came from.
 
 from __future__ import annotations
 
-from .contracts import Ingredient, Product
+from .contracts import Product
 
 _RAW: list[dict] = [
     {
@@ -108,8 +108,3 @@ def lookup(barcode: str) -> Product | None:
 
 def all_products() -> list[Product]:
     return [_to_product(row) for row in _RAW]
-
-
-def ingredient_tokens(barcode: str) -> list[str]:
-    row = CATALOGUE.get(str(barcode).strip())
-    return list(row["ingredients"]) if row else []

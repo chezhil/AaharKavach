@@ -389,9 +389,3 @@ def lookup_cross_reactivity(ingredient: str, primary_allergy: str) -> list[dict]
     i = ingredient.lower().strip()
     a = primary_allergy.lower().strip()
     return [r for r in CROSS_REACTIVITY_TABLE if r["trigger"] == i and r["primary_allergy"] == a]
-
-
-def all_cross_reactors_for(primary_allergy: str) -> list[dict]:
-    """All triggers relevant for a profile allergy — for proactive suggestions."""
-    a = primary_allergy.lower().strip()
-    return [r for r in CROSS_REACTIVITY_TABLE if r["primary_allergy"] == a]

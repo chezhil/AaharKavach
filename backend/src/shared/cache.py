@@ -105,11 +105,3 @@ def memoise(
     return value
 
 
-def stats() -> dict[str, int]:
-    if not CACHE_DIR.is_dir():
-        return {}
-    return {
-        d.name: len(list(d.glob("*.json")))
-        for d in sorted(CACHE_DIR.iterdir())
-        if d.is_dir()
-    }

@@ -179,11 +179,3 @@ class ScanResult:
             "evaluation": self.evaluation.to_dict(),
             "profile_ids": self.profile_ids,
         }
-
-
-def worst_verdict(evals: list[ProfileEvaluation]) -> Verdict:
-    if any(e.verdict == "UNSAFE" for e in evals):
-        return "UNSAFE"
-    if any(e.verdict == "CAUTION" for e in evals):
-        return "CAUTION"
-    return "SAFE"

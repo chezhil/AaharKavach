@@ -44,7 +44,6 @@ def _find_policy_file() -> Path:
 
 
 POLICY_FILE = _find_policy_file()
-POLICY_DIR = POLICY_FILE.parent
 
 try:  # pragma: no cover - depends on the environment
     import cedarpy

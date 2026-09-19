@@ -24,7 +24,6 @@ weight" when a user still has the generic "additive warning" default.
 RISK_LOW = "LOW_RISK"
 RISK_MODERATE = "MODERATE_RISK"
 RISK_HIGH = "HIGH_RISK"
-RISK_UNKNOWN = "UNKNOWN_RISK"
 
 
 E_NUMBERS = [
