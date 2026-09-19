@@ -15,7 +15,14 @@ from ..mappings.descriptions import DESCRIPTIONS
 # Each function returns a list of dicts ready to bulk-index.
 
 def additive_documents() -> list[dict]:
-    return list(E_NUMBERS)
+    docs = []
+    for row in E_NUMBERS:
+        # Copy before adding _doc_id: E_NUMBERS is the in-process knowledge
+        # base every local lookup reads, and must not grow a seed-only key.
+        entry = dict(row)
+        entry["_doc_id"] = row["additive_id"]
+        docs.append(entry)
+    return docs
 
 
 def allergen_documents() -> list[dict]:

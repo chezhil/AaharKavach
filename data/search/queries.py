@@ -138,9 +138,34 @@ def enrich_ingredient(ingredient: str) -> dict:
 
     This is the utility Role 1 / the backend calls per ingredient token to get
     all fetchable context in a single call (single round-trip per token).
+
+    The local ontology answers FIRST and its answer is authoritative. It carries
+    the hard-negatives and the 0.88 fuzzy floor, and those exist for a reason:
+    at 0.82 "calcium carbonate" scored 0.824 against "calcium caseinate", which
+    flagged chalk as milk and marked an oat drink UNSAFE for a dairy allergy.
+    An OpenSearch `fuzziness: AUTO` query is exactly the looser matching that
+    produced that bug, so it is never allowed to overrule a local hit.
+
+    OpenSearch is consulted only when local resolution finds NOTHING — a typo,
+    a trade name, a spelling nobody curated. That is the case its fuzziness is
+    genuinely good at, and the one case where a loose hit cannot override a
+    precise one because there is no precise one. Returns `source` so the caller
+    can say which backend answered rather than guessing.
     """
     matches = match_ingredient(ingredient)  # local KB resolution
+    source = "local"
+
+    if not matches:
+        # _run_query falls back to match_ingredient() when no cluster answers,
+        # so keep only hits that genuinely came back from OpenSearch — that way
+        # `source` never claims a cluster that was not actually reached.
+        rescued = [m for m in search_descriptions(ingredient)
+                   if m.source_note.startswith("opensearch:")]
+        if rescued:
+            matches, source = rescued, "opensearch"
+
     return {
         "ingredient": ingredient,
         "matches": [m.to_dict() for m in matches],
+        "source": source,
     }

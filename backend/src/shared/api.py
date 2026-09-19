@@ -25,9 +25,8 @@ from .contracts import (
     Profile,
     Restriction,
     ScanResult,
-    worst_verdict,
 )
-from .reasoning import allergen_ids_for, evaluate
+from .reasoning import evaluate
 
 logger = logging.getLogger(__name__)
 
@@ -477,11 +476,17 @@ def history_endpoint() -> tuple[int, Any]:
 
 def explain_endpoint(token: str) -> tuple[int, Any]:
     ingredient = ingredient_from_token(token)
+    resolved_via = "catalogue"
     if not ingredient.explainer:
         from data.services import resolve_ingredient
 
-        matches = resolve_ingredient(token).get("matches", [])
+        enriched = resolve_ingredient(token)
+        matches = enriched.get("matches", [])
         ingredient.explainer = next(
             (m.get("explanation") for m in matches if m.get("explanation")), None
         )
-    return 200, ingredient.to_dict()
+        if ingredient.explainer:
+            resolved_via = enriched.get("source", "local")
+    # Extra top-level key rather than a new Ingredient field: the TS contract in
+    # frontend/lib/types.ts is frozen, and an unknown key is ignored there.
+    return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}

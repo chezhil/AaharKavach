@@ -211,3 +211,50 @@ class TestServicesFacade:
         ctx = scan_barcode("0000000000000", client=NotFoundClient())
         assert ctx.product.is_found is False
         assert ctx.confidence.level == LOW
+
+# --------------------------------------------------------------------------- #
+# OpenSearch enrichment — local stays authoritative, the cluster only rescues  #
+# --------------------------------------------------------------------------- #
+class TestOpenSearchEnrichment:
+    """These must pass with OR without a cluster running.
+
+    The suite is the only thing standing between "OpenSearch answers the misses"
+    and "OpenSearch quietly started answering the hits too" — which is how the
+    0.88 fuzzy floor would get bypassed and chalk would read as milk again.
+    """
+
+    def test_source_is_reported(self):
+        from data.services import resolve_ingredient
+
+        assert resolve_ingredient("sodium caseinate")["source"] in ("local", "opensearch")
+
+    def test_local_hit_is_never_overruled_by_the_cluster(self):
+        from data.services import resolve_ingredient
+
+        result = resolve_ingredient("sodium caseinate")
+        assert result["source"] == "local"
+        assert result["matches"][0]["matched_allergen"] == "Milk / Dairy"
+
+    def test_hard_negative_survives_the_opensearch_path(self):
+        """Cocoa butter is not dairy, and a fuzzy cluster hit must not make it so."""
+        from data.services import resolve_ingredient
+
+        result = resolve_ingredient("refined cocoa butter")
+        assert not any(m["matched_allergen"] == "Milk / Dairy" for m in result["matches"])
+
+    def test_unreachable_cluster_degrades_to_local(self, monkeypatch):
+        from data.search import queries
+
+        monkeypatch.setattr(queries, "_client", None)
+        monkeypatch.setattr(queries, "get_client", lambda: None)
+
+        result = queries.enrich_ingredient("sodium caseinate")
+        assert result["source"] == "local"
+        assert result["matches"], "local resolution must still answer with no cluster"
+
+    def test_unknown_token_resolves_to_nothing_either_way(self):
+        from data.services import resolve_ingredient
+
+        result = resolve_ingredient("zzzznotanactualingredient")
+        assert result["matches"] == []
+        assert result["source"] == "local"
