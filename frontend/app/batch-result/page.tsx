@@ -9,13 +9,14 @@ import { useApp } from "@/lib/store/app-store";
 import { Button } from "@/components/ui/Button";
 import { HouseholdSafetyMatrix } from "@/components/result/HouseholdSafetyMatrix";
 import { cn } from "@/lib/utils";
+import type { BatchAuditResult } from "@/lib/types";
 
 export default function BatchResultPage() {
   const router = useRouter();
   const { items, clearCart } = useCartStore();
   const { profiles } = useApp(); // We need profiles to render the matrix columns
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<BatchAuditResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,8 +35,10 @@ export default function BatchResultPage() {
         const res = await api.auditBatch(barcodes, householdId);
         // Guard: do not update state if component unmounted during fetch
         if (!cancelled) setData(res);
-      } catch (err: any) {
-        if (!cancelled) setError(err.message || "Failed to run batch audit");
+      } catch (err) {
+        const message =
+          err instanceof Error && err.message ? err.message : "Failed to run batch audit";
+        if (!cancelled) setError(message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -66,7 +69,11 @@ export default function BatchResultPage() {
   }
 
   const { summary, items: matrixItems } = data;
-  const isSafe = summary.household_verdict === "SAFE";
+  // The API reports per-verdict counts, not a rolled-up verdict — derive it.
+  const householdVerdict =
+    summary.unsafe_count > 0 ? "UNSAFE" : summary.caution_count > 0 ? "CAUTION" : "SAFE";
+  const isSafe = householdVerdict === "SAFE";
+  const flaggedItems = summary.unsafe_count + summary.caution_count;
 
   return (
     <div className="space-y-6 pb-20">
@@ -92,7 +99,7 @@ export default function BatchResultPage() {
             {isSafe ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
           </div>
           <p className="text-3xl font-black mt-2 tracking-tight">
-            {isSafe ? "SAFE" : summary.household_verdict}
+            {householdVerdict}
           </p>
         </div>
         
@@ -101,15 +108,15 @@ export default function BatchResultPage() {
             <h2 className="text-sm font-semibold text-fg-subtle">Total Scanned</h2>
             <Package size={20} className="text-fg-subtle" />
           </div>
-          <p className="text-4xl font-bold">{summary.total_scanned}</p>
+          <p className="text-4xl font-bold">{summary.total_items}</p>
         </div>
         
         <div className="rounded-3xl bg-surface border border-border p-5 flex flex-col justify-between aspect-square">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-fg-subtle">Flagged Items</h2>
-            <AlertTriangle size={20} className={summary.flagged_items > 0 ? "text-unsafe" : "text-fg-subtle"} />
+            <AlertTriangle size={20} className={flaggedItems > 0 ? "text-unsafe" : "text-fg-subtle"} />
           </div>
-          <p className="text-4xl font-bold">{summary.flagged_items}</p>
+          <p className="text-4xl font-bold">{flaggedItems}</p>
         </div>
       </div>
 

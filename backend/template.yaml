@@ -188,6 +188,11 @@ Resources:
           Properties:
             Path: /api/evaluate
             Method: POST
+        AuditBatch:
+          Type: Api
+          Properties:
+            Path: /api/audit/batch
+            Method: POST
 
   CompareFunction:
     Type: AWS::Serverless::Function

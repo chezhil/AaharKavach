@@ -1,4 +1,5 @@
 import type {
+  BatchAuditResult,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -110,7 +111,7 @@ export const httpApi: AaharApi = {
     }),
 
   auditBatch: (barcodes: string[], householdId: string) =>
-    request<any>("/api/audit/batch", {
+    request<BatchAuditResult>("/api/audit/batch", {
       method: "POST",
       body: JSON.stringify({ barcodes, household_id: householdId }),
     }),

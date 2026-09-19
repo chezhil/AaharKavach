@@ -538,13 +538,27 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
     return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}
 
 
+# API Gateway hard-caps a request at 29s and this endpoint is serial, so the
+# basket has to fit inside that budget even on a cold start with slow lookups.
+MAX_BATCH_ITEMS = 25
+
+
 def audit_batch_endpoint(caller: Caller, body: dict[str, Any] | None) -> tuple[int, Any]:
-    from .reasoning import evaluate
-    
+    # Deliberately the deterministic rulebook, not `evaluate`: the matrix shows
+    # verdicts and flagged ingredient names, all of which the rulebook produces.
+    # The agent only adds prose this view never renders, and at ~5s per item it
+    # blew the 29s gateway timeout at six items while burning one model call per
+    # product in the basket.
+    from .reasoning import evaluate_deterministic
+
     body = body or {}
     barcodes = body.get("barcodes", [])
     if not isinstance(barcodes, list) or not barcodes:
         raise ApiError(400, "barcodes list is required and must not be empty")
+    if len(barcodes) > MAX_BATCH_ITEMS:
+        raise ApiError(
+            400, f"Too many items in one batch — {MAX_BATCH_ITEMS} is the limit."
+        )
 
     household_id = body.get("household_id")
     if not household_id:
@@ -569,7 +583,7 @@ def audit_batch_endpoint(caller: Caller, body: dict[str, Any] | None) -> tuple[i
     for barcode in barcodes:
         try:
             product = lookup_product(str(barcode))
-            result = evaluate(product, household_profiles, [])
+            result = evaluate_deterministic(product, household_profiles, [])
             
             # Determine household clearance
             member_verdicts = {}

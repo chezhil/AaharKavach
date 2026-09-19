@@ -1,4 +1,5 @@
 import type {
+  BatchAuditResult,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -33,7 +34,7 @@ export interface AaharApi {
   /** POST /api/compare */
   compare(req: CompareRequest): Promise<CompareResult>;
   /** POST /api/audit/batch */
-  auditBatch(barcodes: string[], householdId: string): Promise<any>;
+  auditBatch(barcodes: string[], householdId: string): Promise<BatchAuditResult>;
   /** GET /api/history */
   listHistory(): Promise<ScanResult[]>;
   /**

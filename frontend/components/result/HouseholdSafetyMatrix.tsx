@@ -1,20 +1,18 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Info } from "lucide-react";
-import { Profile } from "@/lib/types";
+import type { BatchAuditItem, Profile, Verdict } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-interface MatrixItem {
-  barcode: string;
-  name?: string;
-  brand?: string;
-  image_url?: string;
-  verdict: "SAFE" | "CAUTION" | "UNSAFE";
-  member_verdicts: Record<string, "SAFE" | "CAUTION" | "UNSAFE">;
-  status: "KNOWN" | "UNKNOWN";
-}
+/** The household column is the worst verdict any member got for this item. */
+const householdVerdict = (item: BatchAuditItem): Verdict => {
+  const all = Object.values(item.member_verdicts ?? {}).map((m) => m.verdict);
+  if (all.includes("UNSAFE")) return "UNSAFE";
+  if (all.includes("CAUTION")) return "CAUTION";
+  return "SAFE";
+};
 
 interface Props {
-  items: MatrixItem[];
+  items: BatchAuditItem[];
   profiles: Profile[];
 }
 
@@ -80,7 +78,7 @@ export function HouseholdSafetyMatrix({ items, profiles }: Props) {
                       )}
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-sm">
-                          {item.name || "Unknown Product"}
+                          {item.product_name || "Unknown Product"}
                         </p>
                         {item.brand && <p className="truncate text-xs text-fg-subtle">{item.brand}</p>}
                       </div>
@@ -88,22 +86,22 @@ export function HouseholdSafetyMatrix({ items, profiles }: Props) {
                   </td>
                   
                   <td className="px-4 py-3 text-center">
-                    {item.status === "UNKNOWN" ? (
+                    {item.status !== "KNOWN" ? (
                       <span className="inline-flex items-center justify-center rounded-full bg-bg px-2 py-1 text-xs text-fg-muted">
-                        Unknown
+                        {item.status === "UNKNOWN" ? "Unknown" : "Unavailable"}
                       </span>
                     ) : (
                       <div className="flex justify-center">
-                        <VerdictIcon verdict={item.verdict} size={20} />
+                        <VerdictIcon verdict={householdVerdict(item)} size={20} />
                       </div>
                     )}
                   </td>
-                  
+
                   {profiles.map(p => (
                     <td key={p.id} className="px-4 py-3 text-center">
-                      {item.status !== "UNKNOWN" && item.member_verdicts && (
+                      {item.status === "KNOWN" && item.member_verdicts && (
                         <div className="flex justify-center">
-                          <VerdictIcon verdict={item.member_verdicts[p.id] || "SAFE"} size={16} />
+                          <VerdictIcon verdict={item.member_verdicts[p.id]?.verdict || "SAFE"} size={16} />
                         </div>
                       )}
                     </td>
@@ -111,28 +109,31 @@ export function HouseholdSafetyMatrix({ items, profiles }: Props) {
                 </tr>
                 
                 {/* Expanded Details Row */}
-                {expandedRow === item.barcode && item.status !== "UNKNOWN" && (
+                {expandedRow === item.barcode && item.status === "KNOWN" && (
                   <tr className="bg-bg/30">
                     <td colSpan={profiles.length + 2} className="px-4 py-3">
                       <div className="flex flex-col gap-2 rounded-xl border border-border-subtle bg-bg p-3">
                         <p className="text-xs font-semibold uppercase text-fg-subtle">Household Conflicts</p>
                         <div className="grid gap-2 sm:grid-cols-2">
                           {profiles.map(p => {
-                            const v = item.member_verdicts?.[p.id];
-                            if (!v || v === "SAFE") return null;
+                            const member = item.member_verdicts?.[p.id];
+                            if (!member || member.verdict === "SAFE") return null;
+                            const flagged = member.flagged_ingredients ?? [];
                             return (
                               <div key={p.id} className="flex items-start gap-2 rounded-lg border border-border-subtle p-2">
-                                <VerdictIcon verdict={v} size={14} />
+                                <VerdictIcon verdict={member.verdict} size={14} />
                                 <div>
                                   <span className="text-xs font-medium">{p.name}: </span>
                                   <span className="text-xs text-fg-subtle">
-                                    Flagged for {v === "UNSAFE" ? "danger" : "caution"}.
+                                    {flagged.length > 0
+                                      ? flagged.map(f => `${f.ingredient} (${f.reason})`).join(", ")
+                                      : `Flagged for ${member.verdict === "UNSAFE" ? "danger" : "caution"}.`}
                                   </span>
                                 </div>
                               </div>
                             );
                           })}
-                          {Object.values(item.member_verdicts || {}).every(v => v === "SAFE") && (
+                          {Object.values(item.member_verdicts || {}).every(m => m.verdict === "SAFE") && (
                             <p className="text-xs text-safe">Safe for all members.</p>
                           )}
                         </div>

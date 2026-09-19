@@ -1,4 +1,6 @@
 import type {
+  BatchAuditItem,
+  BatchAuditResult,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -187,43 +189,53 @@ export const mockApi: AaharApi = {
     };
   },
 
-  async auditBatch(barcodes: string[], householdId: string): Promise<any> {
+  // Field-for-field what api.audit_batch_endpoint returns. This drifting from
+  // the real shape is exactly how the batch matrix shipped broken: it rendered
+  // perfectly against the mock and read undefined everywhere against the API.
+  async auditBatch(barcodes: string[]): Promise<BatchAuditResult> {
     await delay(900);
     const people = profiles(); // mock all
-    const items = barcodes.map(barcode => {
-      try {
-        const product = findProduct(barcode);
-        if (!product) {
-          return { barcode, status: "UNKNOWN" };
-        }
-        const evaluation = runEngine(product, people);
-        const member_verdicts = Object.fromEntries(
-          evaluation.profile_evaluations.map(e => [e.profile_id, e.verdict])
-        );
-        
-        const hasUnsafe = evaluation.profile_evaluations.some(e => e.verdict === "UNSAFE");
-        const hasCaution = evaluation.profile_evaluations.some(e => e.verdict === "CAUTION");
-        const verdict = hasUnsafe ? "UNSAFE" : (hasCaution ? "CAUTION" : "SAFE");
-        
-        return {
-          barcode,
-          name: product.name,
-          brand: product.brand || undefined,
-          image_url: product.image_url || undefined,
-          verdict,
-          member_verdicts,
-          status: "KNOWN"
-        };
-      } catch {
-        return { barcode, status: "UNKNOWN" };
-      }
-    });
-    
     const summary = {
-      total_scanned: barcodes.length,
-      household_verdict: items.some(i => i.verdict === "UNSAFE") ? "UNSAFE" : (items.some(i => i.verdict === "CAUTION") ? "CAUTION" : "SAFE"),
-      flagged_items: items.filter(i => i.verdict === "UNSAFE" || i.verdict === "CAUTION").length
+      total_items: barcodes.length,
+      all_family_safe_count: 0,
+      caution_count: 0,
+      unsafe_count: 0,
     };
+
+    const items: BatchAuditItem[] = barcodes.map((barcode) => {
+      const product = findProduct(barcode);
+      if (!product) return { barcode, status: "UNKNOWN" };
+
+      const evaluation = runEngine(product, people);
+      const member_verdicts = Object.fromEntries(
+        evaluation.profile_evaluations.map((e) => [
+          e.profile_id,
+          {
+            name: e.profile_name,
+            verdict: e.verdict,
+            flagged_ingredients: (e.flagged_ingredients ?? []).map((f) => ({
+              ingredient: f.ingredient,
+              reason: f.matched_allergen,
+            })),
+          },
+        ]),
+      );
+
+      const verdicts = evaluation.profile_evaluations.map((e) => e.verdict);
+      if (verdicts.includes("UNSAFE")) summary.unsafe_count += 1;
+      else if (verdicts.includes("CAUTION")) summary.caution_count += 1;
+      else summary.all_family_safe_count += 1;
+
+      return {
+        barcode,
+        product_name: product.name,
+        brand: product.brand ?? null,
+        image_url: product.image_url ?? null,
+        household_cleared: !verdicts.includes("UNSAFE"),
+        member_verdicts,
+        status: "KNOWN",
+      };
+    });
 
     return { summary, items };
   },
