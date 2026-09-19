@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
-            "Content-Type,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
+            "Content-Type,Authorization,X-Api-Key,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
         )
 
     def _body(self) -> bytes:

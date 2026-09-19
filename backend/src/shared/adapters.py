@@ -24,7 +24,7 @@ from .contracts import (
 )
 
 _E_BY_ID = {rec["additive_id"].upper(): rec for rec in E_NUMBERS}
-_E_PATTERN = re.compile(r"\bE\s?-?(\d{3,4}[a-z]?)\b", re.IGNORECASE)
+_E_PATTERN = re.compile(r"\b(?:E|INS)\s*-?\s*(\d{3,4}[a-z]?)(?:\([ivx]+\))?\b", re.IGNORECASE)
 
 
 def _norm(s: str) -> str:
