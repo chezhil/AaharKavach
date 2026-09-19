@@ -71,7 +71,7 @@ export function VerdictCard({
         {evaluation.summary}
       </p>
 
-      {evaluation.flagged_ingredients.length > 0 ? (
+      {evaluation.flagged_ingredients.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {evaluation.flagged_ingredients.map((flag, i) => (
             <FlaggedIngredientCard
@@ -80,7 +80,7 @@ export function VerdictCard({
             />
           ))}
         </ul>
-      ) : null}
+      )}
     </article>
   );
 }

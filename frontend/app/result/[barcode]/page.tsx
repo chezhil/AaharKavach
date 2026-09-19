@@ -11,12 +11,14 @@ import {
   Lightbulb,
   PackageX,
   ScanLine,
+  Settings,
   ShieldAlert,
 } from "lucide-react";
 import { ProductHeader } from "@/components/verdict/ProductHeader";
 import { VerdictCard } from "@/components/verdict/VerdictCard";
 import { ConfidenceBadge } from "@/components/verdict/ConfidenceBadge";
 import { IngredientChips } from "@/components/verdict/IngredientChips";
+import { NutritionHexagon, type NutritionLabel } from "@/components/verdict/NutritionHexagon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -31,6 +33,18 @@ const ICONS = {
   UNSAFE: ShieldAlert,
 } as const;
 
+const ALL_NUTRIENTS: NutritionLabel[] = [
+  { key: 'Energy_kcal', label: 'Energy', unit: 'kcal' },
+  { key: 'Protein', label: 'Protein', unit: 'g' },
+  { key: 'Carbs', label: 'Carbs', unit: 'g' },
+  { key: 'Sugars', label: 'Sugars', unit: 'g' },
+  { key: 'Fat', label: 'Fat', unit: 'g' },
+  { key: 'Salt', label: 'Sodium', unit: 'mg' },
+  { key: 'Fiber', label: 'Fiber', unit: 'g' },
+  { key: 'SatFat', label: 'Sat Fat', unit: 'g' },
+  { key: 'TransFat', label: 'Trans Fat', unit: 'g' },
+];
+
 const sameSelection = (a: string[], b: string[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
@@ -39,6 +53,10 @@ export default function ResultPage() {
   const router = useRouter();
   const { activeIds, activeProfiles, profiles, history, addScan, loading } =
     useApp();
+  
+  const [isEditChartOpen, setIsEditChartOpen] = useState(false);
+  const [chartLabels, setChartLabels] = useState<NutritionLabel[]>(ALL_NUTRIENTS.slice(0, 6));
+  const [tempLabels, setTempLabels] = useState<NutritionLabel[]>(ALL_NUTRIENTS.slice(0, 6));
 
   // Keyed by barcode + selection so a stale answer never renders under a new
   // question; anything not resolved for the current key reads as loading.
@@ -263,6 +281,91 @@ export default function ResultPage() {
             (e) => e.flagged_ingredients,
           )}
         />
+
+        <section className="tile bg-surface p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="display text-base">Nutritional Balance</h3>
+            <button 
+              onClick={() => {
+                setTempLabels(chartLabels);
+                setIsEditChartOpen(true);
+              }}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md bg-white/5 hover:bg-white/10"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
+          
+          <div className="bg-white/5 rounded-xl p-4">
+            <NutritionHexagon 
+              currentStats={product.nutritional_stats || { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2, Fiber: 4, SatFat: 3, TransFat: 0 }}
+              userLimits={activeProfiles[0]?.daily_limits || { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6, Fiber: 30, SatFat: 20, TransFat: 2 }} 
+              labels={chartLabels}
+              className="w-full"
+            />
+            {(!product.nutritional_stats || !activeProfiles[0]?.daily_limits) && (
+              <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
+            )}
+          </div>
+        </section>
+
+        {isEditChartOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl animate-in fade-in zoom-in-95">
+               <div className="flex justify-between items-center mb-4">
+                 <h4 className="text-lg font-bold text-white">Customize Chart</h4>
+                 <span className="text-xs font-semibold px-2 py-1 bg-slate-800 text-slate-300 rounded-md">
+                   Selected: {tempLabels.length}/6
+                 </span>
+               </div>
+               
+               <div className="space-y-2 mb-6">
+                 {ALL_NUTRIENTS.map(n => {
+                   const isSelected = tempLabels.some(s => s.key === n.key);
+                   const isDisabled = !isSelected && tempLabels.length >= 6;
+                   return (
+                     <label 
+                       key={n.key} 
+                       className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors cursor-pointer ${
+                         isSelected ? "bg-indigo-500/10 border-indigo-500/50" : "border-transparent hover:bg-white/5"
+                       } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                     >
+                       <input 
+                         type="checkbox" 
+                         className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-900"
+                         checked={isSelected}
+                         disabled={isDisabled}
+                         onChange={(e) => {
+                           if (e.target.checked) {
+                             if (tempLabels.length < 6) setTempLabels([...tempLabels, n]);
+                           } else {
+                             setTempLabels(tempLabels.filter(s => s.key !== n.key));
+                           }
+                         }}
+                       />
+                       <p className={`text-sm font-medium ${isSelected ? "text-white" : "text-slate-300"}`}>
+                         {n.label}
+                       </p>
+                     </label>
+                   )
+                 })}
+               </div>
+
+               <div className="flex justify-end gap-3">
+                 <Button variant="secondary" onClick={() => setIsEditChartOpen(false)}>Cancel</Button>
+                 <Button 
+                   disabled={tempLabels.length !== 6} 
+                   onClick={() => { 
+                     setChartLabels(tempLabels); 
+                     setIsEditChartOpen(false); 
+                   }}
+                 >
+                   Apply
+                 </Button>
+               </div>
+            </div>
+          </div>
+        )}
 
         {evaluation.safe_alternatives_suggestion ? (
           <section className="tile bg-surface p-4">

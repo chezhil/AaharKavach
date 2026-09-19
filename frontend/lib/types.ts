@@ -14,6 +14,16 @@ export type Confidence = "HIGH" | "MEDIUM" | "LOW";
 /** Cedar household roles (Role 3 enforces these; the UI only reflects them). */
 export type HouseholdRole = "ADMIN" | "MEMBER" | "CHILD";
 
+export interface NutrientStats {
+  Energy_kcal: number;
+  Protein: number;
+  Carbs: number;
+  Sugars: number;
+  Fat: number;
+  Salt: number;
+  [key: string]: number; // Allow future macro/micro extensions
+}
+
 export interface Restriction {
   id: string;
   /** Human label as the user typed/picked it, e.g. "Peanuts", "Gluten". */
@@ -26,6 +36,8 @@ export interface Profile {
   name: string;
   household_role: HouseholdRole;
   restrictions: Restriction[];
+  /** Target daily nutritional limits to base the Hexagon chart on */
+  daily_limits?: NutrientStats;
   /** Token name from the accent palette — purely cosmetic. */
   accent: string;
   /**
@@ -58,6 +70,8 @@ export interface Product {
   image_url?: string | null;
   categories?: string[];
   ingredients: Ingredient[];
+  /** Open Food Facts extracted nutrition macros */
+  nutritional_stats?: NutrientStats;
   /** Role 2's completeness signal for this record. */
   data_confidence: Confidence;
   source: ProductSource;
