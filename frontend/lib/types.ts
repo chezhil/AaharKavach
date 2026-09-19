@@ -151,8 +151,10 @@ export interface EvaluateRequest {
 }
 
 export interface CompareRequest {
-  barcode_a: string;
-  barcode_b: string;
+  barcode_a?: string;
+  product_a?: Product;
+  barcode_b?: string;
+  product_b?: Product;
   profile_ids: string[];
 }
 

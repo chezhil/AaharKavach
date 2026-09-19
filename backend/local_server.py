@@ -153,9 +153,9 @@ class Handler(BaseHTTPRequestHandler):
         except api.ApiError as exc:
             self._send(exc.status, {"error": exc.message})
             return
-        except Exception as exc:  # pragma: no cover - last resort
-            logger.exception("Unhandled error on %s %s", method, path)
-            self._send(500, {"error": str(exc)})
+        except Exception:  # pragma: no cover - last resort
+            logger.exception("Unhandled error handling request")
+            self._send(500, {"error": "Internal server error"})
             return
 
         self._send(status, payload)

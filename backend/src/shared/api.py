@@ -429,15 +429,16 @@ def _score(evaluation: EvaluationResult) -> int:
 
 
 def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    barcode_a = str(body.get("barcode_a", "")).strip()
-    barcode_b = str(body.get("barcode_b", "")).strip()
-    if not barcode_a or not barcode_b:
-        raise ApiError(400, "compare needs barcode_a and barcode_b")
-
     profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
 
-    def build(barcode: str) -> ScanResult:
-        product = lookup_product(barcode)
+    def build(barcode: str | None, product_dict: dict[str, Any] | None) -> ScanResult:
+        if product_dict:
+            product = _product_from_payload(product_dict)
+        elif barcode and barcode.strip():
+            product = lookup_product(barcode.strip())
+        else:
+            raise ApiError(400, "compare needs either barcode or product object for both items")
+            
         return ScanResult(
             id=f"cmp_{uuid.uuid4().hex[:8]}",
             scanned_at=store.now_iso(),
@@ -446,7 +447,8 @@ def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             profile_ids=[p.id for p in profiles],
         )
 
-    a, b = build(barcode_a), build(barcode_b)
+    a = build(body.get("barcode_a"), body.get("product_a"))
+    b = build(body.get("barcode_b"), body.get("product_b"))
     score_a, score_b = _score(a.evaluation), _score(b.evaluation)
 
     if score_a == score_b:

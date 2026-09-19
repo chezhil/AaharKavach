@@ -42,7 +42,64 @@ export function ScanSheet({
 }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [typed, setTyped] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        onLabelPhoto(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        onLabelPhoto(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleTabChange = (newTab: Mode) => {
+    if (newTab !== "camera") {
+      if (typeof document !== "undefined") {
+        document.querySelectorAll("video").forEach((v) => {
+          if (v.srcObject) {
+            (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+            v.srcObject = null;
+          }
+        });
+      }
+    }
+    setMode(newTab);
+  };
+
+  const handleClose = useCallback(() => {
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((v) => {
+        if (v.srcObject) {
+          (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+          v.srcObject = null;
+        }
+      });
+    }
+    onClose();
+  }, [onClose]);
 
   // Stable identity: BarcodeScanner restarts the camera when this changes.
   const handleDetected = useCallback(
@@ -54,17 +111,14 @@ export function ScanSheet({
   );
 
   const submitTyped = () => {
-    // If it's a URL, don't restrict to numbers, but typed input is currently numeric only in UI.
-    // Wait, the BarcodeScanner passes strings. `typed` is from the manual input.
-    // QR codes are usually scanned via camera anyway.
-    if (!isValidBarcode(typed) && !typed.startsWith("http")) return;
+    if ((!isValidBarcode(typed) && !typed.startsWith("http")) || !typed) return;
     onBarcode(typed.trim());
   };
 
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title="Scan a product"
       description="Point at the barcode, type it, or photograph the ingredients panel."
     >
@@ -79,7 +133,7 @@ export function ScanSheet({
               key={id}
               role="tab"
               aria-selected={mode === id}
-              onClick={() => setMode(id)}
+              onClick={() => handleTabChange(id)}
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
                 mode === id
@@ -192,34 +246,48 @@ export function ScanSheet({
 
             {mode === "photo" ? (
               <div className="space-y-3">
-                <button
-                  onClick={() => fileInput.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-10 text-center transition-colors hover:border-brand"
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="group flex w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center transition-colors hover:border-brand bg-bg/50 hover:bg-surface"
                 >
-                  <ImagePlus size={24} className="text-fg-subtle" aria-hidden />
-                  <span className="text-sm font-semibold">
-                    Photograph the ingredients panel
+                  <ImagePlus size={32} className="text-fg-subtle group-hover:text-brand transition-colors" aria-hidden />
+                  <span className="text-base font-semibold">
+                    Snap or Drop Ingredients
                   </span>
                   <span className="max-w-[32ch] text-xs text-fg-subtle">
-                    For loose or unlisted products with no barcode in the
-                    database.
+                    Take a photo of the ingredients list on the back of the package.
                   </span>
-                </button>
+                  
+                  <div className="flex w-full gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                    <Button onClick={() => cameraInputRef.current?.click()} className="flex-1 text-sm bg-brand text-brand-fg">
+                      Take Photo
+                    </Button>
+                    <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex-1 text-sm bg-surface hover:bg-surface-hover">
+                      Choose File
+                    </Button>
+                  </div>
+                </div>
+
                 <input
-                  ref={fileInput}
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
                   className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onLabelPhoto(file);
-                    e.target.value = "";
-                  }}
+                  onChange={handleFileChange}
                 />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                
                 <p className="rounded-xl border border-caution-border bg-caution-soft px-3 py-2 text-xs text-caution">
-                  Photo reads come back with low confidence — we&apos;ll say so
-                  on the result.
+                  Photo reads come back with low confidence — we&apos;ll say so on the result.
                 </p>
               </div>
             ) : null}

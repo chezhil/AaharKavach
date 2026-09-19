@@ -22,7 +22,7 @@ export function AppHeader() {
               AaharKavach
             </span>
             <span className="mt-1 block text-[0.68rem] leading-none text-fg-subtle">
-              आहार कवच · food shield
+              आहार कवच · Food Shield
             </span>
           </span>
         </Link>

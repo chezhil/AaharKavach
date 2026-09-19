@@ -67,4 +67,4 @@ def run(handler: Callable[[], tuple[int, Any]]) -> dict[str, Any]:
         return respond(exc.status, {"error": exc.message})
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Unhandled error")
-        return respond(500, {"error": str(exc)})
+        return respond(500, {"error": "Internal server error"})

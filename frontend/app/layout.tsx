@@ -19,7 +19,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "AaharKavach — food shield",
+  title: "AaharKavach — Food Shield",
   description:
     "Scan a barcode and see, in plain English, whether a product is safe for everyone in your household.",
 };

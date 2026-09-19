@@ -296,7 +296,7 @@ export default function ResultPage() {
             </button>
           </div>
           
-          <div className="bg-white/5 rounded-xl p-4">
+          <div className="bg-white/5 rounded-xl px-6 py-4 overflow-hidden">
             <NutritionHexagon 
               currentStats={product.nutritional_stats || { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2, Fiber: 4, SatFat: 3, TransFat: 0 }}
               userLimits={activeProfiles[0]?.daily_limits || { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6, Fiber: 30, SatFat: 20, TransFat: 2 }} 

@@ -164,9 +164,9 @@ export const mockApi: AaharApi = {
   async compare(req: CompareRequest): Promise<CompareResult> {
     await delay(900);
     const people = selected(req.profile_ids);
-    const build = (barcode: string): ScanResult => {
-      const product = findProduct(barcode);
-      if (!product) throw new ProductNotFoundError(barcode);
+    const build = (barcode: string | undefined, prod: Product | undefined): ScanResult => {
+      const product = prod ?? (barcode ? findProduct(barcode) : null);
+      if (!product) throw new ProductNotFoundError(barcode ?? "unknown");
       return {
         id: `cmp_${id()}`,
         scanned_at: new Date().toISOString(),
@@ -175,8 +175,8 @@ export const mockApi: AaharApi = {
         profile_ids: people.map((p) => p.id),
       };
     };
-    const a = build(req.barcode_a);
-    const b = build(req.barcode_b);
+    const a = build(req.barcode_a, req.product_a);
+    const b = build(req.barcode_b, req.product_b);
     return {
       a,
       b,

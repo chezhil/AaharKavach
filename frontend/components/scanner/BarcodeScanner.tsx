@@ -23,16 +23,50 @@ export function BarcodeScanner({
   const done = useRef(false);
   const isCapturingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const killAllTracks = () => {
+    // 1. Kill from streamRef
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
+      streamRef.current = null;
+    }
+
+    // 2. Kill from any lingering video elements anywhere in the document
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((v) => {
+        v.onabort = null;
+        v.onerror = null;
+        try {
+          v.pause();
+        } catch (e) {}
+
+        if (v.srcObject) {
+          try {
+            (v.srcObject as MediaStream).getTracks().forEach((t) => {
+              t.stop();
+              t.enabled = false;
+            });
+          } catch (e) {}
+          v.srcObject = null;
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     // html5-qrcode often drops unhandled AbortErrors if the component unmounts
     // while the camera is starting. Catch them so they don't crash Next.js.
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       if (
-        event.reason?.name === "AbortError" || 
+        event.reason?.name === "AbortError" ||
         event.reason?.message?.includes("play() request was interrupted") ||
         event.reason?.message?.includes("onabort() called") ||
-        (typeof event.reason === "string" && event.reason.includes("onabort() called"))
+        (typeof event.reason === "string" &&
+          event.reason.includes("onabort() called"))
       ) {
         event.preventDefault();
       }
@@ -45,8 +79,13 @@ export function BarcodeScanner({
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
     window.addEventListener("error", handleError);
     return () => {
-      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
       window.removeEventListener("error", handleError);
+      // Failsafe cleanup when component entirely unmounts
+      killAllTracks();
     };
   }, []);
 
@@ -116,8 +155,18 @@ export function BarcodeScanner({
         // scanner that never started, so the cleanup path must never see one.
         instance.current = created;
         if (!cancelled) setStatus("scanning");
+
+        // After starting, capture the streamRef for teardown.
+        if (container) {
+          const videoEl = container.querySelector("video");
+          if (videoEl && videoEl.srcObject) {
+            streamRef.current = videoEl.srcObject as MediaStream;
+          }
+        }
       } catch {
-        try { if (scanner) scanner.clear(); } catch {}
+        try {
+          if (scanner) scanner.clear();
+        } catch {}
         if (!cancelled) setStatus("denied");
       }
     })();
@@ -126,18 +175,27 @@ export function BarcodeScanner({
       cancelled = true;
       const scanner = instance.current;
       instance.current = null;
-      
+
       // Releasing the tracks is what actually turns the camera indicator off;
       // stop() alone does not always do it.
+      killAllTracks();
+
       if (container) {
-        const videoEl = container.querySelector("video") as HTMLVideoElement | null;
-        if (videoEl && videoEl.srcObject) {
-          const stream = videoEl.srcObject as MediaStream;
-          stream.getTracks().forEach((track) => {
-            track.stop();
-            track.enabled = false;
-          });
-          try { videoEl.pause(); } catch {}
+        const videoEl = container.querySelector(
+          "video",
+        ) as HTMLVideoElement | null;
+        if (videoEl) {
+          videoEl.onabort = null; // Prevent html5-qrcode from throwing "RenderedCameraImpl video surface onabort() called"
+          videoEl.onerror = null;
+          try {
+            videoEl.pause();
+          } catch (e) {}
+          if (videoEl.srcObject) {
+            try {
+              const stream = videoEl.srcObject as MediaStream;
+              stream.getTracks().forEach((t) => t.stop());
+            } catch (e) {}
+          }
           videoEl.srcObject = null;
         }
       }
@@ -148,11 +206,21 @@ export function BarcodeScanner({
       // stop() rejects *and* can throw synchronously; both end in the same place.
       try {
         Promise.resolve(scanner.stop()).then(
-          () => { try { scanner.clear(); } catch {} },
-          () => { try { scanner.clear(); } catch {} },
+          () => {
+            try {
+              scanner.clear();
+            } catch {}
+          },
+          () => {
+            try {
+              scanner.clear();
+            } catch {}
+          },
         );
       } catch {
-        try { scanner.clear(); } catch {}
+        try {
+          scanner.clear();
+        } catch {}
       }
     };
   }, [onDetected]);
@@ -168,7 +236,7 @@ export function BarcodeScanner({
     setIsCapturing(true);
     isCapturingRef.current = true;
     const canvas = document.createElement("canvas");
-    
+
     // Downscale to max 1600px width/height to avoid massive payloads
     let width = video.videoWidth;
     let height = video.videoHeight;
@@ -199,7 +267,11 @@ export function BarcodeScanner({
   if (status === "denied" || status === "unsupported") {
     return (
       <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface text-center">
-        <CameraOff className="text-fg-subtle opacity-50" size={32} aria-hidden />
+        <CameraOff
+          className="text-fg-subtle opacity-50"
+          size={32}
+          aria-hidden
+        />
         <p className="text-sm font-semibold">
           {status === "unsupported" ? "No camera available" : "Camera blocked"}
         </p>
@@ -226,7 +298,11 @@ export function BarcodeScanner({
       ) : isCapturing ? (
         <div className="absolute inset-0 grid place-items-center bg-black/70 text-white z-10 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4 text-center">
-            <Loader2 size={32} className="animate-spin text-brand" aria-hidden />
+            <Loader2
+              size={32}
+              className="animate-spin text-brand"
+              aria-hidden
+            />
             <span className="text-sm font-medium tracking-wide">
               Extracting ingredients with AWS Bedrock...
             </span>
