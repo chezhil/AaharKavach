@@ -9,7 +9,6 @@ import {
 } from "@/lib/types";
 import { accentVar, cn, initials, verdictStyles } from "@/lib/utils";
 import { FlaggedIngredientCard } from "./FlaggedIngredientCard";
-import { NutritionHexagon } from "./NutritionHexagon";
 
 const ICONS = {
   SAFE: CheckCircle2,
@@ -25,12 +24,10 @@ const ICONS = {
 export function VerdictCard({
   evaluation,
   profile,
-  product, // <-- New prop
   index = 0,
 }: {
   evaluation: ProfileEvaluation;
   profile?: Profile;
-  product?: any; // any to avoid circular import if needed, but we can import Product
   index?: number;
 }) {
   const style = verdictStyles[evaluation.verdict];
@@ -74,6 +71,7 @@ export function VerdictCard({
         {evaluation.summary}
       </p>
 
+      {evaluation.flagged_ingredients.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {evaluation.flagged_ingredients.map((flag, i) => (
             <FlaggedIngredientCard
@@ -82,32 +80,6 @@ export function VerdictCard({
             />
           ))}
         </ul>
-      ) : null}
-
-      {/* NutritionHexagon: Real data if available, otherwise mock demo */}
-      {(product?.nutritional_stats || profile?.daily_limits) ? (
-        <div className="mt-4 pt-4 border-t border-current/10">
-          <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-2">Nutritional Balance</p>
-          <div className="bg-white/5 rounded-xl p-4">
-            <NutritionHexagon 
-              currentStats={product?.nutritional_stats || { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2 }}
-              userLimits={profile?.daily_limits || { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6 }} 
-              className="w-full"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 pt-4 border-t border-current/10">
-          <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-2">Nutritional Balance</p>
-          <div className="bg-white/5 rounded-xl p-4">
-            <NutritionHexagon 
-              currentStats={{ Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2 }}
-              userLimits={{ Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6 }} 
-              className="w-full"
-            />
-            <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
-          </div>
-        </div>
       )}
     </article>
   );

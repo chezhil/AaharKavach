@@ -17,6 +17,7 @@ import { ProductHeader } from "@/components/verdict/ProductHeader";
 import { VerdictCard } from "@/components/verdict/VerdictCard";
 import { ConfidenceBadge } from "@/components/verdict/ConfidenceBadge";
 import { IngredientChips } from "@/components/verdict/IngredientChips";
+import { NutritionHexagon } from "@/components/verdict/NutritionHexagon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -246,7 +247,6 @@ export default function ResultPage() {
             <VerdictCard
               key={profileEval.profile_id}
               evaluation={profileEval}
-              product={product}
               profile={
                 activeProfiles.find((p) => p.id === profileEval.profile_id) ??
                 profiles.find((p) => p.id === profileEval.profile_id)
@@ -258,6 +258,20 @@ export default function ResultPage() {
       </div>
 
       <aside className="space-y-3 lg:sticky lg:top-24">
+        <section className="tile bg-surface p-4">
+          <h3 className="display text-base mb-3">Nutritional Balance</h3>
+          <div className="bg-white/5 rounded-xl p-4">
+            <NutritionHexagon 
+              currentStats={product.nutritional_stats || { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2 }}
+              userLimits={activeProfiles[0]?.daily_limits || { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6 }} 
+              className="w-full"
+            />
+            {(!product.nutritional_stats || !activeProfiles[0]?.daily_limits) && (
+              <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
+            )}
+          </div>
+        </section>
+
         <IngredientChips
           ingredients={product.ingredients}
           flags={evaluation.profile_evaluations.flatMap(
