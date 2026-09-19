@@ -246,6 +246,7 @@ export default function ResultPage() {
             <VerdictCard
               key={profileEval.profile_id}
               evaluation={profileEval}
+              product={product}
               profile={
                 activeProfiles.find((p) => p.id === profileEval.profile_id) ??
                 profiles.find((p) => p.id === profileEval.profile_id)

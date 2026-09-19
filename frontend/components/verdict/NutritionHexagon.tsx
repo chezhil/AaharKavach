@@ -5,15 +5,7 @@ import React from 'react';
 // Using a basic class merging helper. 
 // If `cn` from `clsx`/`tailwind-merge` is set up in `frontend/lib/utils.ts`, it should resolve correctly.
 import { cn } from '@/lib/utils';
-
-export interface NutrientStats {
-  Energy_kcal: number;
-  Protein: number;
-  Carbs: number;
-  Sugars: number;
-  Fat: number;
-  Salt: number;
-}
+import { type NutrientStats } from '@/lib/types';
 
 export interface NutritionHexagonProps {
   currentStats: NutrientStats;
