@@ -190,6 +190,14 @@ class Handler(BaseHTTPRequestHandler):
             return api.scan_url_endpoint(caller, self._json_body())
 
         if method == "POST" and path == "/api/scan/label":
+            ctype = self.headers.get("Content-Type") or self.headers.get("content-type") or ""
+            if "application/json" in ctype:
+                import base64
+                body = self._json_body()
+                b64 = body.get("image_data", "")
+                if b64.startswith("data:"):
+                    b64 = b64.split(",", 1)[-1]
+                return api.scan_label_endpoint("capture.jpg", base64.b64decode(b64))
             filename, image = _parse_multipart(self._body())
             return api.scan_label_endpoint(filename, image)
 

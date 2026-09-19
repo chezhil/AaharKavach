@@ -29,6 +29,14 @@ def lambda_handler(event, context):
         import base64
         import re
 
+        ctype = next((v for k, v in (event.get("headers") or {}).items() if k.lower() == "content-type"), "")
+        if "application/json" in ctype:
+            body = json_body(event)
+            b64 = body.get("image_data", "")
+            if b64.startswith("data:"):
+                b64 = b64.split(",", 1)[-1]
+            return run(lambda: api.scan_label_endpoint("capture.jpg", base64.b64decode(b64)))
+
         body = event.get("body") or ""
         # API Gateway base64-encodes binary bodies.
         if event.get("isBase64Encoded"):

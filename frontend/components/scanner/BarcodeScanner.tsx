@@ -13,8 +13,10 @@ type Status = "starting" | "scanning" | "denied" | "unsupported";
  */
 export function BarcodeScanner({
   onDetected,
+  onCaptureLabel,
 }: {
   onDetected: (barcode: string) => void;
+  onCaptureLabel?: (base64Image: string) => void;
 }) {
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
@@ -143,10 +145,29 @@ export function BarcodeScanner({
     };
   }, [onDetected]);
 
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const handleCapture = () => {
+    if (!onCaptureLabel || !containerRef.current) return;
+    const video = containerRef.current.querySelector("video");
+    if (!video) return;
+
+    setIsCapturing(true);
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const base64Image = canvas.toDataURL("image/jpeg", 0.85);
+      onCaptureLabel(base64Image);
+    }
+  };
+
   if (status === "denied" || status === "unsupported") {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center">
-        <CameraOff size={22} className="text-fg-subtle" aria-hidden />
+      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface text-center">
+        <CameraOff className="text-fg-subtle opacity-50" size={32} aria-hidden />
         <p className="text-sm font-semibold">
           {status === "unsupported" ? "No camera available" : "Camera blocked"}
         </p>
@@ -164,32 +185,59 @@ export function BarcodeScanner({
       <div id="scanner-region" ref={containerRef} className="size-full" />
 
       {status === "starting" ? (
-        <div className="absolute inset-0 grid place-items-center bg-bg/80 text-fg-subtle">
+        <div className="absolute inset-0 grid place-items-center bg-bg/80 text-fg-subtle z-10">
           <span className="flex items-center gap-2 text-sm">
             <Loader2 size={16} className="animate-spin" aria-hidden />
             Waking the camera…
           </span>
         </div>
-      ) : (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="relative h-[38%] w-[72%]">
-            {/* Corner brackets — a viewfinder without hiding the frame. */}
-            {(
-              [
-                "left-0 top-0 border-l-2 border-t-2 rounded-tl-lg",
-                "right-0 top-0 border-r-2 border-t-2 rounded-tr-lg",
-                "left-0 bottom-0 border-l-2 border-b-2 rounded-bl-lg",
-                "right-0 bottom-0 border-r-2 border-b-2 rounded-br-lg",
-              ] as const
-            ).map((corner) => (
-              <span
-                key={corner}
-                className={`absolute size-6 border-brand ${corner}`}
-              />
-            ))}
-            <span className="animate-sweep absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-brand shadow-[0_0_12px_2px_var(--brand)]" />
+      ) : isCapturing ? (
+        <div className="absolute inset-0 grid place-items-center bg-black/70 text-white z-10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <Loader2 size={32} className="animate-spin text-brand" aria-hidden />
+            <span className="text-sm font-medium tracking-wide">
+              Extracting ingredients with AWS Bedrock...
+            </span>
           </div>
         </div>
+      ) : (
+        <>
+          <div className="absolute top-0 inset-x-0 bg-gradient-to-b from-black/60 to-transparent p-4 text-center z-10">
+            <p className="text-xs font-medium text-white/90 drop-shadow-md">
+              Align Barcode or tap button below to photograph Ingredients
+            </p>
+          </div>
+          <div className="pointer-events-none absolute inset-0 grid place-items-center z-0">
+            <div className="relative h-[38%] w-[72%]">
+              {/* Corner brackets — a viewfinder without hiding the frame. */}
+              {(
+                [
+                  "left-0 top-0 border-l-2 border-t-2 rounded-tl-lg",
+                  "right-0 top-0 border-r-2 border-t-2 rounded-tr-lg",
+                  "left-0 bottom-0 border-l-2 border-b-2 rounded-bl-lg",
+                  "right-0 bottom-0 border-r-2 border-b-2 rounded-br-lg",
+                ] as const
+              ).map((corner) => (
+                <span
+                  key={corner}
+                  className={`absolute size-6 border-brand ${corner}`}
+                />
+              ))}
+              <span className="animate-sweep absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-brand shadow-[0_0_12px_2px_var(--brand)]" />
+            </div>
+          </div>
+          {onCaptureLabel && (
+            <div className="absolute bottom-4 inset-x-0 flex justify-center z-10">
+              <button
+                onClick={handleCapture}
+                className="flex size-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-md border-2 border-white/60 hover:bg-white/30 transition-all active:scale-95 shadow-lg"
+                aria-label="Capture Ingredients"
+              >
+                <div className="size-10 rounded-full bg-white shadow-sm" />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

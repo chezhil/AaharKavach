@@ -22,7 +22,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onBarcode: (barcode: string) => void;
-  onLabelPhoto: (file: File) => void;
+  onLabelPhoto: (file: File | string) => void;
   busy?: boolean;
   busyMessage?: { title: string, desc: string };
   error?: string | null;
@@ -94,12 +94,24 @@ export function ScanSheet({
         </div>
 
         {error && !busy ? (
-          <p
-            role="alert"
-            className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
-          >
-            {error}
-          </p>
+          error.includes("isn't in Open Food Facts") ? (
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <h3 className="font-semibold mb-1">Product not in database yet</h3>
+              <p className="text-sm text-fg-subtle mb-4">
+                Snap a photo of the ingredients list on the back of the package to evaluate it now.
+              </p>
+              <Button onClick={() => setMode("camera")} className="w-full">
+                Open Camera & Snap Ingredients
+              </Button>
+            </div>
+          ) : (
+            <p
+              role="alert"
+              className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
+            >
+              {error}
+            </p>
+          )
         ) : null}
 
         {busy ? (
@@ -119,7 +131,7 @@ export function ScanSheet({
         ) : (
           <>
             {mode === "camera" ? (
-              <BarcodeScanner onDetected={handleDetected} />
+              <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} />
             ) : null}
 
             {mode === "manual" ? (

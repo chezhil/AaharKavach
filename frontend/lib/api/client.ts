@@ -78,7 +78,13 @@ export const httpApi: AaharApi = {
     }
   },
 
-  scanLabel(file: File) {
+  scanLabel(file: File | string) {
+    if (typeof file === "string") {
+      return request<Product>("/api/scan/label", {
+        method: "POST",
+        body: JSON.stringify({ image_data: file }),
+      });
+    }
     const form = new FormData();
     form.append("image", file);
     return request<Product>("/api/scan/label", { method: "POST", body: form });

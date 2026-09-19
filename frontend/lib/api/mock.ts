@@ -110,12 +110,12 @@ export const mockApi: AaharApi = {
     return product;
   },
 
-  async scanLabel(file: File) {
+  async scanLabel(file: File | string) {
     await delay(1100); // OCR + vision is the slow path
     // Pretend we read a label we half-understood — exercises the LOW path.
     return {
       barcode: `photo_${id()}`,
-      name: file.name.replace(/\.[^.]+$/, "") || "Photographed label",
+      name: typeof file === "string" ? "Photographed label" : file.name.replace(/\.[^.]+$/, "") || "Photographed label",
       brand: null,
       categories: [],
       data_confidence: "LOW",

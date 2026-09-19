@@ -24,8 +24,8 @@ export interface AaharApi {
   deleteProfile(id: string): Promise<void>;
   /** GET /api/scan/barcode?code={barcode} */
   scanBarcode(barcode: string): Promise<Product>;
-  /** POST /api/scan/label (multipart: image) */
-  scanLabel(file: File): Promise<Product>;
+  /** POST /api/scan/label (multipart: image or json {image_data}) */
+  scanLabel(file: File | string): Promise<Product>;
   /** POST /api/scan/url */
   scanUrl(url: string, profile_ids: string[]): Promise<ScanResult>;
   /** POST /api/evaluate */

@@ -66,7 +66,7 @@ function ScanHome() {
   );
 
   const handleLabelPhoto = useCallback(
-    async (file: File) => {
+    async (file: File | string) => {
       setBusy(true);
       setError(null);
       try {
