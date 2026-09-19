@@ -1,0 +1,188 @@
+# Demo video script — 3 minutes, First Commit
+
+The video is the only thing judges see. A feature not shown here does not count,
+even if it is in the repo. The rules also say the video must **show** AWS usage —
+naming AWS in the writeup is not enough.
+
+Everything below is verified working as of 18 Sept 2026 **except the Bedrock
+step**, which is blocked on enabling model access in the Bedrock console — a
+one-time account opt-in, nothing to do with IAM. See the bottom of this file.
+
+---
+
+## Before you record
+
+```bash
+# 1. cluster up + seeded (84 docs across 4 indices)
+curl -s localhost:9200/_cat/indices?v
+
+# 2. if it is empty, reseed — idempotent, safe to re-run
+.venv/bin/python -m data.seed.seed_opensearch
+
+# 3. real agent, real AWS
+export AAHAR_USE_AGENT=true AAHAR_MODEL_PROVIDER=bedrock AAHAR_OCR=textract
+
+# 4. start both
+./dev.sh
+```
+
+Have ready: a **physical product** with a real ingredients label, and the
+household set up with at least two people whose restrictions differ (one severe
+dairy, one mild soy). The contrast between the two is the product.
+
+---
+
+## 0:00 – 0:20 — The problem, with a face on it
+
+Hold the packet. Read one line of the ingredients list aloud — the unreadable
+part, "sodium caseinate, E322, hydrolysed vegetable protein".
+
+> "My cousin is severely allergic to dairy. This says 'sodium caseinate'. That
+> *is* dairy. Nothing on this packet tells her that."
+
+Do not explain the architecture yet. Show the problem first.
+
+## 0:20 – 0:50 — Scan a real label → **AWS Textract**
+
+Photograph the label in the app.
+
+**Say the service name out loud while the spinner is up:** "That photo goes to
+**AWS Textract**, which reads the ingredient text off the packaging."
+
+**On screen, show the evidence:** the returned blocks with their confidence
+scores. Textract returns 91–99% on a flat label; that number on screen is the
+proof the call was real. If you have a curved/shiny packet, use it — that is
+where Textract visibly beats local OCR, and it is worth 5 seconds.
+
+## 0:50 – 1:30 — The verdict, per person → **Amazon Bedrock**
+
+This is the heart of the product. Show the **per-person** verdict cards, not a
+single pass/fail.
+
+- Cousin (severe dairy) → **UNSAFE**, "contains skimmed milk powder"
+- You (mild soy) → **CAUTION**, "soy lecithin (E322)"
+
+> "Same product, two different answers, because it knows who is eating it."
+
+**Say the service name:** "The reasoning runs on **Amazon Bedrock** through the
+Strands Agents SDK."
+
+**Show the evidence:** the `reasoning` field in the response. `"strands"` means
+the agent answered. `"deterministic"` means the rulebook did — if it says that,
+the Bedrock claim is not true yet and you must not make it.
+
+## 1:30 – 2:00 — Cross-reactivity + confidence — the bit nobody else has
+
+Pick the feature that makes this more than a lookup table:
+
+- **Cross-reactivity**: a latex allergy flags banana. Explain in one line that
+  this is a real clinical association most apps miss.
+- **Confidence**: show a thin-data product returning LOW and saying so, instead
+  of guessing. "It tells you when it does not know" is a trust feature, and
+  judges notice it.
+
+## 2:00 – 2:25 — Tap-to-explain → **OpenSearch**
+
+Tap an ingredient you cannot pronounce. Plain-English answer appears.
+
+Now the moment that shows OpenSearch is real: the label you scanned says
+**"XANTHAM GUM"** — a misspelling of xanthan gum. The curated index has no such
+entry, so exact lookup finds nothing.
+
+> "The local index has no match for that spelling. **Amazon OpenSearch** does a
+> fuzzy search across the knowledge base and finds it anyway."
+
+**Show the evidence:** `resolved_via: "opensearch"` in the response. Known
+ingredients come back `"catalogue"` or `"local"`; only the rescue says
+`"opensearch"`. That difference on screen is the proof.
+
+## 2:25 – 2:45 — Household permissions → **Cedar**
+
+Switch to the child profile and try to edit a parent's restrictions. Denied.
+
+> "Who may edit whose profile is a **Cedar** policy, not an if-statement — and
+> it fails closed."
+
+Show `backend/policies/policies.cedar` on screen for two seconds. Real policy
+text reads as real.
+
+## 2:45 – 3:00 — Close
+
+One sentence on impact, one on the stack:
+
+> "AaharKavach turns a label you cannot read into a straight answer for each
+> person in your house. Textract reads it, Bedrock reasons about it, OpenSearch
+> explains it, Cedar decides who can change it."
+
+---
+
+## Rules checklist before you upload
+
+- [ ] Under 3:00. Hard limit.
+- [ ] Every AWS service **named out loud** *and* shown on screen with evidence.
+- [ ] No claim made that the run did not actually demonstrate.
+- [ ] AI coding tools listed in the writeup (required).
+- [ ] Repo is public and its history sits inside 17–20 Sept 2026.
+- [ ] Submitted early — you can keep editing until the deadline, but not after.
+
+## Do not say any of this unless it is true on the day
+
+- **Bedrock** — currently fails with `ValidationException: Operation not
+  allowed` on EVERY model, Amazon's own included. Diagnosed 18 Sept: it is not
+  IAM and not the credentials. `get_foundation_model_availability` reports
+  `authorizationStatus: NOT_AUTHORIZED` and `agreementAvailability:
+  NOT_AVAILABLE`, while region and entitlement are both `AVAILABLE` — i.e.
+  **model access has never been enabled for the account**. That is a one-time
+  console opt-in, separate from IAM. Until it is granted the chain falls back to
+  **Groq, which is not AWS**, so the agent works but the Bedrock claim does not.
+  See "The one blocker" below.
+- **Lambda / API Gateway / DynamoDB** — nothing is deployed: 0 CloudFormation
+  stacks, 0 functions, 0 tables. Do not imply a live cloud deployment.
+- **OpenSearch on AWS** — the cluster is local. It is a genuine OpenSearch
+  cluster and genuinely queried, which counts for the Build It track; it is not
+  Amazon OpenSearch Service. Say "OpenSearch", not "Amazon OpenSearch Service",
+  unless you move it.
+
+## The one blocker — enable Bedrock model access
+
+IAM is already correct: `arn:aws:iam::964207170715:user/aahar-bedrock` with
+`AmazonBedrockFullAccess` + `AmazonTextractFullAccess`. Textract is verified
+working through the real pipeline. Only the model-access opt-in is missing.
+
+1. AWS Console → **Bedrock** → make sure the region is **us-east-1**
+2. Left sidebar → **Model access**
+3. **Modify model access** / **Enable specific models**
+4. Tick the Anthropic Claude models (and Amazon Nova as a backup)
+5. Anthropic models ask for short use-case details — a couple of sentences about
+   the allergen scanner is enough
+6. Submit. Grants are often instant, sometimes a few minutes.
+
+Re-check from the terminal without reloading the console:
+
+```bash
+.venv/bin/python -c "
+import boto3
+a = boto3.client('bedrock', region_name='us-east-1').get_foundation_model_availability(
+    modelId='anthropic.claude-haiku-4-5-20251001-v1:0')
+print('authorization:', a['authorizationStatus'], '| agreement:', a['agreementAvailability']['status'])"
+```
+
+You want `authorization: AUTHORIZED`. Then:
+
+```bash
+set -a && . ./.env && set +a && .venv/bin/python scripts/verify_bedrock.py
+```
+
+If `agreementAvailability` stays `NOT_AVAILABLE`, the account itself cannot
+accept the EULA yet — usually a brand-new account without a verified payment
+method. That is a billing-console fix, not a code one.
+
+**If access does not come through before the deadline, you are still fine.**
+Do not burn demo time on it. Strands Agents SDK, Cedar, SAM and OpenSearch are
+all AWS open-source projects on the Build It list, and Textract is a live AWS
+service verified working. That is four AWS technologies with evidence. Record
+the video around those, say "Strands Agents SDK" rather than "Bedrock" for the
+reasoning step, and the submission is honest and complete without it.
+Separately: the **root** access keys are still active on this laptop. Delete
+them in the console (IAM → My security credentials) — the app no longer needs
+them now that `aahar-bedrock` is configured.
