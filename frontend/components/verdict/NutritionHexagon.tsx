@@ -14,12 +14,12 @@ export interface NutritionHexagonProps {
 }
 
 const LABELS = [
-  { key: 'Energy_kcal', label: 'Energy' },
-  { key: 'Protein', label: 'Protein' },
-  { key: 'Carbs', label: 'Carbs' },
-  { key: 'Sugars', label: 'Sugars' },
-  { key: 'Fat', label: 'Fat' },
-  { key: 'Salt', label: 'Salt/Sodium' },
+  { key: 'Energy_kcal', label: 'Energy', unit: 'kcal' },
+  { key: 'Protein', label: 'Protein', unit: 'g' },
+  { key: 'Carbs', label: 'Carbs', unit: 'g' },
+  { key: 'Sugars', label: 'Sugars', unit: 'g' },
+  { key: 'Fat', label: 'Fat', unit: 'g' },
+  { key: 'Salt', label: 'Sodium', unit: 'mg' },
 ] as const;
 
 export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({ 
@@ -27,7 +27,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
   userLimits, 
   className 
 }) => {
-  const size = 300;
+  const size = 400;
   const center = size / 2;
   const radius = 100; // Leaves space for labels around the hexagon
 
@@ -65,10 +65,11 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
       ratio,
       isOverLimit,
       point: getPoint(angles[i], radius * ratio),
-      labelPoint: getPoint(angles[i], radius * 1.3), // Push labels slightly outside
+      labelPoint: getPoint(angles[i], radius * 1.35), // Push labels slightly outside
       angle: angles[i],
       statValue: stat,
-      limitValue: limit
+      limitValue: limit,
+      unit: item.unit
     };
   });
 
@@ -145,14 +146,14 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               {/* Label Name */}
               <text
                 x={d.labelPoint.x}
-                y={d.labelPoint.y}
+                y={d.labelPoint.y - 8}
                 dominantBaseline="middle"
                 textAnchor={textAnchor}
                 className={cn(
-                  "text-[13px] md:text-sm font-medium tracking-tight",
+                  "text-[13px] md:text-sm tracking-tight",
                   d.isOverLimit 
                     ? "fill-red-600 dark:fill-red-400 font-bold" 
-                    : "fill-slate-700 dark:fill-slate-300"
+                    : "fill-slate-900 dark:fill-white font-bold"
                 )}
               >
                 {d.label}
@@ -161,17 +162,17 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               {/* Value / Limit Display */}
               <text
                 x={d.labelPoint.x}
-                y={d.labelPoint.y + 16}
+                y={d.labelPoint.y + 10}
                 dominantBaseline="middle"
                 textAnchor={textAnchor}
                 className={cn(
-                  "text-[11px]",
+                  "text-[11px] font-medium",
                   d.isOverLimit 
                     ? "fill-red-500/90 dark:fill-red-400/90" 
-                    : "fill-slate-500 dark:fill-slate-400"
+                    : "fill-gray-500 dark:fill-gray-400"
                 )}
               >
-                {Math.round(d.statValue)} / {Math.round(d.limitValue)}
+                {Math.round(d.statValue)}{d.unit} / {Math.round(d.limitValue)}{d.unit}
               </text>
             </g>
           );
