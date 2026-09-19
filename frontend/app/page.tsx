@@ -11,7 +11,15 @@ import { Button } from "@/components/ui/Button";
 import { ApiError, ProductNotFoundError, api, runScan, runUrlScan } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
 
-const SYNONYM_COUNT = 199; // Updated from the actual python index
+// Distinct alias/synonym strings across data/mappings/allergen_synonyms.py's
+// ALLERGENS (aliases + synonym_terms) and e_numbers.py's E_NUMBERS aliases —
+// i.e. label words that actually resolve to a hidden allergen, which is what
+// this stat claims. Recompute after editing either table:
+//   names = {a.lower() for entry in ALLERGENS.values()
+//            for a in entry["aliases"] + [t["term"] for t in entry["synonym_terms"]]}
+//   names |= {a.lower() for e in E_NUMBERS for a in e["aliases"]}
+//   len(names)
+const SYNONYM_COUNT = 302;
 
 function ScanHome() {
   const router = useRouter();

@@ -99,11 +99,23 @@ def is_quantity(token: str) -> bool:
     return not any(c.isalpha() for c in cleaned)
 
 
+_WHOLLY_PARENTHESISED = re.compile(r"^\((.*)\)$")
+
+
 def _tidy(token: str) -> str:
     cleaned = _MARKUP.sub(" ", token)
     cleaned = _ARTEFACTS.sub("", cleaned)
     cleaned = re.sub(r"\(\s*\)", "", cleaned)
-    return " ".join(cleaned.split())
+    cleaned = " ".join(cleaned.split())
+    # A label like "Gram Flour (Besan)" sometimes arrives pre-split into two
+    # ingredient tokens — "Gram Flour" and "(Besan)" — leaving the annotation
+    # as its own orphaned, parenthesised token that never matches anything.
+    # Only unwrap when the ENTIRE token is one parenthesised group: an inline
+    # aside like "Raising Agent (E503)" must keep its parens.
+    wrapped = _WHOLLY_PARENTHESISED.match(cleaned)
+    if wrapped:
+        cleaned = wrapped.group(1).strip()
+    return cleaned
 
 
 def ingredient_from_token(token: str) -> Ingredient:
