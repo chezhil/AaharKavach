@@ -38,6 +38,10 @@ export function BarcodeScanner({
 
   useEffect(() => {
     let cancelled = false;
+    // Captured now, not in the cleanup: React detaches DOM refs during unmount,
+    // so reading containerRef.current from the teardown below can hand back
+    // null and skip the track cleanup entirely -- which is the whole point of it.
+    const container = containerRef.current;
 
     (async () => {
       if (
@@ -109,8 +113,8 @@ export function BarcodeScanner({
       const scanner = instance.current;
       instance.current = null;
       
-      // Stop media tracks using the container ref so it works even if unmounted from document
-      const container = containerRef.current;
+      // Releasing the tracks is what actually turns the camera indicator off;
+      // stop() alone does not always do it.
       if (container) {
         const videoEl = container.querySelector("video") as HTMLVideoElement | null;
         if (videoEl && videoEl.srcObject) {
