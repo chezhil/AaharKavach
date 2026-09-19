@@ -510,6 +510,13 @@ HARD_NEGATIVES = {
     "sodium bicarbonate": ["milk"],
     "calcium phosphate": ["milk"],
     "ammonium carbonate": ["milk"],
+    # Sunflower lecithin is the SOY-FREE lecithin — it is the thing a
+    # soy-allergic shopper is looking for. It shares E322 with soy lecithin,
+    # and the additive entry lists it as an alias, so without this it comes
+    # back flagged as soy: the exact false positive that makes someone
+    # distrust the app and put a safe product back on the shelf.
+    "sunflower lecithin": ["soybeans"],
+    "rapeseed lecithin": ["soybeans"],
 }
 
 

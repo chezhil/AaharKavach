@@ -210,7 +210,10 @@ E_NUMBERS = [
     {
         "additive_id": "E322",
         "name": "Lecithin",
-        "aliases": ["E322", "Soy lecithin", "Sunflower lecithin", "Lecithin"],
+        # "Sunflower lecithin" is deliberately NOT an alias here: this entry is
+        # tagged soybeans/soy_derived, and the additive path does not consult
+        # HARD_NEGATIVES, so listing it made the soy-free lecithin read as soy.
+        "aliases": ["E322", "Soy lecithin", "Lecithin"],
         "is_derived_from": ["plant", "soy"],
         "derived_from": {"soy": "often extracted from soybeans", "plant": "can also be from sunflower or rapeseed"},
         "allergen_tags": ["soybeans", "soy_derived"],
