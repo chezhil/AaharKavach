@@ -169,7 +169,7 @@ def _summary(profile: Profile, flags: list[FlaggedIngredient], verdict: Verdict)
 
 
 def evaluate_profile(
-    matches_by_token: dict[str, list[Match]], profile: Profile
+    matches_by_token: dict[str, list[Match]], profile: Profile, product: Product | None = None
 ) -> ProfileEvaluation:
     # Best flag per (ingredient, restriction) — never the same ingredient twice
     # for one person just because two index routes found it.
@@ -211,12 +211,28 @@ def evaluate_profile(
     flags = [f for _, f in best.values()]
     flags.sort(key=lambda f: (-SEVERITY_ORDER[f.profile_severity], f.cross_reactive))
     verdict = _verdict(flags)
+    
+    # Calculate Dynamic Nutrients
+    from .nutrition import calculate_daily_limits
+    from .contracts import NutrientMetric
+    
+    limits = calculate_daily_limits(profile)
+    nutrition_res = {}
+    if product and hasattr(product, 'nutriments'):
+        nutriments = product.nutriments or {}
+        for metric in profile.tracked_nutrients:
+            nutrition_res[metric] = NutrientMetric(
+                actual_value=nutriments.get(metric, 0.0),
+                daily_limit=limits.get(metric, 1.0)
+            )
+
     return ProfileEvaluation(
         profile_id=profile.id,
         profile_name=profile.name,
         verdict=verdict,
         summary=_summary(profile, flags, verdict),
         flagged_ingredients=flags,
+        nutrition=nutrition_res,
     )
 
 
@@ -235,7 +251,7 @@ def evaluate_deterministic(
     matches_by_token = {
         ing.name: match_ingredient(ing.name) for ing in product.ingredients
     }
-    evaluations = [evaluate_profile(matches_by_token, p) for p in profiles]
+    evaluations = [evaluate_profile(matches_by_token, p, product) for p in profiles]
 
     confidence = product.data_confidence
     if product.source == "LABEL_PHOTO" and confidence == "HIGH":

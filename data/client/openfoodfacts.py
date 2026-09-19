@@ -220,6 +220,20 @@ class OpenFoodFactsClient:
         overall_score = product.get("ecoscore_grade") \
             if isinstance(product.get("ecoscore_grade"), str) else None
 
+        # Extract nutritional facts (per 100g/ml is standard in OFF)
+        off_nut = product.get("nutriments", {})
+        mapped_nutriments = {
+            "Energy_kcal": float(off_nut.get("energy-kcal_100g") or off_nut.get("energy-kcal_serving") or 0.0),
+            "Protein": float(off_nut.get("proteins_100g") or 0.0),
+            "Carbs": float(off_nut.get("carbohydrates_100g") or 0.0),
+            "Sugars": float(off_nut.get("sugars_100g") or 0.0),
+            "Fat": float(off_nut.get("fat_100g") or 0.0),
+            "SatFat": float(off_nut.get("saturated-fat_100g") or 0.0),
+            "Salt": float(off_nut.get("sodium_100g", 0) * 1000),  # Convert g to mg
+            "Fiber": float(off_nut.get("fiber_100g") or off_nut.get("dietary-fiber_100g") or 0.0),
+            "TransFat": float(off_nut.get("trans-fat_100g") or 0.0)
+        }
+
         return ProductRecord(
             barcode=barcode,
             product_name=product.get("product_name") or product.get("product_name_en"),
@@ -240,6 +254,7 @@ class OpenFoodFactsClient:
             off_status=status,
             off_status_verbose=status_verbose,
             source="open_food_facts",
+            nutriments=mapped_nutriments,
         )
 
 

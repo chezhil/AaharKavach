@@ -45,6 +45,13 @@ class Profile:
     # editing when this is false; it never decides this itself.
     can_edit: bool = True
 
+    # Physical Attributes for dynamic nutrition limits
+    age: int | None = None
+    weight_kg: float | None = None
+    height_cm: float | None = None
+    gender: Literal["male", "female", "other"] | None = None
+    tracked_nutrients: list[str] = field(default_factory=lambda: ["Energy_kcal", "Protein", "Carbs", "Sugars", "Fat", "Salt"])
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -53,6 +60,11 @@ class Profile:
             "restrictions": [r.to_dict() for r in self.restrictions],
             "accent": self.accent,
             "can_edit": self.can_edit,
+            "age": self.age,
+            "weight_kg": self.weight_kg,
+            "height_cm": self.height_cm,
+            "gender": self.gender,
+            "tracked_nutrients": self.tracked_nutrients,
         }
 
 
@@ -76,6 +88,7 @@ class Product:
     ingredients: list[Ingredient] = field(default_factory=list)
     data_confidence: Confidence = "HIGH"
     source: str = "OPEN_FOOD_FACTS"
+    nutriments: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +100,7 @@ class Product:
             "ingredients": [i.to_dict() for i in self.ingredients],
             "data_confidence": self.data_confidence,
             "source": self.source,
+            "nutriments": self.nutriments,
         }
 
 
@@ -107,12 +121,21 @@ class FlaggedIngredient:
 
 
 @dataclass
+class NutrientMetric:
+    actual_value: float
+    daily_limit: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+@dataclass
 class ProfileEvaluation:
     profile_id: str
     profile_name: str
     verdict: Verdict
     summary: str
     flagged_ingredients: list[FlaggedIngredient] = field(default_factory=list)
+    nutrition: dict[str, NutrientMetric] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -121,6 +144,7 @@ class ProfileEvaluation:
             "verdict": self.verdict,
             "summary": self.summary,
             "flagged_ingredients": [f.to_dict() for f in self.flagged_ingredients],
+            "nutrition": {k: v.to_dict() for k, v in self.nutrition.items()},
         }
 
 
