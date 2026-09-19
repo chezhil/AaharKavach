@@ -22,6 +22,21 @@ export function BarcodeScanner({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // html5-qrcode often drops unhandled AbortErrors if the component unmounts
+    // while the camera is starting. Catch them so they don't crash Next.js.
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (
+        event.reason?.name === "AbortError" || 
+        event.reason?.message?.includes("play() request was interrupted")
+      ) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {
@@ -104,6 +119,7 @@ export function BarcodeScanner({
             track.stop();
             track.enabled = false;
           });
+          try { videoEl.pause(); } catch {}
           videoEl.srcObject = null;
         }
       }
