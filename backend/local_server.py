@@ -193,11 +193,16 @@ class Handler(BaseHTTPRequestHandler):
             ctype = self.headers.get("Content-Type") or self.headers.get("content-type") or ""
             if "application/json" in ctype:
                 import base64
+                import binascii
                 body = self._json_body()
                 b64 = body.get("image_data", "")
                 if b64.startswith("data:"):
                     b64 = b64.split(",", 1)[-1]
-                return api.scan_label_endpoint("capture.jpg", base64.b64decode(b64))
+                try:
+                    image_bytes = base64.b64decode(b64)
+                except binascii.Error:
+                    raise api.ApiError(400, "Malformed image data")
+                return api.scan_label_endpoint("capture.jpg", image_bytes)
             filename, image = _parse_multipart(self._body())
             return api.scan_label_endpoint(filename, image)
 

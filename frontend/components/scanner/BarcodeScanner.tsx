@@ -21,6 +21,7 @@ export function BarcodeScanner({
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
   const done = useRef(false);
+  const isCapturingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export function BarcodeScanner({
             // A wide, short box matches the shape of a barcode.
             { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
             (decoded) => {
-              if (done.current) return;
+              if (done.current || isCapturingRef.current) return;
               done.current = true;
               onDetected(decoded);
             },
@@ -159,18 +160,38 @@ export function BarcodeScanner({
   const [isCapturing, setIsCapturing] = useState(false);
 
   const handleCapture = () => {
-    if (!onCaptureLabel || !containerRef.current) return;
+    if (!onCaptureLabel || !containerRef.current || isCapturing) return;
     const video = containerRef.current.querySelector("video");
-    if (!video) return;
+    // ReadyState 2 is HAVE_CURRENT_DATA. videoWidth must be > 0.
+    if (!video || video.readyState < 2 || video.videoWidth === 0) return;
 
     setIsCapturing(true);
+    isCapturingRef.current = true;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    
+    // Downscale to max 1600px width/height to avoid massive payloads
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    const MAX_DIM = 1600;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width > height) {
+        height = Math.floor((height * MAX_DIM) / width);
+        width = MAX_DIM;
+      } else {
+        width = Math.floor((width * MAX_DIM) / height);
+        height = MAX_DIM;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, width, height);
       const base64Image = canvas.toDataURL("image/jpeg", 0.85);
+      // Clean up canvas
+      canvas.width = 0;
+      canvas.height = 0;
       onCaptureLabel(base64Image);
     }
   };
