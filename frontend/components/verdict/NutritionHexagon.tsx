@@ -7,24 +7,23 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { type NutrientStats } from '@/lib/types';
 
+export interface NutritionLabel {
+  key: string;
+  label: string;
+  unit: string;
+}
+
 export interface NutritionHexagonProps {
   currentStats: NutrientStats;
   userLimits: NutrientStats;
+  labels: NutritionLabel[];
   className?: string;
 }
-
-const LABELS = [
-  { key: 'Energy_kcal', label: 'Energy', unit: 'kcal' },
-  { key: 'Protein', label: 'Protein', unit: 'g' },
-  { key: 'Carbs', label: 'Carbs', unit: 'g' },
-  { key: 'Sugars', label: 'Sugars', unit: 'g' },
-  { key: 'Fat', label: 'Fat', unit: 'g' },
-  { key: 'Salt', label: 'Sodium', unit: 'mg' },
-] as const;
 
 export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({ 
   currentStats, 
   userLimits, 
+  labels,
   className 
 }) => {
   // Tighten the SVG viewBox to make the inner chart scale larger natively
@@ -54,7 +53,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
   const webLevels = [0.33, 0.66, 1.0];
 
   // Calculate coordinates for the actual data polygon
-  const dataPoints = LABELS.map((item, i) => {
+  const dataPoints = labels.map((item, i) => {
     const stat = currentStats[item.key] || 0;
     const limit = userLimits[item.key] || 1; // Prevent division by zero
     
