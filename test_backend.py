@@ -25,6 +25,8 @@ class MockTable:
     def put_item(self, Item):
         pass
 
+assert scans.app.default_limits["Energy_kcal"] == 2130.0
+
 # Monkey-patch the tables in scans.app
 scans.app.profiles_table = MockTable()
 scans.app.history_table = MockTable()

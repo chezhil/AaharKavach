@@ -66,6 +66,7 @@ class ProductRecord:
     source: str = "open_food_facts"
     confidence: str = "UNKNOWN"  # HIGH | MEDIUM | LOW — set by scorer
     is_found: bool = True
+    nutritional_stats: dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def not_found(cls, barcode: str) -> "ProductRecord":
@@ -254,7 +255,7 @@ class OpenFoodFactsClient:
             off_status=status,
             off_status_verbose=status_verbose,
             source="open_food_facts",
-            nutriments=mapped_nutriments,
+            nutritional_stats=mapped_nutriments,
         )
 
 

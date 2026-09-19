@@ -143,7 +143,7 @@ def product_from_record(record: ProductRecord, confidence: str | None = None) ->
         # Role 2 returns the score in a separate ConfidenceResult; the record's
         # own field is left at UNKNOWN, so the caller passes it in.
         data_confidence=_confidence(confidence or record.confidence),
-        nutriments=getattr(record, 'nutriments', {}),
+        nutritional_stats=getattr(record, 'nutritional_stats', {}),
         source="OPEN_FOOD_FACTS",
     )
 
