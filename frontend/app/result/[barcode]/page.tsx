@@ -258,6 +258,13 @@ export default function ResultPage() {
       </div>
 
       <aside className="space-y-3 lg:sticky lg:top-24">
+        <IngredientChips
+          ingredients={product.ingredients}
+          flags={evaluation.profile_evaluations.flatMap(
+            (e) => e.flagged_ingredients,
+          )}
+        />
+
         <section className="tile bg-surface p-4">
           <h3 className="display text-base mb-3">Nutritional Balance</h3>
           <div className="bg-white/5 rounded-xl p-4">
@@ -271,13 +278,6 @@ export default function ResultPage() {
             )}
           </div>
         </section>
-
-        <IngredientChips
-          ingredients={product.ingredients}
-          flags={evaluation.profile_evaluations.flatMap(
-            (e) => e.flagged_ingredients,
-          )}
-        />
 
         {evaluation.safe_alternatives_suggestion ? (
           <section className="tile bg-surface p-4">
