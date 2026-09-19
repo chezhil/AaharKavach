@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import { accentVar, cn, initials, verdictStyles } from "@/lib/utils";
 import { FlaggedIngredientCard } from "./FlaggedIngredientCard";
+import { NutritionHexagon } from "./NutritionHexagon";
 
 const ICONS = {
   SAFE: CheckCircle2,
@@ -71,7 +72,6 @@ export function VerdictCard({
         {evaluation.summary}
       </p>
 
-      {evaluation.flagged_ingredients.length > 0 ? (
         <ul className="mt-3 space-y-1.5">
           {evaluation.flagged_ingredients.map((flag, i) => (
             <FlaggedIngredientCard
@@ -81,6 +81,18 @@ export function VerdictCard({
           ))}
         </ul>
       ) : null}
+
+      {/* DEMO: NutritionHexagon included temporarily */}
+      <div className="mt-4 pt-4 border-t border-current/10">
+        <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-2">Nutritional Balance</p>
+        <div className="bg-white/5 rounded-xl p-4">
+          <NutritionHexagon 
+            currentStats={{ Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2 }}
+            userLimits={{ Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6 }} 
+            className="w-full"
+          />
+        </div>
+      </div>
     </article>
   );
 }
