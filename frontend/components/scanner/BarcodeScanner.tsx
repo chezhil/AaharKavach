@@ -29,13 +29,24 @@ export function BarcodeScanner({
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       if (
         event.reason?.name === "AbortError" || 
-        event.reason?.message?.includes("play() request was interrupted")
+        event.reason?.message?.includes("play() request was interrupted") ||
+        event.reason?.message?.includes("onabort() called") ||
+        (typeof event.reason === "string" && event.reason.includes("onabort() called"))
       ) {
         event.preventDefault();
       }
     };
+    const handleError = (event: ErrorEvent) => {
+      if (event.message?.includes("onabort() called")) {
+        event.preventDefault();
+      }
+    };
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
-    return () => window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleError);
+    return () => {
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener("error", handleError);
+    };
   }, []);
 
   useEffect(() => {
