@@ -51,11 +51,15 @@ export function ScanSheet({
   const { batchMode, toggleBatchMode, items, addItem, removeItem, clearCart } = useCartStore();
   const router = useRouter();
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Refs so handleDetected can read current values without being recreated
+  // Refs so handleDetected can read current values without being recreated.
+  // Synced after commit, not during render: a render React discards or replays
+  // would otherwise leave these holding a value that never made it to the DOM.
   const batchModeRef = useRef(batchMode);
-  batchModeRef.current = batchMode;
   const addItemRef = useRef(addItem);
-  addItemRef.current = addItem;
+  useEffect(() => {
+    batchModeRef.current = batchMode;
+    addItemRef.current = addItem;
+  });
 
   // Allowed upload MIME types and max size (10 MB)
   const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
@@ -160,8 +164,20 @@ export function ScanSheet({
   );
 
   const submitTyped = () => {
-    if ((!isValidBarcode(typed) && !typed.startsWith("http")) || !typed) return;
-    onBarcode(typed.trim());
+    const value = typed.trim();
+    if (!value) return;
+    const isUrl = value.startsWith("http");
+    if (!isValidBarcode(value) && !isUrl) return;
+    // A URL has no barcode to put in a basket, so it is always a single scan.
+    // Everything else goes through handleDetected so typing an item respects
+    // batch mode exactly like scanning one does — otherwise the basket can
+    // only ever be filled by camera, and a laptop demo can't use it at all.
+    if (isUrl) {
+      onBarcode(value);
+      return;
+    }
+    handleDetected(value);
+    setTyped("");
   };
 
   return (
@@ -252,8 +268,16 @@ export function ScanSheet({
               <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} batchMode={batchMode} />
             ) : null}
 
-            {batchMode && items.length > 0 && mode === "camera" && (
-              <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3">
+            {/* The basket belongs to the sheet, not to one input method: gating
+                this on the camera tab meant a machine with no camera could
+                never see the basket or reach the audit button at all. */}
+            {batchMode && items.length > 0 && (
+              <div
+                className={cn(
+                  "z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3",
+                  mode === "camera" ? "absolute bottom-4 left-4 right-4" : "mt-3",
+                )}
+              >
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span>🛒 {items.length} {items.length === 1 ? "Item" : "Items"} in Cart</span>
                   <button onClick={clearCart} className="text-xs text-fg-subtle hover:text-fg-muted underline">Clear</button>

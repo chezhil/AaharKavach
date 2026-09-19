@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Info } from "lucide-react";
 import type { BatchAuditItem, Profile, Verdict } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { accentVar, cn } from "@/lib/utils";
 
 /** The household column is the worst verdict any member got for this item. */
 const householdVerdict = (item: BatchAuditItem): Verdict => {
@@ -47,7 +47,11 @@ export function HouseholdSafetyMatrix({ items, profiles }: Props) {
                   <div className="flex flex-col items-center gap-1">
                     <span 
                       className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm"
-                      style={{ backgroundColor: p.accent }}
+                      // `accent` is a design token ("violet"/"amber"/…), not a
+                      // CSS colour. Passed raw, violet and teal happen to be
+                      // CSS named colours (wrong shade) and amber isn't one at
+                      // all, so that avatar rendered blank.
+                      style={{ background: accentVar[p.accent] ?? "var(--accent-teal)" }}
                     >
                       {p.name.charAt(0).toUpperCase()}
                     </span>

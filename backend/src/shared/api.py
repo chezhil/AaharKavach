@@ -497,10 +497,6 @@ def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     return 200, {"a": a.to_dict(), "b": b.to_dict(), "safer_pick": safer, "reason": reason}
 
 
-def history_endpoint() -> tuple[int, Any]:
-    return 200, store.list_history()
-
-
 def explain_endpoint(token: str) -> tuple[int, Any]:
     ingredient = ingredient_from_token(token)
     resolved_via = "catalogue"

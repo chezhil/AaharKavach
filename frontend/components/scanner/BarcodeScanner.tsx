@@ -30,10 +30,14 @@ export function BarcodeScanner({
 
   // Stable refs so the decode callback always reads current values without
   // being in the useEffect dep array (which would needlessly restart the camera).
+  // Synced after commit, not during render: a render React discards or replays
+  // would otherwise leave these holding a value that never made it to the DOM.
   const batchModeRef = useRef(batchMode);
-  batchModeRef.current = batchMode;
   const onDetectedRef = useRef(onDetected);
-  onDetectedRef.current = onDetected;
+  useEffect(() => {
+    batchModeRef.current = batchMode;
+    onDetectedRef.current = onDetected;
+  });
 
   const killAllTracks = () => {
     // 1. Kill from streamRef
