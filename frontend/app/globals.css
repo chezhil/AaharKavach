@@ -18,11 +18,60 @@
  * colours, and every verdict also ships an icon and a word — never colour alone.
  */
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
+
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --fg: #0f172a;
+  --fg-muted: #475569;
+  --fg-subtle: #64748b;
+
+  --brand: #ff5722;
+  --brand-strong: #e64a19;
+  --brand-fg: #ffffff;
+  --brand-soft: #ffedd5;
+  --brand-line: #f4511e;
+
+  --sky: #38bdf8;
+  --sky-fg: #0f172a;
+  --sky-soft: #e0f2fe;
+  --sky-line: #0284c7;
+
+  --safe: #ecfdf5;
+  --safe-fg: #022c22;
+  --safe-soft: #d1fae5;
+  --safe-line: #34d399;
+
+  --caution: #fffbeb;
+  --caution-fg: #451a03;
+  --caution-soft: #fef3c7;
+  --caution-line: #fbbf24;
+
+  --unsafe: #fff1f2;
+  --unsafe-fg: #4c0519;
+  --unsafe-soft: #ffe4e6;
+  --unsafe-line: #fb7185;
+
+  --accent-violet: #8b5cf6;
+  --accent-amber: #f59e0b;
+  --accent-teal: #14b8a6;
+  --accent-rose: #f43f5e;
+  --accent-sky: #0ea5e9;
+}
+
+:root.dark, .dark {
   color-scheme: dark;
 
-  --bg: #08090a;
-  --bg-elevated: #121316;
+  --bg: #0a0a0a;
+  --bg-elevated: #141414;
   --surface: #1a1b1f;
   --surface-hover: #24252b;
   --border: #2a2c33;
@@ -32,7 +81,7 @@
   --fg-muted: #a5a7b0;
   --fg-subtle: #74767f;
 
-  --brand: #ff5c16;
+  --brand: #ff5722;
   --brand-strong: #ff7a3d;
   --brand-fg: #150803;
   --brand-soft: #2c1408;
@@ -43,20 +92,20 @@
   --sky-soft: #131f2d;
   --sky-line: #a9c9f2;
 
-  --safe: #3ddc84;
+  --safe: #10b981;
   --safe-fg: #04190d;
-  --safe-soft: #0f2a1b;
-  --safe-line: #55e896;
+  --safe-soft: rgba(16, 185, 129, 0.1);
+  --safe-line: rgba(16, 185, 129, 0.3);
 
-  --caution: #ffc22e;
+  --caution: #f59e0b;
   --caution-fg: #1a1203;
-  --caution-soft: #2c2208;
-  --caution-line: #ffd05a;
+  --caution-soft: rgba(245, 158, 11, 0.1);
+  --caution-line: rgba(245, 158, 11, 0.3);
 
-  --unsafe: #f4243b;
+  --unsafe: #f43f5e;
   --unsafe-fg: #fff1f2;
-  --unsafe-soft: #2e0c12;
-  --unsafe-line: #ff6072;
+  --unsafe-soft: rgba(244, 63, 94, 0.1);
+  --unsafe-line: rgba(244, 63, 94, 0.3);
 
   --accent-violet: #c4a5ff;
   --accent-amber: #ffc22e;

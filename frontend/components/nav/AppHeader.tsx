@@ -1,14 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Sun, Moon } from "lucide-react";
 import { usingMocks } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TABS, isActive } from "./tabs";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
+  }, []);
+
+  const toggleTheme = () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    if (isDark) {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+      setTheme("light");
+    } else {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+      setTheme("dark");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur-lg">
@@ -27,7 +49,6 @@ export function AppHeader() {
           </span>
         </Link>
 
-        {/* On a phone this row is the floating pill at the bottom instead. */}
         <nav aria-label="Main" className="ml-auto hidden md:block">
           <ul className="flex gap-1 rounded-full bg-surface p-1">
             {TABS.map(({ href, label, icon: Icon }) => {
@@ -53,11 +74,21 @@ export function AppHeader() {
           </ul>
         </nav>
 
-        {usingMocks ? (
-          <span className="ml-auto shrink-0 rounded-full bg-surface px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wider text-fg-subtle md:ml-0">
-            Demo data
-          </span>
-        ) : null}
+        <div className={cn("flex items-center gap-2", !usingMocks && "ml-auto md:ml-0")}>
+          {usingMocks && (
+            <span className="ml-auto shrink-0 rounded-full bg-surface px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wider text-fg-subtle md:ml-0">
+              Demo data
+            </span>
+          )}
+          
+          <button
+            onClick={toggleTheme}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-fg-subtle hover:bg-surface-hover hover:text-fg transition-colors"
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {mounted && theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </div>
     </header>
   );
