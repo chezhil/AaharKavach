@@ -27,9 +27,10 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
   userLimits, 
   className 
 }) => {
-  const size = 400;
+  // Tighten the SVG viewBox to make the inner chart scale larger natively
+  const size = 340;
   const center = size / 2;
-  const radius = 100; // Leaves space for labels around the hexagon
+  const radius = 100; // Radius of the outermost polygon
 
   // Angles in radians starting from top (-90 deg) and going clockwise
   const angles = [
@@ -65,7 +66,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
       ratio,
       isOverLimit,
       point: getPoint(angles[i], radius * ratio),
-      labelPoint: getPoint(angles[i], radius * 1.35), // Push labels slightly outside
+      labelPoint: getPoint(angles[i], radius * 1.32), // Tighter label padding
       angle: angles[i],
       statValue: stat,
       limitValue: limit,
@@ -79,7 +80,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
     <div className={cn("w-full h-full flex justify-center items-center min-h-[300px]", className)}>
       <svg 
         viewBox={`0 0 ${size} ${size}`} 
-        className="w-full h-full max-w-[400px] overflow-visible font-sans"
+        className="w-full h-full max-w-[460px] overflow-visible font-sans"
       >
         
         {/* Draw Web (Concentric Hexagons) */}
@@ -134,7 +135,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               <circle 
                 cx={d.point.x} 
                 cy={d.point.y} 
-                r="2.5" 
+                r="3.5" 
                 className={cn(
                   "transition-colors duration-300",
                   d.isOverLimit 
@@ -146,11 +147,11 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               {/* Label Name */}
               <text
                 x={d.labelPoint.x}
-                y={d.labelPoint.y - 8}
+                y={d.labelPoint.y - 9}
                 dominantBaseline="middle"
                 textAnchor={textAnchor}
                 className={cn(
-                  "text-[13px] md:text-sm tracking-tight",
+                  "text-[15px] md:text-base tracking-tight",
                   d.isOverLimit 
                     ? "fill-red-600 dark:fill-red-400 font-bold" 
                     : "fill-slate-900 dark:fill-white font-bold"
@@ -162,11 +163,11 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
               {/* Value / Limit Display */}
               <text
                 x={d.labelPoint.x}
-                y={d.labelPoint.y + 10}
+                y={d.labelPoint.y + 11}
                 dominantBaseline="middle"
                 textAnchor={textAnchor}
                 className={cn(
-                  "text-[11px] font-medium",
+                  "text-[12.5px] md:text-[13px] font-medium",
                   d.isOverLimit 
                     ? "fill-red-500/90 dark:fill-red-400/90" 
                     : "fill-gray-500 dark:fill-gray-400"
