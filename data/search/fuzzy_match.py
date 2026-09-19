@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from functools import lru_cache
 
 from ..mappings.allergen_synonyms import ALLERGENS, HARD_NEGATIVES, resolve_synonym
 from ..mappings.e_numbers import lookup_additive
@@ -26,6 +27,22 @@ from ..mappings.descriptions import lookup_description
 # allergy. Genuine near-misses score far higher — "soy lecithin"/"soya
 # lecithin" is 0.96, "milk solids"/"milk solid" 0.95 — so 0.88 separates them.
 MIN_FUZZY_RATIO = 0.88
+
+# Characters OCR genuinely confuses on printed packaging, each collapsed to one
+# representative. A photographed label that reads "Casein" as "Caseln" has to
+# still resolve to milk, and the fuzzy pass cannot do it: that slip scores
+# 0.833 while "calcium carbonate"/"calcium caseinate" — chalk read as milk —
+# scores 0.824, so no threshold separates them. Matching on the canonical form
+# is exact rather than loose, so it only ever collapses these specific
+# substitutions: "butter"/"batter" (u/a) and "butter"/"butler" (t/l) are not
+# OCR confusions and stay unmatched. Verified to produce no collisions between
+# different allergens across the whole synonym table.
+_OCR_CONFUSIONS = str.maketrans({
+    "l": "i", "1": "i", "|": "i", "!": "i",
+    "0": "o",
+    "5": "s",
+    "8": "b",
+})
 
 
 @dataclass
@@ -81,6 +98,28 @@ def _hard_negative(ingredient: str, allergen_id: str) -> bool:
         if ingredient == phrase or _contains_whole(ingredient, phrase):
             return True
     return False
+
+
+def _ocr_canon(value: str) -> str:
+    """Normalised, with OCR-confusable characters collapsed."""
+    return _normalise(value).translate(_OCR_CONFUSIONS)
+
+
+@lru_cache(maxsize=1)
+def _canonical_index() -> dict[str, tuple[str, str, float]]:
+    """OCR-canonical form -> (allergen_id, the term it came from, confidence).
+
+    First term wins, so a plain alias beats a longer synonym phrase.
+    """
+    index: dict[str, tuple[str, str, float]] = {}
+    for allergen_id, entry in ALLERGENS.items():
+        candidates = [(a, 1.0) for a in entry["aliases"]]
+        candidates += [(t["term"], t["confidence"]) for t in entry["synonym_terms"]]
+        for term, conf in candidates:
+            key = _ocr_canon(term)
+            if key and key not in index:
+                index[key] = (allergen_id, term, conf)
+    return index
 
 
 def _scan_contained(norm: str) -> list[tuple[dict, str, float]]:
@@ -156,6 +195,26 @@ def match_ingredient(ingredient: str) -> list[Match]:
                 source_note=f'contained term "{term}"',
                 data=entry,
             ))
+
+    # 1c) OCR-canonical exact match — a photographed label that turned "Casein"
+    # into "Caseln" still has to resolve to milk. Exact on the canonical form,
+    # so this widens what matches without loosening how loosely it matches.
+    if not matches:
+        hit = _canonical_index().get(_ocr_canon(ingredient))
+        if hit:
+            allergen_id, term, conf = hit
+            entry = ALLERGENS[allergen_id]
+            if not _hard_negative(norm, allergen_id):
+                matches.append(Match(
+                    ingredient=ingredient,
+                    matched_allergen=entry["canonical_name"],
+                    allergen_id=allergen_id,
+                    match_type="synonym",
+                    confidence=min(conf, 0.9),
+                    explanation=entry["manifestation"],
+                    source_note=f'OCR-corrected to "{term}"',
+                    data=entry,
+                ))
 
     # 2) Additives via E-number / alias.
     additive = lookup_additive(norm) or lookup_additive(ingredient)
