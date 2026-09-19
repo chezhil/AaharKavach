@@ -491,6 +491,25 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
         )
         if ingredient.explainer:
             resolved_via = enriched.get("source", "local")
+
+    # Neither the curated tables nor the ontology's fuzzy match had this one.
+    # Ask the model once, then remember the answer — the knowledge base only
+    # covers ~199 entries, and Bedrock/Groq bills per call.
+    if not ingredient.explainer:
+        cache_key = " ".join(token.lower().strip().split())
+        cached = store.get_cached_explanation(cache_key)
+        if cached:
+            ingredient.explainer = cached
+            resolved_via = "ai-cached"
+        elif os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
+            from .agent_bridge import explain_ingredient as agent_explain
+
+            generated = agent_explain(token)
+            if generated:
+                store.put_cached_explanation(cache_key, generated, source="ai")
+                ingredient.explainer = generated
+                resolved_via = "ai"
+
     # Extra top-level key rather than a new Ingredient field: the TS contract in
     # frontend/lib/types.ts is frozen, and an unknown key is ignored there.
     return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}

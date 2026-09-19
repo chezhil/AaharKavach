@@ -51,6 +51,7 @@ def _blank() -> dict[str, Any]:
     return {
         "profiles": [item_from_profile(p, HOUSEHOLD_ID, "user_123") for p in SEED_PROFILES],
         "history": [],
+        "explanations": {},
     }
 
 
@@ -92,6 +93,16 @@ def _tables():
         dynamodb.Table(os.environ["PROFILES_TABLE"]),
         dynamodb.Table(os.environ.get("HISTORY_TABLE", "AaharKavach-ScanHistory")),
     )
+
+
+def _explanations_table():
+    """None when the table isn't configured — callers treat that as a cache miss."""
+    import boto3
+
+    table_name = os.environ.get("EXPLANATIONS_TABLE")
+    if not table_name:
+        return None
+    return boto3.resource("dynamodb").Table(table_name)
 
 
 # -------------------------------------------------------------- profiles
@@ -196,3 +207,35 @@ def list_history(limit: int = 50) -> list[dict[str, Any]]:
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# ------------------------------------------------------- ingredient explanations
+
+
+def get_cached_explanation(key: str) -> str | None:
+    """A plain-language explanation the AI generated for a prior tap, if any.
+
+    Keyed by normalised ingredient token so a re-ask for the same ingredient
+    (by this household or any other) never has to call the model again.
+    """
+    if _use_dynamo():
+        table = _explanations_table()
+        if table is None:
+            return None
+        item = table.get_item(Key={"ingredient": key}).get("Item")
+        return item.get("explanation") if item else None
+    with _lock:
+        return _read_local().get("explanations", {}).get(key)
+
+
+def put_cached_explanation(key: str, explanation: str, source: str) -> None:
+    if _use_dynamo():
+        table = _explanations_table()
+        if table is None:
+            return
+        table.put_item(Item={"ingredient": key, "explanation": explanation, "source": source})
+        return
+    with _lock:
+        data = _read_local()
+        data.setdefault("explanations", {})[key] = explanation
+        _write_local(data)

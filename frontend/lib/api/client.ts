@@ -111,6 +111,11 @@ export const httpApi: AaharApi = {
 
   listHistory: () => request<ScanResult[]>("/api/history"),
 
+  explainIngredient: (name: string) =>
+    request<{ explainer: string | null }>(
+      `/api/explain?ingredient=${encodeURIComponent(name)}`,
+    ),
+
   // /api/evaluate writes history server-side; nothing to do from the client.
   async recordScan() {},
 };

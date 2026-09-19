@@ -35,6 +35,12 @@ export interface AaharApi {
   /** GET /api/history */
   listHistory(): Promise<ScanResult[]>;
   /**
+   * GET /api/explain?ingredient={name} — for a token the curated knowledge
+   * base has no write-up for. The backend caches whatever the model returns,
+   * so a second ask for the same ingredient never re-invokes it.
+   */
+  explainIngredient(name: string): Promise<{ explainer: string | null }>;
+  /**
    * POST /api/history — the real backend logs a scan as a side effect of
    * /api/evaluate, so the HTTP client makes this a no-op. The mock needs it.
    */

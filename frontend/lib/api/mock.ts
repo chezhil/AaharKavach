@@ -198,4 +198,9 @@ export const mockApi: AaharApi = {
     );
     write(HISTORY_KEY, [scan, ...existing].slice(0, 50));
   },
+
+  async explainIngredient(name: string) {
+    await delay(400);
+    return { explainer: `${name} — a mock explanation (mocks are on).` };
+  },
 };

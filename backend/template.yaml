@@ -39,6 +39,7 @@ Globals:
       Variables:
         PROFILES_TABLE: !Ref ProfilesTable
         HISTORY_TABLE: !Ref HistoryTable
+        EXPLANATIONS_TABLE: !Ref ExplanationsTable
         AAHAR_HOUSEHOLD_ID: hh_1
         # Set to "true" and give AAHAR_BEDROCK_MODEL a model enabled in your
         # account to route reasoning through Role 1's Strands agent. Left off,
@@ -93,6 +94,18 @@ Resources:
           KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
 
+  ExplanationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AaharKavach-Explanations
+      AttributeDefinitions:
+        - AttributeName: ingredient
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ingredient
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
   ProfilesFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -132,6 +145,8 @@ Resources:
             TableName: !Ref ProfilesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref HistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExplanationsTable
         - Statement:
             - Effect: Allow
               Action:
@@ -152,6 +167,11 @@ Resources:
           Type: Api
           Properties:
             Path: /api/scan/barcode
+            Method: GET
+        ExplainIngredient:
+          Type: Api
+          Properties:
+            Path: /api/explain
             Method: GET
         LabelPhoto:
           Type: Api

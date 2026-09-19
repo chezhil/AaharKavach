@@ -25,6 +25,12 @@ def lambda_handler(event, context):
     if method == "GET" and "barcode" in path:
         return run(lambda: api.scan_barcode_endpoint(query(event, "code")))
 
+    if method == "GET" and "explain" in path:
+        ingredient = query(event, "ingredient")
+        if not ingredient:
+            return respond(400, {"error": "Pass ?ingredient=<name>"})
+        return run(lambda: api.explain_endpoint(ingredient))
+
     if method == "POST" and "label" in path:
         import base64
         import re
