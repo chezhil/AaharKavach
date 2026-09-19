@@ -13,18 +13,25 @@ if not os.environ.get("AAHAR_BEDROCK_MODEL"):
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from agent.evaluator import evaluate_product
-from backend.src.shared.contracts import EvaluationResult, ProfileEvaluation, FlaggedIngredient
 
 def verify_bedrock():
     print("=== AaharKavach Bedrock Verification ===")
     print(f"Model ID: {os.environ['AAHAR_BEDROCK_MODEL']}")
-    
+
     # Check AWS credentials implicitly by looking at env vars, but let boto3 handle the actual check
     has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE") or os.environ.get("GROQ_API_KEY"))
     if not has_creds:
-        print("WARNING: AWS_ACCESS_KEY_ID or GROQ_API_KEY not set in environment.")
-        print("Mocking successful response to prevent CI/CD failure on unauthenticated runner.")
-        
+        # This script's entire job is to prove a model actually answered. A
+        # fabricated "PASS" here — with a hand-written EvaluationResult and
+        # reasoning="strands" — would claim Bedrock ran when it never was
+        # asked, which is exactly the false-AWS-usage claim the rest of this
+        # codebase (see shared/reasoning.py, shared/agent_bridge.py) is careful
+        # never to make. On an unauthenticated CI runner this must SKIP, not
+        # print a fake pass.
+        print("SKIPPED: No AWS_ACCESS_KEY_ID/AWS_PROFILE or GROQ_API_KEY in "
+              "environment — this run verifies nothing about Bedrock.")
+        return
+
     # Dummy product data with a known allergen
     dummy_product = {
         "barcode": "123456789",
@@ -48,42 +55,23 @@ def verify_bedrock():
     start_time = time.time()
     
     try:
-        if has_creds:
-            result = evaluate_product(dummy_product, dummy_profiles)
-        else:
-            time.sleep(0.5)
-            result = EvaluationResult(
-                confidence="HIGH",
-                profile_evaluations=[
-                    ProfileEvaluation(
-                        profile_id="test_user",
-                        profile_name="Test User",
-                        verdict="UNSAFE",
-                        summary="Contains Sodium Caseinate.",
-                        flagged_ingredients=[
-                            FlaggedIngredient(
-                                ingredient="Sodium Caseinate",
-                                matched_allergen="Dairy",
-                                profile_severity="SEVERE",
-                                explanation="Sodium caseinate is a milk derivative.",
-                                cross_reactive=False
-                            )
-                        ]
-                    )
-                ],
-                safe_alternatives_suggestion="Try dairy-free dark chocolate.",
-                data_quality_note="High confidence.",
-                reasoning="strands"
-            )
-            
+        result = evaluate_product(dummy_product, dummy_profiles)
+
         end_time = time.time()
         latency = end_time - start_time
-        
-        print("PASS: Bedrock successfully responded in {:.2f} seconds.".format(latency))
+
+        # _run_on_chain tries Bedrock first and falls back to Groq on failure
+        # (e.g. pending model access) — say which one actually answered rather
+        # than assuming it was Bedrock just because a call went out.
+        answered_by = getattr(result, "_provider", "unknown")
+        print("PASS: {} successfully responded in {:.2f} seconds.".format(answered_by, latency))
         print("\nStructured Response:")
-        import json
-        print(json.dumps(result.to_dict(), indent=2))
-        
+        # `result` here is agent.models.EvaluationResult (a Pydantic model),
+        # not shared.contracts.EvaluationResult (a dataclass) — the two share
+        # a name but not an interface. Pydantic serialises with model_dump*,
+        # it has no .to_dict().
+        print(result.model_dump_json(indent=2))
+
         # Validate structure
         assert len(result.profile_evaluations) == 1
         assert result.profile_evaluations[0].verdict == "UNSAFE"
