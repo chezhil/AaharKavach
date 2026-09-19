@@ -53,6 +53,7 @@ class Profile:
     tracked_nutrients: list[str] = field(default_factory=lambda: ["Energy_kcal", "Protein", "Carbs", "Sugars", "Fat", "Salt"])
 
     def to_dict(self) -> dict[str, Any]:
+        from .nutrition import calculate_daily_limits
         return {
             "id": self.id,
             "name": self.name,
@@ -65,6 +66,7 @@ class Profile:
             "height_cm": self.height_cm,
             "gender": self.gender,
             "tracked_nutrients": self.tracked_nutrients,
+            "daily_limits": calculate_daily_limits(self),
         }
 
 
@@ -88,7 +90,7 @@ class Product:
     ingredients: list[Ingredient] = field(default_factory=list)
     data_confidence: Confidence = "HIGH"
     source: str = "OPEN_FOOD_FACTS"
-    nutriments: dict[str, float] = field(default_factory=dict)
+    nutritional_stats: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,7 +102,7 @@ class Product:
             "ingredients": [i.to_dict() for i in self.ingredients],
             "data_confidence": self.data_confidence,
             "source": self.source,
-            "nutriments": self.nutriments,
+            "nutritional_stats": self.nutritional_stats,
         }
 
 

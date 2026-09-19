@@ -218,8 +218,8 @@ def evaluate_profile(
     
     limits = calculate_daily_limits(profile)
     nutrition_res = {}
-    if product and hasattr(product, 'nutriments'):
-        nutriments = product.nutriments or {}
+    if product and hasattr(product, 'nutritional_stats'):
+        nutriments = product.nutritional_stats or {}
         for metric in profile.tracked_nutrients:
             nutrition_res[metric] = NutrientMetric(
                 actual_value=nutriments.get(metric, 0.0),

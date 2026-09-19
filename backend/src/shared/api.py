@@ -383,7 +383,7 @@ def _product_from_payload(raw: dict[str, Any]) -> Product:
         ],
         data_confidence=str(raw.get("data_confidence", "LOW")).upper(),  # type: ignore[arg-type]
         source=str(raw.get("source", "MANUAL")),
-        nutriments=raw.get("nutriments", {}),
+        nutritional_stats=raw.get("nutriments", {}),
     )
 
 

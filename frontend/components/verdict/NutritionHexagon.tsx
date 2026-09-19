@@ -124,7 +124,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
         {/* Draw Data Points & Labels */}
         {dataPoints.map((d) => {
           // Adjust text anchoring based on the angle so labels push outward properly
-          let textAnchor = "middle";
+          let textAnchor: "middle" | "start" | "end" = "middle";
           if (d.angle > -Math.PI / 2 && d.angle < Math.PI / 2) textAnchor = "start";
           else if (d.angle > Math.PI / 2 || d.angle < -Math.PI / 2) textAnchor = "end";
 
