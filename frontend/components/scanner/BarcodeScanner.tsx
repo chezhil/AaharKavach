@@ -304,7 +304,7 @@ export function BarcodeScanner({
               aria-hidden
             />
             <span className="text-sm font-medium tracking-wide">
-              Extracting ingredients with AWS Bedrock...
+              Reading the ingredients panel...
             </span>
           </div>
         </div>

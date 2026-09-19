@@ -38,6 +38,41 @@ function CompareInner() {
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // A slot filled from a bare barcode (e.g. the "Compare" link on a result
+  // page) has no name to show until the other slot is picked and /api/compare
+  // runs. Resolve it eagerly, keyed by barcode, so the card doesn't sit on
+  // "Loading..." forever and a stale preview never outlives its barcode.
+  const [previewA, setPreviewA] = useState<{ barcode: string; product: Product } | null>(null);
+  const [previewB, setPreviewB] = useState<{ barcode: string; product: Product } | null>(null);
+
+  useEffect(() => {
+    if (typeof a !== "string") return;
+    let cancelled = false;
+    api
+      .scanBarcode(a)
+      .then((product) => {
+        if (!cancelled) setPreviewA({ barcode: a, product });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [a]);
+
+  useEffect(() => {
+    if (typeof b !== "string") return;
+    let cancelled = false;
+    api
+      .scanBarcode(b)
+      .then((product) => {
+        if (!cancelled) setPreviewB({ barcode: b, product });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [b]);
+
   const busy = Boolean(a && b) && !result && !error;
 
   useEffect(() => {
@@ -85,7 +120,13 @@ function CompareInner() {
     // If we have a result, display the evaluated product.
     // Otherwise, if the input itself is a Product (e.g. from a photo), show its name while loading.
     const evaluatedProduct = which === "A" ? result?.a.product : result?.b.product;
-    const fallbackProduct = typeof value === "object" ? value : null;
+    const preview = which === "A" ? previewA : previewB;
+    const fallbackProduct =
+      typeof value === "object"
+        ? value
+        : typeof value === "string" && preview?.barcode === value
+        ? preview.product
+        : null;
     const product = evaluatedProduct ?? fallbackProduct;
     
     const idString = typeof value === "string" ? value : (value?.barcode ?? "");

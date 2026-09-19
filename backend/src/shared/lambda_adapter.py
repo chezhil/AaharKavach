@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from decimal import Decimal
 from typing import Any, Callable
 
 from . import api
@@ -23,11 +24,20 @@ CORS = {
 }
 
 
+class _DynamoJSONEncoder(json.JSONEncoder):
+    """DynamoDB hands numbers back as Decimal; json can't serialise those."""
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, Decimal):
+            return int(o) if o == o.to_integral_value() else float(o)
+        return super().default(o)
+
+
 def respond(status: int, payload: Any) -> dict[str, Any]:
     return {
         "statusCode": status,
         "headers": CORS,
-        "body": "" if payload is None else json.dumps(payload),
+        "body": "" if payload is None else json.dumps(payload, cls=_DynamoJSONEncoder),
     }
 
 

@@ -12,6 +12,7 @@ import json
 import os
 import threading
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +70,20 @@ def _write_local(data: dict[str, Any]) -> None:
     LOCAL_DB.write_text(json.dumps(data, indent=2, default=str))
 
 
+def _floats_to_decimal(value: Any) -> Any:
+    """DynamoDB's Python API rejects float outright — it has no way to know
+    which decimal digits you actually meant, so it makes you say so via
+    Decimal. str(value) first, not Decimal(value), so it rounds the way the
+    float already prints rather than exposing its binary representation."""
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {k: _floats_to_decimal(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_floats_to_decimal(v) for v in value]
+    return value
+
+
 def _tables():
     import boto3
 
@@ -103,7 +118,7 @@ def put_profile(profile: Profile, owner: str = "user_123") -> Profile:
     item = item_from_profile(profile, HOUSEHOLD_ID, owner)
     if _use_dynamo():
         profiles_table, _ = _tables()
-        profiles_table.put_item(Item=item)
+        profiles_table.put_item(Item=_floats_to_decimal(item))
         return profile
     with _lock:
         data = _read_local()
@@ -150,7 +165,7 @@ def record_scan(scan: ScanResult) -> None:
     }
     if _use_dynamo():
         _, history_table = _tables()
-        history_table.put_item(Item=item)
+        history_table.put_item(Item=_floats_to_decimal(item))
         return
     with _lock:
         data = _read_local()

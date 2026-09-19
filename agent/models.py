@@ -52,7 +52,10 @@ class SwapItAlternative(BaseModel):
     barcode: str = Field(description="Synthetic barcode, e.g., 'synth_123', or a real one if available")
     name: str = Field(description="The name of the alternative product")
     brand: Optional[str] = Field(default=None, description="The brand of the alternative product")
-    reason: str = Field(description="Short reason why it was suggested (fallback for older clients)")
+    # Optional: a model that fills why_it_works/household_status but skips this
+    # legacy field should not fail the whole tool call over it — Groq did
+    # exactly that. The caller derives a fallback from the other fields.
+    reason: Optional[str] = Field(default=None, description="Short reason why it was suggested (fallback for older clients)")
     image_url: Optional[str] = Field(default=None, description="A valid image URL if known, else None")
     category: Optional[str] = Field(default=None, description="Product category, e.g., 'Snacks > Popcorn'")
     why_it_works: Optional[str] = Field(default=None, description="Why this works for the taste/format profile")

@@ -18,6 +18,15 @@ Parameters:
       A model enabled in this account and region. List them with
       `aws bedrock list-inference-profiles`. Leave blank to run the
       deterministic rulebook instead of the agent.
+  GroqApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >
+      Fallback reasoning provider while Bedrock model access is pending
+      approval — the agent tries Bedrock first, then Groq. Free tier at
+      console.groq.com/keys. Leave blank to fall back straight to the
+      deterministic rulebook instead.
 
 Globals:
   Function:
@@ -37,6 +46,10 @@ Globals:
         AAHAR_USE_AGENT: !Ref UseAgent
         AAHAR_MODEL_PROVIDER: bedrock
         AAHAR_BEDROCK_MODEL: !Ref BedrockModelId
+        # Bedrock first, Groq if that fails (see agent/providers.py's default
+        # fallback chain) — this is the hackathon-timeline stopgap while
+        # Bedrock model access is pending, not a replacement for it.
+        GROQ_API_KEY: !Ref GroqApiKey
         # Tesseract needs a native binary that a plain Lambda zip cannot carry,
         # so the deployed label reader is Textract. Locally it stays tesseract.
         AAHAR_OCR: textract

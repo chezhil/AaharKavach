@@ -338,7 +338,8 @@ def _alternatives(product: Product, profiles: list[Profile]) -> list[Alternative
                     barcode=alt.barcode,
                     name=alt.name,
                     brand=alt.brand,
-                    reason=alt.reason,
+                    reason=alt.reason or alt.why_it_works
+                    or f"A safer pick for {', '.join(p.name for p in profiles)}.",
                     image_url=alt.image_url,
                     category=alt.category,
                     why_it_works=alt.why_it_works,
