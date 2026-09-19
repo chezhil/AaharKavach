@@ -51,7 +51,12 @@ def lambda_handler(event, context):
                 'profileId': new_profile_id,
                 'name': body.get('name'),
                 'owner': principal_id,
-                'allergies': body.get('allergies', [])
+                'allergies': body.get('allergies', []),
+                'age': body.get('age', 30),
+                'weight_kg': body.get('weight_kg', 70.0),
+                'height_cm': body.get('height_cm', 170.0),
+                'gender': body.get('gender', 'male'),
+                'tracked_nutrients': body.get('tracked_nutrients', ["Energy_kcal", "Protein", "Carbs", "Sugars", "Fat", "Salt"])
             }
             table.put_item(Item=item)
             return {"statusCode": 201, "body": json.dumps(item)}

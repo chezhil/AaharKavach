@@ -3,6 +3,11 @@ import os
 import uuid
 import datetime
 import boto3
+import sys
+
+# Add shared to path for AWS Lambda environment if needed
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from shared.nutrition import calculate_daily_limits
 
 dynamodb = boto3.resource('dynamodb')
 history_table = dynamodb.Table(os.environ.get('HISTORY_TABLE', 'AaharKavach-ScanHistory'))
@@ -14,13 +19,40 @@ def mock_role2_fetch_product(barcode):
         "barcode": barcode,
         "name": "Sample Peanut Butter",
         "ingredients": ["Peanuts", "Salt", "Palm Oil", "E120"],
+        "nutriments": {
+            "Energy_kcal": 588,
+            "Protein": 25,
+            "Carbs": 20,
+            "Sugars": 9,
+            "Fat": 50,
+            "SatFat": 10,
+            "Salt": 400,
+            "Fiber": 6,
+            "TransFat": 0
+        },
         "confidence": "HIGH"
     }
 
 def mock_role1_evaluate(product_data, profiles):
     """Mocks Role 1 (Agent) Strands evaluation"""
     evaluations = []
+    nutriments = product_data.get('nutriments', {})
+    
     for profile in profiles:
+        # 1. Determine tracked nutrients (fallback to default 6 if missing)
+        tracked = profile.get('tracked_nutrients', ["Energy_kcal", "Protein", "Carbs", "Sugars", "Fat", "Salt"])
+        
+        # 2. Calculate dynamic daily limits based on profile attributes
+        limits = calculate_daily_limits(profile)
+        
+        # 3. Build nutrition response for this specific profile
+        nutrition_res = {}
+        for metric in tracked:
+            nutrition_res[metric] = {
+                "actual_value": nutriments.get(metric, 0),
+                "daily_limit": limits.get(metric, 1)  # Fallback to 1 to prevent division by zero in UI
+            }
+            
         evaluations.append({
             "profile_id": profile['profileId'],
             "profile_name": profile.get('name', 'Unknown'),
@@ -33,8 +65,10 @@ def mock_role1_evaluate(product_data, profiles):
                     "profile_severity": "SEVERE",
                     "explanation": "Peanuts are a known severe allergen for this profile."
                 }
-            ]
+            ],
+            "nutrition": nutrition_res
         })
+        
     return {
         "confidence": product_data["confidence"],
         "profile_evaluations": evaluations,
