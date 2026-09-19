@@ -69,6 +69,27 @@ export const MOCK_PRODUCTS: Product[] = [
     ],
   },
   {
+    // The only safe pick in Biscuits/Cookies. Without it the flagship demo
+    // product (Good Day) has no alternatives to offer, because Oreo carries
+    // maida and soy lecithin and so fails the "clear for everyone" filter.
+    barcode: "8904063200117",
+    name: "Millet & Jaggery Cookies",
+    brand: "Early Foods",
+    categories: ["Biscuits", "Cookies"],
+    data_confidence: "HIGH",
+    source: "OPEN_FOOD_FACTS",
+    image_url: null,
+    ingredients: [
+      ing("Ragi Flour"),
+      ing("Rice Flour"),
+      ing("Jaggery"),
+      ing("Sunflower Oil"),
+      ing("Sunflower Lecithin"),
+      ing("Cardamom"),
+      ing("Salt"),
+    ],
+  },
+  {
     barcode: "7622210449283",
     name: "Oreo Original",
     brand: "Cadbury",

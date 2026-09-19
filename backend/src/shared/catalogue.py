@@ -30,6 +30,15 @@ _RAW: list[dict] = [
                         "Egg White", "Soy Lecithin", "Salt"],
     },
     {
+        # The only safe pick in Biscuits/Cookies. Without it a Good Day scan has
+        # no alternatives to offer at all: Oreo is the sole other biscuit and it
+        # carries maida and soy lecithin, so it never clears the whole household.
+        "barcode": "8904063200117", "name": "Millet & Jaggery Cookies", "brand": "Early Foods",
+        "categories": ["Biscuits", "Cookies"], "data_confidence": "HIGH",
+        "ingredients": ["Ragi Flour", "Rice Flour", "Jaggery", "Sunflower Oil",
+                        "Sunflower Lecithin", "Cardamom", "Salt"],
+    },
+    {
         "barcode": "7622210449283", "name": "Oreo Original", "brand": "Cadbury",
         "categories": ["Biscuits", "Cookies"], "data_confidence": "HIGH",
         "ingredients": ["Refined Wheat Flour (Maida)", "Sugar", "Palm Oil", "Cocoa Powder",
