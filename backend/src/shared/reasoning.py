@@ -299,37 +299,6 @@ def _corroborating_flag(
     return None
 
 
-def _corroborated(flag: FlaggedIngredient, profile: Profile) -> bool:
-    """Can the knowledge base back this flag for this person?"""
-    wanted: set[str] = set()
-    diets = set()
-    custom_terms = set()
-    for restriction in profile.restrictions:
-        wanted |= allergen_ids_for(restriction.label)
-        token = _norm(restriction.label)
-        if token in DIET_RESTRICTIONS:
-            diets.add(token)
-        elif not allergen_ids_for(restriction.label):
-            custom_terms.add(token)
-
-    for custom_term in custom_terms:
-        if custom_term in _norm(flag.ingredient):
-            return True
-
-    for match in match_ingredient(flag.ingredient):
-        if match.match_type in ("exact", "synonym", "fuzzy") and match.allergen_id in wanted:
-            return True
-        if match.match_type == "additive":
-            if {str(t) for t in match.data.get("allergen_tags", [])} & wanted:
-                return True
-            if diets & ANIMAL_SOURCE_DIETS and _is_animal_derived(match.data):
-                return True
-        if match.match_type == "cross_reactivity":
-            primary = _norm(str(match.data.get("primary_allergy", "")))
-            if primary and (primary in wanted or allergen_ids_for(primary) & wanted):
-                return True
-    return False
-
 
 def reconcile(result: EvaluationResult, profiles: list[Profile]) -> EvaluationResult:
     """Keep the model honest about what it can actually support.
