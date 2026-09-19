@@ -72,6 +72,9 @@ def lambda_handler(event, context):
 
     if method == "POST" and "url" in path:
         return run(lambda: api.scan_url_endpoint(caller, json_body(event)))
+        
+    if method == "POST" and "batch" in path:
+        return run(lambda: api.audit_batch_endpoint(caller, json_body(event)))
 
     if method == "POST" and "evaluate" in path:
         return run(lambda: api.evaluate_endpoint(caller, json_body(event)))

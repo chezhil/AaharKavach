@@ -32,6 +32,8 @@ export interface AaharApi {
   evaluate(req: EvaluateRequest): Promise<EvaluationResult>;
   /** POST /api/compare */
   compare(req: CompareRequest): Promise<CompareResult>;
+  /** POST /api/audit/batch */
+  auditBatch(barcodes: string[], householdId: string): Promise<any>;
   /** GET /api/history */
   listHistory(): Promise<ScanResult[]>;
   /**

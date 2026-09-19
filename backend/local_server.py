@@ -186,6 +186,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise api.ApiError(400, "Pass ?code=<barcode>")
             return api.scan_barcode_endpoint(code)
 
+        if method == "POST" and path == "/api/audit/batch":
+            return api.audit_batch_endpoint(caller, self._json_body())
+
         if method == "POST" and path == "/api/scan/url":
             return api.scan_url_endpoint(caller, self._json_body())
 

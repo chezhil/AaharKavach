@@ -109,6 +109,12 @@ export const httpApi: AaharApi = {
       body: JSON.stringify(req),
     }),
 
+  auditBatch: (barcodes: string[], householdId: string) =>
+    request<any>("/api/audit/batch", {
+      method: "POST",
+      body: JSON.stringify({ barcodes, household_id: householdId }),
+    }),
+
   listHistory: () => request<ScanResult[]>("/api/history"),
 
   explainIngredient: (name: string) =>

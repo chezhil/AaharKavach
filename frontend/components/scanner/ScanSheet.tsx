@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Camera, ImagePlus, Keyboard, Loader2 } from "lucide-react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { Camera, ImagePlus, Keyboard, Loader2, ShoppingCart, X, ArrowRight } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { BarcodeScanner } from "./BarcodeScanner";
 import { MOCK_PRODUCTS } from "@/lib/mocks/fixtures";
 import { usingMocks } from "@/lib/api";
 import { cn, isValidBarcode } from "@/lib/utils";
+import { useCartStore } from "@/stores/useCartStore";
+import { useRouter } from "next/navigation";
 
 export type ScanMode = "camera" | "manual" | "photo";
 type Mode = ScanMode;
@@ -44,6 +46,16 @@ export function ScanSheet({
   const [typed, setTyped] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  const { batchMode, toggleBatchMode, items, addItem, removeItem, clearCart } = useCartStore();
+  const router = useRouter();
+
+  const handleAuditBatch = () => {
+    if (items.length === 0) return;
+    onClose();
+    router.push("/batch-result");
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,9 +117,16 @@ export function ScanSheet({
   const handleDetected = useCallback(
     (barcode: string) => {
       if (navigator.vibrate) navigator.vibrate(40);
-      onBarcode(barcode);
+      
+      if (batchMode) {
+        addItem(barcode);
+        setToastMessage(`Added ${barcode} to Cart`);
+        setTimeout(() => setToastMessage(null), 2000);
+      } else {
+        onBarcode(barcode);
+      }
     },
-    [onBarcode],
+    [onBarcode, batchMode, addItem],
   );
 
   const submitTyped = () => {
@@ -123,28 +142,43 @@ export function ScanSheet({
       description="Point at the barcode, type it, or photograph the ingredients panel."
     >
       <div className="space-y-4">
-        <div
-          role="tablist"
-          aria-label="Scan method"
-          className="grid grid-cols-3 gap-1 rounded-xl bg-bg p-1"
-        >
-          {MODES.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={mode === id}
-              onClick={() => handleTabChange(id)}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
-                mode === id
-                  ? "bg-brand text-brand-fg"
-                  : "text-fg-subtle hover:text-fg-muted",
-              )}
-            >
-              <Icon size={14} aria-hidden />
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between px-1">
+          <div
+            role="tablist"
+            aria-label="Scan method"
+            className="flex w-[200px] gap-1 rounded-xl bg-bg p-1"
+          >
+            {MODES.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => handleTabChange(id)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+                  mode === id
+                    ? "bg-brand text-brand-fg"
+                    : "text-fg-subtle hover:text-fg-muted",
+                )}
+              >
+                <Icon size={14} aria-hidden />
+                <span className="sr-only sm:not-sr-only sm:inline-block">{label}</span>
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={toggleBatchMode}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
+              batchMode 
+                ? "bg-brand/10 border-brand text-brand"
+                : "bg-surface border-border-subtle text-fg-subtle hover:bg-surface-hover"
+            )}
+          >
+            <ShoppingCart size={14} />
+            {batchMode ? "Batch Mode ON" : "Batch Mode OFF"}
+          </button>
         </div>
 
         {error && !busy ? (
@@ -176,17 +210,50 @@ export function ScanSheet({
               aria-hidden
             />
             <p className="text-sm font-semibold">
-              {busyMessage?.title || "Checking against your household…"}
+              {busyMessage?.title || "Checking against your household?"}
             </p>
             <p className="text-xs text-fg-subtle">
               {busyMessage?.desc || "Looking up the product, then reasoning over every ingredient."}
             </p>
           </div>
         ) : (
-          <>
+          <div className="relative">
             {mode === "camera" ? (
-              <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} />
+              <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} batchMode={batchMode} />
             ) : null}
+
+            {batchMode && items.length > 0 && mode === "camera" && (
+              <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3">
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>🛒 {items.length} {items.length === 1 ? "Item" : "Items"} in Cart</span>
+                  <button onClick={clearCart} className="text-xs text-fg-subtle hover:text-fg-muted underline">Clear</button>
+                </div>
+                
+                <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
+                  {items.map((item) => (
+                    <div key={item.barcode} className="relative flex shrink-0 items-center justify-center h-12 w-12 rounded-lg bg-bg border border-border-subtle">
+                      <span className="text-[10px] text-fg-muted">{item.barcode.slice(-4)}</span>
+                      <button 
+                        onClick={() => removeItem(item.barcode)}
+                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-bg"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button onClick={handleAuditBatch} className="w-full h-10 mt-1 shadow-sm">
+                  Audit Household Cart <ArrowRight size={16} className="ml-1" />
+                </Button>
+              </div>
+            )}
+            
+            {toastMessage && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-brand-fg shadow-lg animate-in fade-in slide-in-from-top-2">
+                {toastMessage}
+              </div>
+            )}
 
             {mode === "manual" ? (
               <div className="space-y-3">
@@ -291,7 +358,7 @@ export function ScanSheet({
                 </p>
               </div>
             ) : null}
-          </>
+          </div>
         )}
       </div>
     </Sheet>

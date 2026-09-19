@@ -187,6 +187,47 @@ export const mockApi: AaharApi = {
     };
   },
 
+  async auditBatch(barcodes: string[], householdId: string): Promise<any> {
+    await delay(900);
+    const people = profiles(); // mock all
+    const items = barcodes.map(barcode => {
+      try {
+        const product = findProduct(barcode);
+        if (!product) {
+          return { barcode, status: "UNKNOWN" };
+        }
+        const evaluation = runEngine(product, people);
+        const member_verdicts = Object.fromEntries(
+          evaluation.profile_evaluations.map(e => [e.profile_id, e.verdict])
+        );
+        
+        const hasUnsafe = evaluation.profile_evaluations.some(e => e.verdict === "UNSAFE");
+        const hasCaution = evaluation.profile_evaluations.some(e => e.verdict === "CAUTION");
+        const verdict = hasUnsafe ? "UNSAFE" : (hasCaution ? "CAUTION" : "SAFE");
+        
+        return {
+          barcode,
+          name: product.name,
+          brand: product.brand || undefined,
+          image_url: product.image_url || undefined,
+          verdict,
+          member_verdicts,
+          status: "KNOWN"
+        };
+      } catch {
+        return { barcode, status: "UNKNOWN" };
+      }
+    });
+    
+    const summary = {
+      total_scanned: barcodes.length,
+      household_verdict: items.some(i => i.verdict === "UNSAFE") ? "UNSAFE" : (items.some(i => i.verdict === "CAUTION") ? "CAUTION" : "SAFE"),
+      flagged_items: items.filter(i => i.verdict === "UNSAFE" || i.verdict === "CAUTION").length
+    };
+
+    return { summary, items };
+  },
+
   async listHistory() {
     await delay(120);
     return history();

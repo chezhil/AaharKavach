@@ -513,3 +513,89 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
     # Extra top-level key rather than a new Ingredient field: the TS contract in
     # frontend/lib/types.ts is frozen, and an unknown key is ignored there.
     return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}
+
+
+def audit_batch_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
+    from .reasoning import evaluate
+    
+    barcodes = body.get("barcodes", [])
+    if not isinstance(barcodes, list) or not barcodes:
+        raise ApiError(400, "barcodes list is required and must not be empty")
+
+    household_id = body.get("household_id")
+    if not household_id:
+        if caller.household:
+            household_id = caller.household
+        else:
+            raise ApiError(400, "household_id is required either in body or headers")
+            
+    # Resolve all profiles in this household
+    household_profiles = store.load_profiles()
+    if not household_profiles:
+        raise ApiError(404, f"No profiles found for household {household_id}")
+
+    items = []
+    summary = {
+        "total_items": len(barcodes),
+        "all_family_safe_count": 0,
+        "caution_count": 0,
+        "unsafe_count": 0
+    }
+
+    for barcode in barcodes:
+        try:
+            product = lookup_product(str(barcode))
+            result = evaluate(product, household_profiles, [])
+            
+            # Determine household clearance
+            member_verdicts = {}
+            is_unsafe_for_any = False
+            has_caution = False
+            
+            for eval_res in result.profile_evaluations:
+                member_verdicts[eval_res.profile_id] = {
+                    "name": eval_res.profile_name,
+                    "verdict": eval_res.verdict,
+                    "flagged_ingredients": [
+                        {
+                            "ingredient": flag.ingredient,
+                            "reason": flag.matched_allergen
+                        } for flag in eval_res.flagged_ingredients
+                    ]
+                }
+                if eval_res.verdict == "UNSAFE":
+                    is_unsafe_for_any = True
+                elif eval_res.verdict == "CAUTION":
+                    has_caution = True
+            
+            household_cleared = not is_unsafe_for_any
+            
+            if is_unsafe_for_any:
+                summary["unsafe_count"] += 1
+            elif has_caution:
+                summary["caution_count"] += 1
+            else:
+                summary["all_family_safe_count"] += 1
+                
+            items.append({
+                "barcode": product.barcode,
+                "product_name": product.name,
+                "brand": product.brand,
+                "image_url": product.image_url,
+                "household_cleared": household_cleared,
+                "member_verdicts": member_verdicts,
+                "status": "KNOWN"
+            })
+        except ApiError as e:
+            if e.status == 404:
+                items.append({
+                    "barcode": str(barcode),
+                    "status": "UNKNOWN"
+                })
+            else:
+                raise
+
+    return 200, {
+        "summary": summary,
+        "items": items
+    }

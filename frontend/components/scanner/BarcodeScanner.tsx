@@ -14,9 +14,11 @@ type Status = "starting" | "scanning" | "denied" | "unsupported";
 export function BarcodeScanner({
   onDetected,
   onCaptureLabel,
+  batchMode = false,
 }: {
   onDetected: (barcode: string) => void;
   onCaptureLabel?: (base64Image: string) => void;
+  batchMode?: boolean;
 }) {
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
@@ -24,6 +26,7 @@ export function BarcodeScanner({
   const isCapturingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const lastScannedMap = useRef<Record<string, number>>({});
 
   const killAllTracks = () => {
     // 1. Kill from streamRef
@@ -133,8 +136,17 @@ export function BarcodeScanner({
             { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
             (decoded) => {
               if (done.current || isCapturingRef.current) return;
-              done.current = true;
-              onDetected(decoded);
+              if (batchMode) {
+                const now = Date.now();
+                const lastScanned = lastScannedMap.current[decoded] || 0;
+                // 2.5-second cooldown per unique barcode
+                if (now - lastScanned < 2500) return;
+                lastScannedMap.current[decoded] = now;
+                onDetected(decoded);
+              } else {
+                done.current = true;
+                onDetected(decoded);
+              }
             },
             () => {
               // Per-frame decode misses are constant and expected — ignore them.
