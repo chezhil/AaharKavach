@@ -1,0 +1,17 @@
+AaharKavach
+Copyright 2026 Push Masters — Chezhil S, Aaditya Arunpal, Naman Raghav,
+                              Jyothi Xavier Rodrigues
+
+This product includes software developed as part of the WeMakeDevs
+"First Commit" hackathon (17-20 September 2026).
+
+This licence covers the source code in this repository. It does NOT cover
+third-party data the application retrieves at runtime:
+
+  Product records come from Open Food Facts (https://world.openfoodfacts.org),
+  made available under the Open Database License (ODbL) v1.0. Individual
+  product contents are under the Database Contents License (DbCL) v1.0, and
+  product images under CC BY-SA 3.0. Those terms apply to that data, not this
+  licence.
+
+See the "Credits and licensing" section of README.md for the full list.
