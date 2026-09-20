@@ -11,12 +11,20 @@ import { Button } from "@/components/ui/Button";
 import { ApiError, ProductNotFoundError, api, runScan, runUrlScan } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
 
-const SYNONYM_COUNT = 199; // Updated from the actual python index
+// Distinct alias/synonym strings across data/mappings/allergen_synonyms.py's
+// ALLERGENS (aliases + synonym_terms) and e_numbers.py's E_NUMBERS aliases —
+// i.e. label words that actually resolve to a hidden allergen, which is what
+// this stat claims. Recompute after editing either table:
+//   names = {a.lower() for entry in ALLERGENS.values()
+//            for a in entry["aliases"] + [t["term"] for t in entry["synonym_terms"]]}
+//   names |= {a.lower() for e in E_NUMBERS for a in e["aliases"]}
+//   len(names)
+const SYNONYM_COUNT = 302;
 
 function ScanHome() {
   const router = useRouter();
   const params = useSearchParams();
-  const { activeIds, activeProfiles, addScan, history, profiles, loading } = useApp();
+  const { activeIds, activeProfiles, addScan, history, profiles, loading, error: loadError } = useApp();
 
   // `/?scan=photo` is how the "not in the database" screen hands over.
   const requested = params.get("scan");
@@ -66,7 +74,7 @@ function ScanHome() {
   );
 
   const handleLabelPhoto = useCallback(
-    async (file: File) => {
+    async (file: File | string) => {
       setBusy(true);
       setError(null);
       try {
@@ -105,6 +113,18 @@ function ScanHome() {
 
   return (
     <div className="space-y-3">
+      {/* The household couldn't be fetched at all — say so instead of showing
+          an app that looks empty for no reason. */}
+      {loadError ? (
+        <p
+          role="alert"
+          className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
+        >
+          {loadError} Your household and history couldn&apos;t be loaded — check the
+          connection and reload.
+        </p>
+      ) : null}
+
       <ProfileSwitcher />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

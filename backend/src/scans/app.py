@@ -25,14 +25,37 @@ def lambda_handler(event, context):
     if method == "GET" and "barcode" in path:
         return run(lambda: api.scan_barcode_endpoint(query(event, "code")))
 
+    if method == "GET" and "explain" in path:
+        ingredient = query(event, "ingredient")
+        if not ingredient:
+            return respond(400, {"error": "Pass ?ingredient=<name>"})
+        return run(lambda: api.explain_endpoint(ingredient))
+
     if method == "POST" and "label" in path:
         import base64
         import re
 
+        ctype = next((v for k, v in (event.get("headers") or {}).items() if k.lower() == "content-type"), "")
+        if "application/json" in ctype:
+            import binascii
+            body = json_body(event)
+            b64 = body.get("image_data", "")
+            if b64.startswith("data:"):
+                b64 = b64.split(",", 1)[-1]
+            try:
+                image_bytes = base64.b64decode(b64)
+            except binascii.Error:
+                return respond(400, {"error": "Malformed image data"})
+            return run(lambda: api.scan_label_endpoint("", image_bytes))
+
         body = event.get("body") or ""
         # API Gateway base64-encodes binary bodies.
         if event.get("isBase64Encoded"):
-            raw = base64.b64decode(body)
+            import binascii
+            try:
+                raw = base64.b64decode(body)
+            except binascii.Error:
+                return respond(400, {"error": "Malformed base64 body"})
         else:
             raw = body.encode("utf-8", "replace") if isinstance(body, str) else bytes(body)
 
@@ -53,6 +76,9 @@ def lambda_handler(event, context):
 
     if method == "POST" and "url" in path:
         return run(lambda: api.scan_url_endpoint(caller, json_body(event)))
+        
+    if method == "POST" and "batch" in path:
+        return run(lambda: api.audit_batch_endpoint(caller, json_body(event)))
 
     if method == "POST" and "evaluate" in path:
         return run(lambda: api.evaluate_endpoint(caller, json_body(event)))

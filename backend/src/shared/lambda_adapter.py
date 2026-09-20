@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from decimal import Decimal
 from typing import Any, Callable
 
 from . import api
@@ -19,15 +20,24 @@ CORS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Api-Key,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
 }
+
+
+class _DynamoJSONEncoder(json.JSONEncoder):
+    """DynamoDB hands numbers back as Decimal; json can't serialise those."""
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, Decimal):
+            return int(o) if o == o.to_integral_value() else float(o)
+        return super().default(o)
 
 
 def respond(status: int, payload: Any) -> dict[str, Any]:
     return {
         "statusCode": status,
         "headers": CORS,
-        "body": "" if payload is None else json.dumps(payload),
+        "body": "" if payload is None else json.dumps(payload, cls=_DynamoJSONEncoder),
     }
 
 
@@ -67,4 +77,4 @@ def run(handler: Callable[[], tuple[int, Any]]) -> dict[str, Any]:
         return respond(exc.status, {"error": exc.message})
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Unhandled error")
-        return respond(500, {"error": str(exc)})
+        return respond(500, {"error": "Internal server error"})

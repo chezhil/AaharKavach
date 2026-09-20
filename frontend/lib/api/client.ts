@@ -1,4 +1,5 @@
 import type {
+  BatchAuditResult,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -25,9 +26,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError(
-      `Can't reach the API at ${BASE}. Is \`sam local start-api\` running?`,
-    );
+    // Reaches real users now that the store surfaces load failures, so it
+    // reads like something a shopper can act on. The address stays in the
+    // console message for whoever is debugging it.
+    console.error(`Can't reach the API at ${BASE}`);
+    throw new ApiError("Can't reach the server right now.");
   }
   if (!res.ok) {
     // The API answers {"error": "..."}; showing the raw JSON to a user is worse
@@ -78,7 +81,13 @@ export const httpApi: AaharApi = {
     }
   },
 
-  scanLabel(file: File) {
+  scanLabel(file: File | string) {
+    if (typeof file === "string") {
+      return request<Product>("/api/scan/label", {
+        method: "POST",
+        body: JSON.stringify({ image_data: file }),
+      });
+    }
     const form = new FormData();
     form.append("image", file);
     return request<Product>("/api/scan/label", { method: "POST", body: form });
@@ -103,7 +112,18 @@ export const httpApi: AaharApi = {
       body: JSON.stringify(req),
     }),
 
+  auditBatch: (barcodes: string[], householdId: string) =>
+    request<BatchAuditResult>("/api/audit/batch", {
+      method: "POST",
+      body: JSON.stringify({ barcodes, household_id: householdId }),
+    }),
+
   listHistory: () => request<ScanResult[]>("/api/history"),
+
+  explainIngredient: (name: string) =>
+    request<{ explainer: string | null }>(
+      `/api/explain?ingredient=${encodeURIComponent(name)}`,
+    ),
 
   // /api/evaluate writes history server-side; nothing to do from the client.
   async recordScan() {},

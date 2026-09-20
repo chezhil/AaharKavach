@@ -18,6 +18,15 @@ Parameters:
       A model enabled in this account and region. List them with
       `aws bedrock list-inference-profiles`. Leave blank to run the
       deterministic rulebook instead of the agent.
+  GroqApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >
+      Fallback reasoning provider while Bedrock model access is pending
+      approval — the agent tries Bedrock first, then Groq. Free tier at
+      console.groq.com/keys. Leave blank to fall back straight to the
+      deterministic rulebook instead.
 
 Globals:
   Function:
@@ -30,6 +39,7 @@ Globals:
       Variables:
         PROFILES_TABLE: !Ref ProfilesTable
         HISTORY_TABLE: !Ref HistoryTable
+        EXPLANATIONS_TABLE: !Ref ExplanationsTable
         AAHAR_HOUSEHOLD_ID: hh_1
         # Set to "true" and give AAHAR_BEDROCK_MODEL a model enabled in your
         # account to route reasoning through Role 1's Strands agent. Left off,
@@ -37,6 +47,10 @@ Globals:
         AAHAR_USE_AGENT: !Ref UseAgent
         AAHAR_MODEL_PROVIDER: bedrock
         AAHAR_BEDROCK_MODEL: !Ref BedrockModelId
+        # Bedrock first, Groq if that fails (see agent/providers.py's default
+        # fallback chain) — this is the hackathon-timeline stopgap while
+        # Bedrock model access is pending, not a replacement for it.
+        GROQ_API_KEY: !Ref GroqApiKey
         # Tesseract needs a native binary that a plain Lambda zip cannot carry,
         # so the deployed label reader is Textract. Locally it stays tesseract.
         AAHAR_OCR: textract
@@ -104,6 +118,18 @@ Resources:
           KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
 
+  ExplanationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AaharKavach-Explanations
+      AttributeDefinitions:
+        - AttributeName: ingredient
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ingredient
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
   ProfilesFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -143,6 +169,8 @@ Resources:
             TableName: !Ref ProfilesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref HistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExplanationsTable
         - Statement:
             - Effect: Allow
               Action:
@@ -164,6 +192,11 @@ Resources:
           Properties:
             Path: /api/scan/barcode
             Method: GET
+        ExplainIngredient:
+          Type: Api
+          Properties:
+            Path: /api/explain
+            Method: GET
         LabelPhoto:
           Type: Api
           Properties:
@@ -178,6 +211,11 @@ Resources:
           Type: Api
           Properties:
             Path: /api/evaluate
+            Method: POST
+        AuditBatch:
+          Type: Api
+          Properties:
+            Path: /api/audit/batch
             Method: POST
 
   CompareFunction:

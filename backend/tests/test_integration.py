@@ -129,7 +129,7 @@ def test_profile_crud_round_trip():
 def test_evaluate_records_history():
     api.evaluate_endpoint(ADMIN, {"barcode": "8901063152762",
                                   "profile_ids": ["adult_1", "kid_1", "adult_2"]})
-    status, history = api.history_endpoint()
+    status, history = api.history_endpoint(ADMIN)
     assert status == 200
     assert history and history[0]["product"]["barcode"] == "8901063152762"
 

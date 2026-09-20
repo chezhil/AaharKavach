@@ -26,10 +26,10 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
   labels,
   className 
 }) => {
-  // Tighten the SVG viewBox to make the inner chart scale larger natively
-  const size = 340;
+  // Expand SVG viewBox padding and reduce hexagon radius to prevent text overflow
+  const size = 380;
   const center = size / 2;
-  const radius = 100; // Radius of the outermost polygon
+  const radius = 90; // Reduced radius for more text breathing room
 
   // Angles in radians starting from top (-90 deg) and going clockwise
   const angles = [
@@ -65,7 +65,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
       ratio,
       isOverLimit,
       point: getPoint(angles[i], radius * ratio),
-      labelPoint: getPoint(angles[i], radius * 1.32), // Tighter label padding
+      labelPoint: getPoint(angles[i], radius * 1.36), // Push labels outward from smaller radius
       angle: angles[i],
       statValue: stat,
       limitValue: limit,
@@ -79,7 +79,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
     <div className={cn("w-full h-full flex justify-center items-center min-h-[300px]", className)}>
       <svg 
         viewBox={`0 0 ${size} ${size}`} 
-        className="w-full h-full max-w-[460px] overflow-visible font-sans"
+        className="w-full h-auto max-w-[280px] mx-auto overflow-visible font-sans"
       >
         
         {/* Draw Web (Concentric Hexagons) */}
@@ -124,7 +124,7 @@ export const NutritionHexagon: React.FC<NutritionHexagonProps> = ({
         {/* Draw Data Points & Labels */}
         {dataPoints.map((d) => {
           // Adjust text anchoring based on the angle so labels push outward properly
-          let textAnchor = "middle";
+          let textAnchor: "middle" | "start" | "end" = "middle";
           if (d.angle > -Math.PI / 2 && d.angle < Math.PI / 2) textAnchor = "start";
           else if (d.angle > Math.PI / 2 || d.angle < -Math.PI / 2) textAnchor = "end";
 

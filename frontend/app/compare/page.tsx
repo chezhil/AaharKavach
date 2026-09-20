@@ -7,9 +7,9 @@ import { ArrowRight, Loader2, Plus, Trophy, X } from "lucide-react";
 import { ProductPicker } from "@/components/compare/ProductPicker";
 import { ConfidenceBadge } from "@/components/verdict/ConfidenceBadge";
 import { Button } from "@/components/ui/Button";
-import { api, ProductNotFoundError } from "@/lib/api";
+import { api, ApiError, ProductNotFoundError } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
-import { VERDICT_LABEL, type CompareResult, type Verdict } from "@/lib/types";
+import { VERDICT_LABEL, type CompareResult, type Verdict, type Product } from "@/lib/types";
 import { cn, verdictStyles } from "@/lib/utils";
 
 type Slot = "A" | "B";
@@ -32,14 +32,47 @@ function CompareInner() {
   const params = useSearchParams();
   const { activeIds, activeProfiles, loading } = useApp();
 
-  const [a, setA] = useState<string | null>(params.get("a"));
-  const [b, setB] = useState<string | null>(params.get("b"));
+  const [a, setA] = useState<string | Product | null>(params.get("a"));
+  const [b, setB] = useState<string | Product | null>(params.get("b"));
   const [picking, setPicking] = useState<Slot | null>(null);
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Derived rather than stored: two products picked and no answer yet *is*
-  // the busy state, so there's nothing to keep in sync.
+  // A slot filled from a bare barcode (e.g. the "Compare" link on a result
+  // page) has no name to show until the other slot is picked and /api/compare
+  // runs. Resolve it eagerly, keyed by barcode, so the card doesn't sit on
+  // "Loading..." forever and a stale preview never outlives its barcode.
+  const [previewA, setPreviewA] = useState<{ barcode: string; product: Product } | null>(null);
+  const [previewB, setPreviewB] = useState<{ barcode: string; product: Product } | null>(null);
+
+  useEffect(() => {
+    if (typeof a !== "string") return;
+    let cancelled = false;
+    api
+      .scanBarcode(a)
+      .then((product) => {
+        if (!cancelled) setPreviewA({ barcode: a, product });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [a]);
+
+  useEffect(() => {
+    if (typeof b !== "string") return;
+    let cancelled = false;
+    api
+      .scanBarcode(b)
+      .then((product) => {
+        if (!cancelled) setPreviewB({ barcode: b, product });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [b]);
+
   const busy = Boolean(a && b) && !result && !error;
 
   useEffect(() => {
@@ -49,16 +82,21 @@ function CompareInner() {
     (async () => {
       try {
         const compared = await api.compare({
-          barcode_a: a,
-          barcode_b: b,
+          barcode_a: typeof a === "string" ? a : undefined,
+          product_a: typeof a === "object" && a !== null ? a : undefined,
+          barcode_b: typeof b === "string" ? b : undefined,
+          product_b: typeof b === "object" && b !== null ? b : undefined,
           profile_ids: activeIds,
         });
         if (!cancelled) setResult(compared);
       } catch (err) {
         if (cancelled) return;
+        console.error("Comparison failed:", err);
         setError(
           err instanceof ProductNotFoundError
             ? `Barcode ${err.barcode} isn't in the database.`
+            : err instanceof ApiError && err.message
+            ? err.message
             : "Couldn't run the comparison. Try again.",
         );
       }
@@ -71,15 +109,27 @@ function CompareInner() {
 
   // Changing either slot invalidates the comparison on the spot, so the old
   // result never sits under a product that is no longer selected.
-  const choose = (which: Slot, barcode: string | null) => {
+  const choose = (which: Slot, value: string | Product | null) => {
     setResult(null);
     setError(null);
-    if (which === "A") setA(barcode);
-    else setB(barcode);
+    if (which === "A") setA(value);
+    else setB(value);
   };
 
-  const slot = (which: Slot, barcode: string | null) => {
-    const product = which === "A" ? result?.a.product : result?.b.product;
+  const slot = (which: Slot, value: string | Product | null) => {
+    // If we have a result, display the evaluated product.
+    // Otherwise, if the input itself is a Product (e.g. from a photo), show its name while loading.
+    const evaluatedProduct = which === "A" ? result?.a.product : result?.b.product;
+    const preview = which === "A" ? previewA : previewB;
+    const fallbackProduct =
+      typeof value === "object"
+        ? value
+        : typeof value === "string" && preview?.barcode === value
+        ? preview.product
+        : null;
+    const product = evaluatedProduct ?? fallbackProduct;
+    
+    const idString = typeof value === "string" ? value : (value?.barcode ?? "");
     const winner = result?.safer_pick === which;
 
     return (
@@ -96,7 +146,7 @@ function CompareInner() {
           </span>
         ) : null}
 
-        {barcode ? (
+        {value ? (
           <>
             <button
               onClick={() => choose(which, null)}
@@ -111,10 +161,10 @@ function CompareInner() {
                 winner ? "mt-8" : "mt-2",
               )}
             >
-              {product?.name ?? "Loading…"}
+              {product?.name ?? "Loading..."}
             </p>
             <p className="mt-0.5 text-xs opacity-70">
-              {product?.brand ?? barcode}
+              {product?.brand ?? idString}
             </p>
             <span className="mt-auto pt-2">
               {which === "A" && result ? (
@@ -256,8 +306,35 @@ function CompareInner() {
       <ProductPicker
         open={picking !== null}
         onClose={() => setPicking(null)}
-        exclude={picking === "A" ? b : a}
-        onPick={(barcode) => picking && choose(picking, barcode)}
+        exclude={picking === "A" ? (typeof b === "string" ? b : b?.barcode) : (typeof a === "string" ? a : a?.barcode)}
+        onPick={async (value) => {
+          if (!picking) return;
+          const currentSlot = picking;
+          setPicking(null); // Close modal immediately
+          
+          if (value instanceof File || (typeof value === "string" && value.startsWith("data:"))) {
+            // Label Photo
+            try {
+              const product = await api.scanLabel(value);
+              choose(currentSlot, product);
+            } catch (err) {
+              console.error(err);
+              setError("We couldn't read that label. Try a straighter, brighter photo.");
+            }
+          } else if (typeof value === "string" && (value.startsWith("http://") || value.startsWith("https://"))) {
+            // Smart QR URL
+            try {
+              const scan = await api.scanUrl(value, activeIds);
+              choose(currentSlot, scan.product);
+            } catch (err) {
+              console.error(err);
+              setError("Couldn't read product info from that URL.");
+            }
+          } else {
+            // Barcode
+            choose(currentSlot, value as string);
+          }
+        }}
       />
     </div>
   );

@@ -178,3 +178,19 @@ def extract_webpage(webpage_text: str):
     except Exception as exc:
         logger.warning("Webpage extraction failed: %s", exc)
         return None
+
+
+def explain_ingredient(token: str) -> str | None:
+    """A short, plain-language explanation for an ingredient the curated
+    knowledge base and the ontology fuzzy-match both came up empty on."""
+    if not agent_is_available():
+        logger.info("No model provider configured — cannot generate an explanation")
+        return None
+    try:
+        from agent.evaluator import explain_ingredient as agent_explain
+        result = agent_explain(token)
+        text = (getattr(result, "explanation", "") or "").strip()
+        return text or None
+    except Exception as exc:
+        logger.warning("Ingredient explanation failed: %s", exc)
+        return None

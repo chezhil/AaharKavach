@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
-            "Content-Type,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
+            "Content-Type,Authorization,X-Api-Key,X-Aahar-User,X-Aahar-Role,X-Aahar-Household",
         )
 
     def _body(self) -> bytes:
@@ -153,9 +153,9 @@ class Handler(BaseHTTPRequestHandler):
         except api.ApiError as exc:
             self._send(exc.status, {"error": exc.message})
             return
-        except Exception as exc:  # pragma: no cover - last resort
-            logger.exception("Unhandled error on %s %s", method, path)
-            self._send(500, {"error": str(exc)})
+        except Exception:  # pragma: no cover - last resort
+            logger.exception("Unhandled error handling request")
+            self._send(500, {"error": "Internal server error"})
             return
 
         self._send(status, payload)
@@ -186,10 +186,26 @@ class Handler(BaseHTTPRequestHandler):
                 raise api.ApiError(400, "Pass ?code=<barcode>")
             return api.scan_barcode_endpoint(code)
 
+        if method == "POST" and path == "/api/audit/batch":
+            return api.audit_batch_endpoint(caller, self._json_body())
+
         if method == "POST" and path == "/api/scan/url":
             return api.scan_url_endpoint(caller, self._json_body())
 
         if method == "POST" and path == "/api/scan/label":
+            ctype = self.headers.get("Content-Type") or self.headers.get("content-type") or ""
+            if "application/json" in ctype:
+                import base64
+                import binascii
+                body = self._json_body()
+                b64 = body.get("image_data", "")
+                if b64.startswith("data:"):
+                    b64 = b64.split(",", 1)[-1]
+                try:
+                    image_bytes = base64.b64decode(b64)
+                except binascii.Error:
+                    raise api.ApiError(400, "Malformed image data")
+                return api.scan_label_endpoint("", image_bytes)
             filename, image = _parse_multipart(self._body())
             return api.scan_label_endpoint(filename, image)
 
@@ -200,7 +216,7 @@ class Handler(BaseHTTPRequestHandler):
             return api.compare_endpoint(caller, self._json_body())
 
         if method == "GET" and path == "/api/history":
-            return api.history_endpoint()
+            return api.history_endpoint(caller)
 
         if method == "GET" and path == "/api/explain":
             token = (query.get("ingredient") or [""])[0]

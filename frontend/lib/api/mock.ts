@@ -1,4 +1,6 @@
 import type {
+  BatchAuditItem,
+  BatchAuditResult,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -110,12 +112,12 @@ export const mockApi: AaharApi = {
     return product;
   },
 
-  async scanLabel(file: File) {
+  async scanLabel(file: File | string) {
     await delay(1100); // OCR + vision is the slow path
     // Pretend we read a label we half-understood — exercises the LOW path.
     return {
       barcode: `photo_${id()}`,
-      name: file.name.replace(/\.[^.]+$/, "") || "Photographed label",
+      name: typeof file === "string" ? "Photographed label" : file.name.replace(/\.[^.]+$/, "") || "Photographed label",
       brand: null,
       categories: [],
       data_confidence: "LOW",
@@ -164,9 +166,9 @@ export const mockApi: AaharApi = {
   async compare(req: CompareRequest): Promise<CompareResult> {
     await delay(900);
     const people = selected(req.profile_ids);
-    const build = (barcode: string): ScanResult => {
-      const product = findProduct(barcode);
-      if (!product) throw new ProductNotFoundError(barcode);
+    const build = (barcode: string | undefined, prod: Product | undefined): ScanResult => {
+      const product = prod ?? (barcode ? findProduct(barcode) : null);
+      if (!product) throw new ProductNotFoundError(barcode ?? "unknown");
       return {
         id: `cmp_${id()}`,
         scanned_at: new Date().toISOString(),
@@ -175,8 +177,8 @@ export const mockApi: AaharApi = {
         profile_ids: people.map((p) => p.id),
       };
     };
-    const a = build(req.barcode_a);
-    const b = build(req.barcode_b);
+    const a = build(req.barcode_a, req.product_a);
+    const b = build(req.barcode_b, req.product_b);
     return {
       a,
       b,
@@ -185,6 +187,57 @@ export const mockApi: AaharApi = {
         b.evaluation.profile_evaluations,
       ),
     };
+  },
+
+  // Field-for-field what api.audit_batch_endpoint returns. This drifting from
+  // the real shape is exactly how the batch matrix shipped broken: it rendered
+  // perfectly against the mock and read undefined everywhere against the API.
+  async auditBatch(barcodes: string[]): Promise<BatchAuditResult> {
+    await delay(900);
+    const people = profiles(); // mock all
+    const summary = {
+      total_items: barcodes.length,
+      all_family_safe_count: 0,
+      caution_count: 0,
+      unsafe_count: 0,
+    };
+
+    const items: BatchAuditItem[] = barcodes.map((barcode) => {
+      const product = findProduct(barcode);
+      if (!product) return { barcode, status: "UNKNOWN" };
+
+      const evaluation = runEngine(product, people);
+      const member_verdicts = Object.fromEntries(
+        evaluation.profile_evaluations.map((e) => [
+          e.profile_id,
+          {
+            name: e.profile_name,
+            verdict: e.verdict,
+            flagged_ingredients: (e.flagged_ingredients ?? []).map((f) => ({
+              ingredient: f.ingredient,
+              reason: f.matched_allergen,
+            })),
+          },
+        ]),
+      );
+
+      const verdicts = evaluation.profile_evaluations.map((e) => e.verdict);
+      if (verdicts.includes("UNSAFE")) summary.unsafe_count += 1;
+      else if (verdicts.includes("CAUTION")) summary.caution_count += 1;
+      else summary.all_family_safe_count += 1;
+
+      return {
+        barcode,
+        product_name: product.name,
+        brand: product.brand ?? null,
+        image_url: product.image_url ?? null,
+        household_cleared: !verdicts.includes("UNSAFE"),
+        member_verdicts,
+        status: "KNOWN",
+      };
+    });
+
+    return { summary, items };
   },
 
   async listHistory() {
@@ -197,5 +250,10 @@ export const mockApi: AaharApi = {
       (s) => s.product.barcode !== scan.product.barcode,
     );
     write(HISTORY_KEY, [scan, ...existing].slice(0, 50));
+  },
+
+  async explainIngredient(name: string) {
+    await delay(400);
+    return { explainer: `${name} — a mock explanation (mocks are on).` };
   },
 };

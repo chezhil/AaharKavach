@@ -17,11 +17,21 @@ from agent.evaluator import evaluate_product
 def verify_bedrock():
     print("=== AaharKavach Bedrock Verification ===")
     print(f"Model ID: {os.environ['AAHAR_BEDROCK_MODEL']}")
-    
+
     # Check AWS credentials implicitly by looking at env vars, but let boto3 handle the actual check
-    if not (os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE")):
-        print("WARNING: AWS_ACCESS_KEY_ID or AWS_PROFILE not set in environment. This may fail unless you have instance roles.")
-        
+    has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE") or os.environ.get("GROQ_API_KEY"))
+    if not has_creds:
+        # This script's entire job is to prove a model actually answered. A
+        # fabricated "PASS" here — with a hand-written EvaluationResult and
+        # reasoning="strands" — would claim Bedrock ran when it never was
+        # asked, which is exactly the false-AWS-usage claim the rest of this
+        # codebase (see shared/reasoning.py, shared/agent_bridge.py) is careful
+        # never to make. On an unauthenticated CI runner this must SKIP, not
+        # print a fake pass.
+        print("SKIPPED: No AWS_ACCESS_KEY_ID/AWS_PROFILE or GROQ_API_KEY in "
+              "environment — this run verifies nothing about Bedrock.")
+        return
+
     # Dummy product data with a known allergen
     dummy_product = {
         "barcode": "123456789",
@@ -46,13 +56,22 @@ def verify_bedrock():
     
     try:
         result = evaluate_product(dummy_product, dummy_profiles)
+
         end_time = time.time()
         latency = end_time - start_time
-        
-        print(f"PASS: Bedrock successfully responded in {latency:.2f} seconds.")
+
+        # _run_on_chain tries Bedrock first and falls back to Groq on failure
+        # (e.g. pending model access) — say which one actually answered rather
+        # than assuming it was Bedrock just because a call went out.
+        answered_by = getattr(result, "_provider", "unknown")
+        print("PASS: {} successfully responded in {:.2f} seconds.".format(answered_by, latency))
         print("\nStructured Response:")
+        # `result` here is agent.models.EvaluationResult (a Pydantic model),
+        # not shared.contracts.EvaluationResult (a dataclass) — the two share
+        # a name but not an interface. Pydantic serialises with model_dump*,
+        # it has no .to_dict().
         print(result.model_dump_json(indent=2))
-        
+
         # Validate structure
         assert len(result.profile_evaluations) == 1
         assert result.profile_evaluations[0].verdict == "UNSAFE"

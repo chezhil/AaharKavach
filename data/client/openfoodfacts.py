@@ -66,6 +66,7 @@ class ProductRecord:
     source: str = "open_food_facts"
     confidence: str = "UNKNOWN"  # HIGH | MEDIUM | LOW — set by scorer
     is_found: bool = True
+    nutritional_stats: dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def not_found(cls, barcode: str) -> "ProductRecord":
@@ -229,7 +230,10 @@ class OpenFoodFactsClient:
             "Sugars": float(off_nut.get("sugars_100g") or 0.0),
             "Fat": float(off_nut.get("fat_100g") or 0.0),
             "SatFat": float(off_nut.get("saturated-fat_100g") or 0.0),
-            "Salt": float(off_nut.get("sodium_100g", 0) * 1000),  # Convert g to mg
+            # Unlike the other fields here, a bare `.get(key, 0)` doesn't help:
+            # OFF frequently has the key present with value null (untested),
+            # not absent, and `None * 1000` crashes every lookup for it.
+            "Salt": float((off_nut.get("sodium_100g") or 0.0) * 1000),  # Convert g to mg
             "Fiber": float(off_nut.get("fiber_100g") or off_nut.get("dietary-fiber_100g") or 0.0),
             "TransFat": float(off_nut.get("trans-fat_100g") or 0.0)
         }
@@ -254,7 +258,7 @@ class OpenFoodFactsClient:
             off_status=status,
             off_status_verbose=status_verbose,
             source="open_food_facts",
-            nutriments=mapped_nutriments,
+            nutritional_stats=mapped_nutriments,
         )
 
 

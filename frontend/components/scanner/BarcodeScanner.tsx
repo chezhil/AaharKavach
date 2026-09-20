@@ -13,27 +13,94 @@ type Status = "starting" | "scanning" | "denied" | "unsupported";
  */
 export function BarcodeScanner({
   onDetected,
+  onCaptureLabel,
+  batchMode = false,
 }: {
   onDetected: (barcode: string) => void;
+  onCaptureLabel?: (base64Image: string) => void;
+  batchMode?: boolean;
 }) {
   const [status, setStatus] = useState<Status>("starting");
   const instance = useRef<Html5Qrcode | null>(null);
   const done = useRef(false);
+  const isCapturingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const lastScannedMap = useRef<Record<string, number>>({});
+
+  // Stable refs so the decode callback always reads current values without
+  // being in the useEffect dep array (which would needlessly restart the camera).
+  // Synced after commit, not during render: a render React discards or replays
+  // would otherwise leave these holding a value that never made it to the DOM.
+  const batchModeRef = useRef(batchMode);
+  const onDetectedRef = useRef(onDetected);
+  useEffect(() => {
+    batchModeRef.current = batchMode;
+    onDetectedRef.current = onDetected;
+  });
+
+  const killAllTracks = () => {
+    // 1. Kill from streamRef
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
+      streamRef.current = null;
+    }
+
+    // 2. Kill from any lingering video elements anywhere in the document
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((v) => {
+        v.onabort = null;
+        v.onerror = null;
+        try {
+          v.pause();
+        } catch (e) {}
+
+        if (v.srcObject) {
+          try {
+            (v.srcObject as MediaStream).getTracks().forEach((t) => {
+              t.stop();
+              t.enabled = false;
+            });
+          } catch (e) {}
+          v.srcObject = null;
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     // html5-qrcode often drops unhandled AbortErrors if the component unmounts
     // while the camera is starting. Catch them so they don't crash Next.js.
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       if (
-        event.reason?.name === "AbortError" || 
-        event.reason?.message?.includes("play() request was interrupted")
+        event.reason?.name === "AbortError" ||
+        event.reason?.message?.includes("play() request was interrupted") ||
+        event.reason?.message?.includes("onabort() called") ||
+        (typeof event.reason === "string" &&
+          event.reason.includes("onabort() called"))
       ) {
         event.preventDefault();
       }
     };
+    const handleError = (event: ErrorEvent) => {
+      if (event.message?.includes("onabort() called")) {
+        event.preventDefault();
+      }
+    };
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
-    return () => window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleError);
+    return () => {
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
+      window.removeEventListener("error", handleError);
+      // Failsafe cleanup when component entirely unmounts
+      killAllTracks();
+    };
   }, []);
 
   useEffect(() => {
@@ -79,9 +146,20 @@ export function BarcodeScanner({
             // A wide, short box matches the shape of a barcode.
             { fps: 12, qrbox: { width: 260, height: 150 }, aspectRatio: 1.2 },
             (decoded) => {
-              if (done.current) return;
-              done.current = true;
-              onDetected(decoded);
+              if (done.current || isCapturingRef.current) return;
+              // Read from refs — not closure — to get current values without
+              // restarting the camera on batchMode toggle.
+              if (batchModeRef.current) {
+                const now = Date.now();
+                const lastScanned = lastScannedMap.current[decoded] || 0;
+                // 2.5-second cooldown per unique barcode
+                if (now - lastScanned < 2500) return;
+                lastScannedMap.current[decoded] = now;
+                onDetectedRef.current(decoded);
+              } else {
+                done.current = true;
+                onDetectedRef.current(decoded);
+              }
             },
             () => {
               // Per-frame decode misses are constant and expected — ignore them.
@@ -98,12 +176,33 @@ export function BarcodeScanner({
           await begin(cameras[0].id);
         }
 
+        // Guard: if unmount happened while begin() was in flight, stop the
+        // scanner now instead of orphaning it.
+        if (cancelled) {
+          try { await created.stop(); } catch {}
+          try { created.clear(); } catch {}
+          return;
+        }
+
         // Tracked only once it is genuinely running: stop() throws on a
         // scanner that never started, so the cleanup path must never see one.
         instance.current = created;
         if (!cancelled) setStatus("scanning");
+
+        // After starting, capture the streamRef for teardown.
+        if (container) {
+          const videoEl = container.querySelector("video");
+          if (videoEl && videoEl.srcObject) {
+            streamRef.current = videoEl.srcObject as MediaStream;
+          }
+        }
       } catch {
-        try { if (scanner) scanner.clear(); } catch {}
+        try {
+          if (scanner) {
+            try { scanner.stop(); } catch {}
+            scanner.clear();
+          }
+        } catch {}
         if (!cancelled) setStatus("denied");
       }
     })();
@@ -112,18 +211,27 @@ export function BarcodeScanner({
       cancelled = true;
       const scanner = instance.current;
       instance.current = null;
-      
+
       // Releasing the tracks is what actually turns the camera indicator off;
       // stop() alone does not always do it.
+      killAllTracks();
+
       if (container) {
-        const videoEl = container.querySelector("video") as HTMLVideoElement | null;
-        if (videoEl && videoEl.srcObject) {
-          const stream = videoEl.srcObject as MediaStream;
-          stream.getTracks().forEach((track) => {
-            track.stop();
-            track.enabled = false;
-          });
-          try { videoEl.pause(); } catch {}
+        const videoEl = container.querySelector(
+          "video",
+        ) as HTMLVideoElement | null;
+        if (videoEl) {
+          videoEl.onabort = null; // Prevent html5-qrcode from throwing "RenderedCameraImpl video surface onabort() called"
+          videoEl.onerror = null;
+          try {
+            videoEl.pause();
+          } catch (e) {}
+          if (videoEl.srcObject) {
+            try {
+              const stream = videoEl.srcObject as MediaStream;
+              stream.getTracks().forEach((t) => t.stop());
+            } catch (e) {}
+          }
           videoEl.srcObject = null;
         }
       }
@@ -134,19 +242,79 @@ export function BarcodeScanner({
       // stop() rejects *and* can throw synchronously; both end in the same place.
       try {
         Promise.resolve(scanner.stop()).then(
-          () => { try { scanner.clear(); } catch {} },
-          () => { try { scanner.clear(); } catch {} },
+          () => {
+            try {
+              scanner.clear();
+            } catch {}
+          },
+          () => {
+            try {
+              scanner.clear();
+            } catch {}
+          },
         );
       } catch {
-        try { scanner.clear(); } catch {}
+        try {
+          scanner.clear();
+        } catch {}
       }
     };
-  }, [onDetected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const handleCapture = () => {
+    if (!onCaptureLabel || !containerRef.current || isCapturing) return;
+    const video = containerRef.current.querySelector("video");
+    // ReadyState 2 is HAVE_CURRENT_DATA. videoWidth must be > 0.
+    if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+
+    setIsCapturing(true);
+    isCapturingRef.current = true;
+    const canvas = document.createElement("canvas");
+
+    // Downscale to max 1200px width/height to keep base64 payload manageable
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    const MAX_DIM = 1200;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width > height) {
+        height = Math.floor((height * MAX_DIM) / width);
+        width = MAX_DIM;
+      } else {
+        width = Math.floor((width * MAX_DIM) / height);
+        height = MAX_DIM;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, width, height);
+      const base64Image = canvas.toDataURL("image/jpeg", 0.75);
+      // Release canvas bitmap memory
+      canvas.width = 0;
+      canvas.height = 0;
+      onCaptureLabel(base64Image);
+    } else {
+      // GPU context exhausted — release canvas bitmap and allow retry
+      canvas.width = 0;
+      canvas.height = 0;
+      setIsCapturing(false);
+      isCapturingRef.current = false;
+    }
+  };
 
   if (status === "denied" || status === "unsupported") {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center">
-        <CameraOff size={22} className="text-fg-subtle" aria-hidden />
+      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface text-center">
+        <CameraOff
+          className="text-fg-subtle opacity-50"
+          size={32}
+          aria-hidden
+        />
         <p className="text-sm font-semibold">
           {status === "unsupported" ? "No camera available" : "Camera blocked"}
         </p>
@@ -164,32 +332,63 @@ export function BarcodeScanner({
       <div id="scanner-region" ref={containerRef} className="size-full" />
 
       {status === "starting" ? (
-        <div className="absolute inset-0 grid place-items-center bg-bg/80 text-fg-subtle">
+        <div className="absolute inset-0 grid place-items-center bg-bg/80 text-fg-subtle z-10">
           <span className="flex items-center gap-2 text-sm">
             <Loader2 size={16} className="animate-spin" aria-hidden />
             Waking the camera…
           </span>
         </div>
-      ) : (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="relative h-[38%] w-[72%]">
-            {/* Corner brackets — a viewfinder without hiding the frame. */}
-            {(
-              [
-                "left-0 top-0 border-l-2 border-t-2 rounded-tl-lg",
-                "right-0 top-0 border-r-2 border-t-2 rounded-tr-lg",
-                "left-0 bottom-0 border-l-2 border-b-2 rounded-bl-lg",
-                "right-0 bottom-0 border-r-2 border-b-2 rounded-br-lg",
-              ] as const
-            ).map((corner) => (
-              <span
-                key={corner}
-                className={`absolute size-6 border-brand ${corner}`}
-              />
-            ))}
-            <span className="animate-sweep absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-brand shadow-[0_0_12px_2px_var(--brand)]" />
+      ) : isCapturing ? (
+        <div className="absolute inset-0 grid place-items-center bg-black/70 text-white z-10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <Loader2
+              size={32}
+              className="animate-spin text-brand"
+              aria-hidden
+            />
+            <span className="text-sm font-medium tracking-wide">
+              Reading the ingredients panel...
+            </span>
           </div>
         </div>
+      ) : (
+        <>
+          <div className="absolute top-0 inset-x-0 bg-gradient-to-b from-black/60 to-transparent p-4 text-center z-10">
+            <p className="text-xs font-medium text-white/90 drop-shadow-md">
+              Align Barcode or tap button below to photograph Ingredients
+            </p>
+          </div>
+          <div className="pointer-events-none absolute inset-0 grid place-items-center z-0">
+            <div className="relative h-[38%] w-[72%]">
+              {/* Corner brackets — a viewfinder without hiding the frame. */}
+              {(
+                [
+                  "left-0 top-0 border-l-2 border-t-2 rounded-tl-lg",
+                  "right-0 top-0 border-r-2 border-t-2 rounded-tr-lg",
+                  "left-0 bottom-0 border-l-2 border-b-2 rounded-bl-lg",
+                  "right-0 bottom-0 border-r-2 border-b-2 rounded-br-lg",
+                ] as const
+              ).map((corner) => (
+                <span
+                  key={corner}
+                  className={`absolute size-6 border-brand ${corner}`}
+                />
+              ))}
+              <span className="animate-sweep absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-brand shadow-[0_0_12px_2px_var(--brand)]" />
+            </div>
+          </div>
+          {onCaptureLabel && (
+            <div className="absolute bottom-4 inset-x-0 flex justify-center z-10">
+              <button
+                onClick={handleCapture}
+                className="flex size-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-md border-2 border-white/60 hover:bg-white/30 transition-all active:scale-95 shadow-lg"
+                aria-label="Capture Ingredients"
+              >
+                <div className="size-10 rounded-full bg-white shadow-sm" />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

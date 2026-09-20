@@ -147,6 +147,37 @@ export interface CompareResult {
   reason: string;
 }
 
+/* ---------- batch audit (/api/audit/batch) ---------- */
+
+/** One household member's answer for one scanned item. */
+export interface BatchMemberVerdict {
+  name: string;
+  verdict: Verdict;
+  flagged_ingredients: { ingredient: string; reason: string }[];
+}
+
+export interface BatchAuditItem {
+  barcode: string;
+  /** Absent unless status is "KNOWN". */
+  product_name?: string;
+  brand?: string | null;
+  image_url?: string | null;
+  household_cleared?: boolean;
+  /** Keyed by profile id. Absent unless status is "KNOWN". */
+  member_verdicts?: Record<string, BatchMemberVerdict>;
+  status: "KNOWN" | "UNKNOWN" | "UNAVAILABLE" | "ERROR";
+}
+
+export interface BatchAuditResult {
+  summary: {
+    total_items: number;
+    all_family_safe_count: number;
+    caution_count: number;
+    unsafe_count: number;
+  };
+  items: BatchAuditItem[];
+}
+
 /* ---------- request payloads ---------- */
 
 export interface EvaluateRequest {
@@ -157,8 +188,10 @@ export interface EvaluateRequest {
 }
 
 export interface CompareRequest {
-  barcode_a: string;
-  barcode_b: string;
+  barcode_a?: string;
+  product_a?: Product;
+  barcode_b?: string;
+  product_b?: Product;
   profile_ids: string[];
 }
 

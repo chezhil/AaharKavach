@@ -61,29 +61,38 @@ def _can_edit(caller: Caller, item: dict[str, Any]) -> bool:
     )
 
 
-# ------------------------------------------------------------- profiles
+def history_endpoint(caller: Caller) -> tuple[int, Any]:
+    if not caller.household:
+        raise ApiError(403, "Not allowed to read this household")
+    return 200, store.list_history(household_id=caller.household)
 
 
 def list_profiles(caller: Caller) -> tuple[int, Any]:
     if not check_permission(caller.user_id, caller.role, caller.household,
                             "ReadProfile", "any", caller.user_id, caller.household):
         raise ApiError(403, "Not allowed to read this household")
-    items = store.list_profile_items()
+    items = store.list_profile_items(household_id=caller.household)
     return 200, [
         store.profile_from_item(i, can_edit=_can_edit(caller, i)).to_dict() for i in items
     ]
 
 
 def _profile_from_draft(draft: dict[str, Any], profile_id: str) -> Profile:
-    restrictions = [
-        Restriction(
-            id=str(r.get("id") or f"r_{i}"),
-            label=str(r.get("label", "")).strip(),
-            severity=str(r.get("severity", "MODERATE")).upper(),  # type: ignore[arg-type]
+    raw_restrictions = draft.get("restrictions") or []
+    restrictions = []
+    for i, r in enumerate(raw_restrictions):
+        if not isinstance(r, dict):
+            continue
+        label = str(r.get("label") or "").strip()
+        if not label or label.lower() == "none":
+            continue
+        restrictions.append(
+            Restriction(
+                id=str(r.get("id") or f"r_{i}"),
+                label=label,
+                severity=str(r.get("severity", "MODERATE")).upper(),  # type: ignore[arg-type]
+            )
         )
-        for i, r in enumerate(draft.get("restrictions", []))
-        if str(r.get("label", "")).strip()
-    ]
     return Profile(
         id=profile_id,
         name=str(draft.get("name", "")).strip() or "Unnamed",
@@ -196,7 +205,8 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     from .urlfetch import UnsafeUrl, fetch_text
 
     url = str(body.get("url", "")).strip()
-    profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
+    profile_ids = body.get("profile_ids") or []
+    profiles = _resolve_profiles(caller, [str(p) for p in profile_ids])
 
     try:
         text = fetch_text(url)
@@ -221,17 +231,25 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             "Scan the barcode instead.",
         )
 
-    extraction = extract_webpage(text)
+    try:
+        extraction = extract_webpage(text)
+    except Exception as exc:
+        logger.warning("AI extraction failed: %s", exc)
+        raise ApiError(503, "The AI reader is currently unavailable. Please try again later.")
+
     if extraction is None:
         raise ApiError(
             422, "We couldn't find an ingredient list on that page — try the barcode instead"
         )
 
+    raw_ingredients = extraction.ingredients or []
+    ingredients = [ingredient_from_token(t) for t in raw_ingredients if t and str(t).strip()]
+
     product = Product(
         barcode=url,
         name=extraction.product_name or "Product from page",
         brand=extraction.brand or None,
-        ingredients=[ingredient_from_token(t) for t in extraction.ingredients if t.strip()],
+        ingredients=ingredients,
         # Read off a webpage, not a verified record: never present as HIGH.
         data_confidence="LOW",
         source="URL",
@@ -282,7 +300,12 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
         logger.warning("OCR failed: %s", exc)
         raise ApiError(422, "We couldn't read that photo. Try again with more light.")
 
-    parsed = parse_label(ocr.text)
+    try:
+        parsed = parse_label(ocr.text)
+    except Exception as exc:
+        logger.warning("Parse label failed: %s", exc)
+        raise ApiError(422, "We couldn't parse the ingredients from that photo. Try a clearer image.")
+
     if not parsed.found_ingredients:
         raise ApiError(
             422,
@@ -290,6 +313,10 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
             "ingredients panel square in frame and try again.",
         )
 
+    # An uploaded file's name is a decent fallback title ("oreo-label.jpg"),
+    # but the camera path has no real filename, so it passes none rather than a
+    # synthetic one — "capture.jpg" was reaching the UI as a product named
+    # "capture" whenever OCR found no product name on the label.
     stem = (filename or "").rsplit(".", 1)[0].replace("_", " ").strip()
     product = Product(
         barcode=f"photo_{uuid.uuid4().hex[:8]}",
@@ -338,7 +365,8 @@ def _alternatives(product: Product, profiles: list[Profile]) -> list[Alternative
                     barcode=alt.barcode,
                     name=alt.name,
                     brand=alt.brand,
-                    reason=alt.reason,
+                    reason=alt.reason or alt.why_it_works
+                    or f"A safer pick for {', '.join(p.name for p in profiles)}.",
                     image_url=alt.image_url,
                     category=alt.category,
                     why_it_works=alt.why_it_works,
@@ -347,7 +375,11 @@ def _alternatives(product: Product, profiles: list[Profile]) -> list[Alternative
                     household_status=alt.household_status,
                     tags=alt.tags
                 ))
-            return out
+            # Only when it actually found something. A terse model answering
+            # with an empty list is not a reason to withhold the catalogue's
+            # own safe picks, which is what returning `out` unconditionally did.
+            if out:
+                return out
         except Exception as exc:
             logger.warning("Swap It generation failed: %s", exc)
 
@@ -371,19 +403,19 @@ def _product_from_payload(raw: dict[str, Any]) -> Product:
         name=str(raw.get("name", "Unknown product")),
         brand=raw.get("brand"),
         image_url=raw.get("image_url"),
-        categories=list(raw.get("categories", [])),
+        categories=list(raw.get("categories") or []),
         ingredients=[
             Ingredient(
                 name=str(i.get("name", "")),
                 e_number=i.get("e_number"),
                 explainer=i.get("explainer"),
             )
-            for i in raw.get("ingredients", [])
+            for i in (raw.get("ingredients") or [])
             if isinstance(i, dict) and i.get("name")
         ],
         data_confidence=str(raw.get("data_confidence", "LOW")).upper(),  # type: ignore[arg-type]
         source=str(raw.get("source", "MANUAL")),
-        nutriments=raw.get("nutriments", {}),
+        nutritional_stats=raw.get("nutriments", {}),
     )
 
 
@@ -395,7 +427,7 @@ def _resolve_profiles(caller: Caller, profile_ids: list[str]) -> list[Profile]:
 
 
 def evaluate_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    profile_ids = [str(p) for p in body.get("profile_ids", [])]
+    profile_ids = [str(p) for p in (body.get("profile_ids") or [])]
     profiles = _resolve_profiles(caller, profile_ids)
 
     if body.get("product"):
@@ -423,21 +455,22 @@ def _score(evaluation: EvaluationResult) -> int:
     total = 0
     for e in evaluation.profile_evaluations:
         total += 100 if e.verdict == "UNSAFE" else 10 if e.verdict == "CAUTION" else 0
-        for f in e.flagged_ingredients:
-            total += {"SEVERE": 5, "MODERATE": 3, "MILD": 1}[f.profile_severity]
+        for f in (e.flagged_ingredients or []):
+            total += {"SEVERE": 5, "MODERATE": 3, "MILD": 1}.get(f.profile_severity, 3)
     return total
 
 
 def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
-    barcode_a = str(body.get("barcode_a", "")).strip()
-    barcode_b = str(body.get("barcode_b", "")).strip()
-    if not barcode_a or not barcode_b:
-        raise ApiError(400, "compare needs barcode_a and barcode_b")
+    profiles = _resolve_profiles(caller, [str(p) for p in (body.get("profile_ids") or [])])
 
-    profiles = _resolve_profiles(caller, [str(p) for p in body.get("profile_ids", [])])
-
-    def build(barcode: str) -> ScanResult:
-        product = lookup_product(barcode)
+    def build(barcode: str | None, product_dict: dict[str, Any] | None) -> ScanResult:
+        if product_dict:
+            product = _product_from_payload(product_dict)
+        elif barcode and barcode.strip():
+            product = lookup_product(barcode.strip())
+        else:
+            raise ApiError(400, "compare needs either barcode or product object for both items")
+            
         return ScanResult(
             id=f"cmp_{uuid.uuid4().hex[:8]}",
             scanned_at=store.now_iso(),
@@ -446,7 +479,8 @@ def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             profile_ids=[p.id for p in profiles],
         )
 
-    a, b = build(barcode_a), build(barcode_b)
+    a = build(body.get("barcode_a"), body.get("product_a"))
+    b = build(body.get("barcode_b"), body.get("product_b"))
     score_a, score_b = _score(a.evaluation), _score(b.evaluation)
 
     if score_a == score_b:
@@ -471,10 +505,6 @@ def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     return 200, {"a": a.to_dict(), "b": b.to_dict(), "safer_pick": safer, "reason": reason}
 
 
-def history_endpoint() -> tuple[int, Any]:
-    return 200, store.list_history()
-
-
 def explain_endpoint(token: str) -> tuple[int, Any]:
     ingredient = ingredient_from_token(token)
     resolved_via = "catalogue"
@@ -488,6 +518,129 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
         )
         if ingredient.explainer:
             resolved_via = enriched.get("source", "local")
+
+    # Neither the curated tables nor the ontology's fuzzy match had this one.
+    # Ask the model once, then remember the answer — the knowledge base only
+    # covers ~199 entries, and Bedrock/Groq bills per call.
+    if not ingredient.explainer:
+        cache_key = " ".join(token.lower().strip().split())
+        cached = store.get_cached_explanation(cache_key)
+        if cached:
+            ingredient.explainer = cached
+            resolved_via = "ai-cached"
+        elif os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
+            from .agent_bridge import explain_ingredient as agent_explain
+
+            generated = agent_explain(token)
+            if generated:
+                store.put_cached_explanation(cache_key, generated, source="ai")
+                ingredient.explainer = generated
+                resolved_via = "ai"
+
     # Extra top-level key rather than a new Ingredient field: the TS contract in
     # frontend/lib/types.ts is frozen, and an unknown key is ignored there.
     return 200, {**ingredient.to_dict(), "resolved_via": resolved_via}
+
+
+# API Gateway hard-caps a request at 29s and this endpoint is serial, so the
+# basket has to fit inside that budget even on a cold start with slow lookups.
+MAX_BATCH_ITEMS = 25
+
+
+def audit_batch_endpoint(caller: Caller, body: dict[str, Any] | None) -> tuple[int, Any]:
+    # Deliberately the deterministic rulebook, not `evaluate`: the matrix shows
+    # verdicts and flagged ingredient names, all of which the rulebook produces.
+    # The agent only adds prose this view never renders, and at ~5s per item it
+    # blew the 29s gateway timeout at six items while burning one model call per
+    # product in the basket.
+    from .reasoning import evaluate_deterministic
+
+    body = body or {}
+    barcodes = body.get("barcodes", [])
+    if not isinstance(barcodes, list) or not barcodes:
+        raise ApiError(400, "barcodes list is required and must not be empty")
+    if len(barcodes) > MAX_BATCH_ITEMS:
+        raise ApiError(
+            400, f"Too many items in one batch — {MAX_BATCH_ITEMS} is the limit."
+        )
+
+    household_id = body.get("household_id")
+    if not household_id:
+        if caller.household:
+            household_id = caller.household
+        else:
+            raise ApiError(400, "household_id is required either in body or headers")
+            
+    # Resolve all profiles in this household
+    household_profiles = store.load_profiles(household_id=household_id)
+    if not household_profiles:
+        raise ApiError(404, f"No profiles found for household {household_id}")
+
+    items = []
+    summary = {
+        "total_items": len(barcodes),
+        "all_family_safe_count": 0,
+        "caution_count": 0,
+        "unsafe_count": 0
+    }
+
+    for barcode in barcodes:
+        try:
+            product = lookup_product(str(barcode))
+            result = evaluate_deterministic(product, household_profiles, [])
+            
+            # Determine household clearance
+            member_verdicts = {}
+            is_unsafe_for_any = False
+            has_caution = False
+            
+            for eval_res in result.profile_evaluations:
+                member_verdicts[eval_res.profile_id] = {
+                    "name": eval_res.profile_name,
+                    "verdict": eval_res.verdict,
+                    "flagged_ingredients": [
+                        {
+                            "ingredient": flag.ingredient,
+                            "reason": flag.matched_allergen
+                        } for flag in (eval_res.flagged_ingredients or [])
+                    ]
+                }
+                if eval_res.verdict == "UNSAFE":
+                    is_unsafe_for_any = True
+                elif eval_res.verdict == "CAUTION":
+                    has_caution = True
+            
+            household_cleared = not is_unsafe_for_any
+            
+            if is_unsafe_for_any:
+                summary["unsafe_count"] += 1
+            elif has_caution:
+                summary["caution_count"] += 1
+            else:
+                summary["all_family_safe_count"] += 1
+                
+            items.append({
+                "barcode": product.barcode,
+                "product_name": product.name,
+                "brand": product.brand,
+                "image_url": product.image_url,
+                "household_cleared": household_cleared,
+                "member_verdicts": member_verdicts,
+                "status": "KNOWN"
+            })
+        except ApiError as e:
+            items.append({
+                "barcode": str(barcode),
+                "status": "UNKNOWN" if e.status == 404 else "UNAVAILABLE"
+            })
+        except Exception as e:
+            logger.error(f"Unexpected error processing barcode {barcode}: {e}")
+            items.append({
+                "barcode": str(barcode),
+                "status": "ERROR"
+            })
+
+    return 200, {
+        "summary": summary,
+        "items": items
+    }

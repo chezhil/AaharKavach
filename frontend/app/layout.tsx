@@ -19,7 +19,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "AaharKavach — food shield",
+  title: "AaharKavach — Food Shield",
   description:
     "Scan a barcode and see, in plain English, whether a product is safe for everyone in your household.",
 };
@@ -35,9 +35,35 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var stored = localStorage.getItem('theme');
+                if (stored === 'light') {
+                  document.documentElement.classList.remove('dark');
+                } else if (stored === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  // No stored preference: respect system prefers-color-scheme
+                  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                  }
+                }
+              } catch (_) {
+                document.documentElement.classList.add('dark');
+              }
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full transition-colors duration-200">
         <AppProvider>
           <AppHeader />
           <main className="app-shell safe-bottom px-3 pt-4">{children}</main>

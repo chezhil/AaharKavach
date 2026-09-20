@@ -24,7 +24,7 @@ from .contracts import (
 )
 
 _E_BY_ID = {rec["additive_id"].upper(): rec for rec in E_NUMBERS}
-_E_PATTERN = re.compile(r"\bE\s?-?(\d{3,4}[a-z]?)\b", re.IGNORECASE)
+_E_PATTERN = re.compile(r"\b(?:E|INS)\s*-?\s*(\d{3,4}[a-z]?)(?:\([ivx]+\))?\b", re.IGNORECASE)
 
 
 def _norm(s: str) -> str:
@@ -99,11 +99,23 @@ def is_quantity(token: str) -> bool:
     return not any(c.isalpha() for c in cleaned)
 
 
+_WHOLLY_PARENTHESISED = re.compile(r"^\((.*)\)$")
+
+
 def _tidy(token: str) -> str:
     cleaned = _MARKUP.sub(" ", token)
     cleaned = _ARTEFACTS.sub("", cleaned)
     cleaned = re.sub(r"\(\s*\)", "", cleaned)
-    return " ".join(cleaned.split())
+    cleaned = " ".join(cleaned.split())
+    # A label like "Gram Flour (Besan)" sometimes arrives pre-split into two
+    # ingredient tokens — "Gram Flour" and "(Besan)" — leaving the annotation
+    # as its own orphaned, parenthesised token that never matches anything.
+    # Only unwrap when the ENTIRE token is one parenthesised group: an inline
+    # aside like "Raising Agent (E503)" must keep its parens.
+    wrapped = _WHOLLY_PARENTHESISED.match(cleaned)
+    if wrapped:
+        cleaned = wrapped.group(1).strip()
+    return cleaned
 
 
 def ingredient_from_token(token: str) -> Ingredient:
@@ -143,7 +155,7 @@ def product_from_record(record: ProductRecord, confidence: str | None = None) ->
         # Role 2 returns the score in a separate ConfidenceResult; the record's
         # own field is left at UNKNOWN, so the caller passes it in.
         data_confidence=_confidence(confidence or record.confidence),
-        nutriments=getattr(record, 'nutriments', {}),
+        nutritional_stats=getattr(record, 'nutritional_stats', {}),
         source="OPEN_FOOD_FACTS",
     )
 

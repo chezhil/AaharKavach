@@ -13,6 +13,16 @@ ROOT := $(shell cd "$(ARTIFACTS_DIR)/../../../.." && pwd)
 # `python` is not on PATH on a stock macOS; CI images vary too.
 PY := $(shell command -v python3 || command -v python)
 
+# Lambda runs python3.11 on x86_64 Linux (see template.yaml), which is not
+# necessarily what `pip install` on the build machine would produce: a
+# packages with a compiled extension (e.g. cedarpy, a Rust/maturin binding)
+# installs as a macOS/arm64 wheel on a Mac, silently fails to import in
+# Lambda, and Cedar fails closed — every profile request 403s with no error
+# in the deploy itself. Forcing pip to fetch the Lambda-matching manylinux
+# wheel from PyPI fixes this without needing `sam build --use-container`.
+PIP_TARGET_FLAGS := --platform manylinux2014_x86_64 --implementation cp \
+	--python-version 3.11 --abi cp311 --only-binary=:all:
+
 define assemble
 	@test -d "$(ROOT)/data" || { echo "ERROR: could not locate repo root from ARTIFACTS_DIR"; exit 1; }
 	cp -r "$(ROOT)/backend/src/." "$(ARTIFACTS_DIR)/"
@@ -20,8 +30,12 @@ define assemble
 	cp -r "$(ROOT)/data" "$(ARTIFACTS_DIR)/data"
 	cp -r "$(ROOT)/agent" "$(ARTIFACTS_DIR)/agent"
 	cp -r "$(ROOT)/backend/policies" "$(ARTIFACTS_DIR)/policies"
-	$(PY) -m pip install -q -r "$(ROOT)/backend/src/requirements.txt" -t "$(ARTIFACTS_DIR)"
-	$(PY) -m pip install -q -r "$(ROOT)/data/requirements.txt" -t "$(ARTIFACTS_DIR)"
+	$(PY) -m pip install -q $(PIP_TARGET_FLAGS) -r "$(ROOT)/backend/src/requirements.txt" -t "$(ARTIFACTS_DIR)"
+	$(PY) -m pip install -q $(PIP_TARGET_FLAGS) -r "$(ROOT)/data/requirements.txt" -t "$(ARTIFACTS_DIR)"
+	# agent/ is copied in above but its own deps (strands-agents, pydantic) were
+	# never installed, so the agent import failed at runtime and every
+	# evaluation silently fell back to the deterministic rulebook.
+	$(PY) -m pip install -q $(PIP_TARGET_FLAGS) -r "$(ROOT)/agent/requirements.txt" -t "$(ARTIFACTS_DIR)"
 	find "$(ARTIFACTS_DIR)" -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -type d -name tests -prune -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true

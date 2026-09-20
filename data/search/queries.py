@@ -49,7 +49,18 @@ def get_client():
         logger.info("opensearch-py not installed — falling back to local fuzzy match")
         return None
 
-    host = os.getenv("OPENSEARCH_HOST", "localhost")
+    # No host configured means no cluster, not "try localhost". Defaulting to
+    # localhost made every ontology miss in Lambda open a doomed TCP connection
+    # and log a full traceback before falling back — 32 of them in a day — and
+    # on a dev machine it silently queried whatever unrelated service happened
+    # to be listening on 9200, returning matches from someone else's index.
+    # Pointing at a real cluster is an explicit OPENSEARCH_HOST, which is what
+    # data/seed/seed_opensearch.py already documents.
+    host = os.getenv("OPENSEARCH_HOST")
+    if not host:
+        logger.debug("OPENSEARCH_HOST unset — using the local ontology only")
+        return None
+
     port = int(os.getenv("OPENSEARCH_PORT", "9200"))
     use_ssl = os.getenv("OPENSEARCH_USE_SSL", "false").lower() in {"1", "true", "yes"}
     verify = os.getenv("OPENSEARCH_VERIFY_CERTS", "true").lower() in {"1", "true", "yes"}

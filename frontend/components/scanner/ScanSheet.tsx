@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Camera, ImagePlus, Keyboard, Loader2 } from "lucide-react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { Camera, ImagePlus, Keyboard, Loader2, ShoppingCart, X, ArrowRight } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { BarcodeScanner } from "./BarcodeScanner";
 import { MOCK_PRODUCTS } from "@/lib/mocks/fixtures";
 import { usingMocks } from "@/lib/api";
 import { cn, isValidBarcode } from "@/lib/utils";
+import { useCartStore } from "@/stores/useCartStore";
+import { useRouter } from "next/navigation";
 
 export type ScanMode = "camera" | "manual" | "photo";
 type Mode = ScanMode;
@@ -22,7 +24,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onBarcode: (barcode: string) => void;
-  onLabelPhoto: (file: File) => void;
+  onLabelPhoto: (file: File | string) => void;
   busy?: boolean;
   busyMessage?: { title: string, desc: string };
   error?: string | null;
@@ -42,64 +44,230 @@ export function ScanSheet({
 }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [typed, setTyped] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  const { batchMode, toggleBatchMode, items, addItem, removeItem, clearCart } = useCartStore();
+  const router = useRouter();
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs so handleDetected can read current values without being recreated.
+  // Synced after commit, not during render: a render React discards or replays
+  // would otherwise leave these holding a value that never made it to the DOM.
+  const batchModeRef = useRef(batchMode);
+  const addItemRef = useRef(addItem);
+  useEffect(() => {
+    batchModeRef.current = batchMode;
+    addItemRef.current = addItem;
+  });
 
-  // Stable identity: BarcodeScanner restarts the camera when this changes.
+  // Allowed upload MIME types and max size (10 MB)
+  const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+  const handleAuditBatch = () => {
+    if (items.length === 0) return;
+    // Use handleClose to ensure camera tracks are cleaned up before navigating
+    handleClose();
+    router.push("/batch-result");
+  };
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  /** null when the file is usable, otherwise why it isn't. */
+  const _rejectReason = (file: File): string | null => {
+    if (!ALLOWED_MIMES.includes(file.type)) {
+      // HEIC is the one people actually hit: it's the iPhone camera default,
+      // and the whole point of this screen is photographing a label on a phone.
+      return "That file type isn't supported — use a JPEG, PNG or WebP photo.";
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return "That photo is over 10 MB — try a smaller one.";
+    }
+    return null;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Client-side file validation: enforce MIME and size before base64 conversion.
+    // Rejecting silently left the user staring at a screen that did nothing.
+    const rejected = _rejectReason(file);
+    if (rejected) {
+      showToast(rejected);
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        onLabelPhoto(base64);
+      }
+    };
+    reader.onerror = () => showToast("That photo couldn't be read — try another.");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    // Same as the picker: say why nothing happened rather than ignoring the drop.
+    const rejected = !file.type.startsWith("image/")
+      ? "That isn't an image — drop a photo of the ingredients panel."
+      : _rejectReason(file);
+    if (rejected) {
+      showToast(rejected);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        onLabelPhoto(base64);
+      }
+    };
+    reader.onerror = () => showToast("That photo couldn't be read — try another.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleTabChange = (newTab: Mode) => {
+    if (newTab !== "camera") {
+      if (typeof document !== "undefined") {
+        document.querySelectorAll("video").forEach((v) => {
+          if (v.srcObject) {
+            (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+            v.srcObject = null;
+          }
+        });
+      }
+    }
+    setMode(newTab);
+  };
+
+  const handleClose = useCallback(() => {
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((v) => {
+        if (v.srcObject) {
+          (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+          v.srcObject = null;
+        }
+      });
+    }
+    onClose();
+  }, [onClose]);
+
+  // Truly stable identity: reads batchMode and addItem from refs so the camera
+  // is never restarted when the user toggles batch mode.
   const handleDetected = useCallback(
     (barcode: string) => {
-      if (navigator.vibrate) navigator.vibrate(40);
-      onBarcode(barcode);
+      // SSR-safe navigator check
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(40);
+      
+      if (batchModeRef.current) {
+        addItemRef.current(barcode);
+        setToastMessage(`Added ${barcode} to Cart`);
+        // Clear any previous toast timer to prevent overlapping state updates
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToastMessage(null), 2000);
+      } else {
+        onBarcode(barcode);
+      }
     },
     [onBarcode],
   );
 
   const submitTyped = () => {
-    // If it's a URL, don't restrict to numbers, but typed input is currently numeric only in UI.
-    // Wait, the BarcodeScanner passes strings. `typed` is from the manual input.
-    // QR codes are usually scanned via camera anyway.
-    if (!isValidBarcode(typed) && !typed.startsWith("http")) return;
-    onBarcode(typed.trim());
+    const value = typed.trim();
+    if (!value) return;
+    const isUrl = value.startsWith("http");
+    if (!isValidBarcode(value) && !isUrl) return;
+    // A URL has no barcode to put in a basket, so it is always a single scan.
+    // Everything else goes through handleDetected so typing an item respects
+    // batch mode exactly like scanning one does — otherwise the basket can
+    // only ever be filled by camera, and a laptop demo can't use it at all.
+    if (isUrl) {
+      onBarcode(value);
+      return;
+    }
+    handleDetected(value);
+    setTyped("");
   };
 
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title="Scan a product"
       description="Point at the barcode, type it, or photograph the ingredients panel."
     >
       <div className="space-y-4">
-        <div
-          role="tablist"
-          aria-label="Scan method"
-          className="grid grid-cols-3 gap-1 rounded-xl bg-bg p-1"
-        >
-          {MODES.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={mode === id}
-              onClick={() => setMode(id)}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
-                mode === id
-                  ? "bg-brand text-brand-fg"
-                  : "text-fg-subtle hover:text-fg-muted",
-              )}
-            >
-              <Icon size={14} aria-hidden />
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between px-1">
+          <div
+            role="tablist"
+            aria-label="Scan method"
+            className="flex w-[200px] gap-1 rounded-xl bg-bg p-1"
+          >
+            {MODES.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => handleTabChange(id)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+                  mode === id
+                    ? "bg-brand text-brand-fg"
+                    : "text-fg-subtle hover:text-fg-muted",
+                )}
+              >
+                <Icon size={14} aria-hidden />
+                <span className="sr-only sm:not-sr-only sm:inline-block">{label}</span>
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={toggleBatchMode}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
+              batchMode 
+                ? "bg-brand/10 border-brand text-brand"
+                : "bg-surface border-border-subtle text-fg-subtle hover:bg-surface-hover"
+            )}
+          >
+            <ShoppingCart size={14} />
+            {batchMode ? "Batch Mode ON" : "Batch Mode OFF"}
+          </button>
         </div>
 
         {error && !busy ? (
-          <p
-            role="alert"
-            className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
-          >
-            {error}
-          </p>
+          error.includes("isn't in Open Food Facts") ? (
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <h3 className="font-semibold mb-1">Product not in database yet</h3>
+              <p className="text-sm text-fg-subtle mb-4">
+                Snap a photo of the ingredients list on the back of the package to evaluate it now.
+              </p>
+              <Button onClick={() => setMode("camera")} className="w-full">
+                Open Camera & Snap Ingredients
+              </Button>
+            </div>
+          ) : (
+            <p
+              role="alert"
+              className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
+            >
+              {error}
+            </p>
+          )
         ) : null}
 
         {busy ? (
@@ -110,17 +278,58 @@ export function ScanSheet({
               aria-hidden
             />
             <p className="text-sm font-semibold">
-              {busyMessage?.title || "Checking against your household…"}
+              {busyMessage?.title || "Checking against your household?"}
             </p>
             <p className="text-xs text-fg-subtle">
               {busyMessage?.desc || "Looking up the product, then reasoning over every ingredient."}
             </p>
           </div>
         ) : (
-          <>
+          <div className="relative">
             {mode === "camera" ? (
-              <BarcodeScanner onDetected={handleDetected} />
+              <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} batchMode={batchMode} />
             ) : null}
+
+            {/* The basket belongs to the sheet, not to one input method: gating
+                this on the camera tab meant a machine with no camera could
+                never see the basket or reach the audit button at all. */}
+            {batchMode && items.length > 0 && (
+              <div
+                className={cn(
+                  "z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3",
+                  mode === "camera" ? "absolute bottom-4 left-4 right-4" : "mt-3",
+                )}
+              >
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>🛒 {items.length} {items.length === 1 ? "Item" : "Items"} in Cart</span>
+                  <button onClick={clearCart} className="text-xs text-fg-subtle hover:text-fg-muted underline">Clear</button>
+                </div>
+                
+                <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
+                  {items.map((item) => (
+                    <div key={item.barcode} className="relative flex shrink-0 items-center justify-center h-12 w-12 rounded-lg bg-bg border border-border-subtle">
+                      <span className="text-[10px] text-fg-muted">{item.barcode.slice(-4)}</span>
+                      <button 
+                        onClick={() => removeItem(item.barcode)}
+                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-bg"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button onClick={handleAuditBatch} className="w-full h-10 mt-1 shadow-sm">
+                  Audit Household Cart <ArrowRight size={16} className="ml-1" />
+                </Button>
+              </div>
+            )}
+            
+            {toastMessage && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-brand-fg shadow-lg animate-in fade-in slide-in-from-top-2">
+                {toastMessage}
+              </div>
+            )}
 
             {mode === "manual" ? (
               <div className="space-y-3">
@@ -180,38 +389,52 @@ export function ScanSheet({
 
             {mode === "photo" ? (
               <div className="space-y-3">
-                <button
-                  onClick={() => fileInput.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-10 text-center transition-colors hover:border-brand"
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="group flex w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center transition-colors hover:border-brand bg-bg/50 hover:bg-surface"
                 >
-                  <ImagePlus size={24} className="text-fg-subtle" aria-hidden />
-                  <span className="text-sm font-semibold">
-                    Photograph the ingredients panel
+                  <ImagePlus size={32} className="text-fg-subtle group-hover:text-brand transition-colors" aria-hidden />
+                  <span className="text-base font-semibold">
+                    Snap or Drop Ingredients
                   </span>
                   <span className="max-w-[32ch] text-xs text-fg-subtle">
-                    For loose or unlisted products with no barcode in the
-                    database.
+                    Take a photo of the ingredients list on the back of the package.
                   </span>
-                </button>
+                  
+                  <div className="flex w-full gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                    <Button onClick={() => cameraInputRef.current?.click()} className="flex-1 text-sm bg-brand text-brand-fg">
+                      Take Photo
+                    </Button>
+                    <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex-1 text-sm bg-surface hover:bg-surface-hover">
+                      Choose File
+                    </Button>
+                  </div>
+                </div>
+
                 <input
-                  ref={fileInput}
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
                   className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onLabelPhoto(file);
-                    e.target.value = "";
-                  }}
+                  onChange={handleFileChange}
                 />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                
                 <p className="rounded-xl border border-caution-border bg-caution-soft px-3 py-2 text-xs text-caution">
-                  Photo reads come back with low confidence — we&apos;ll say so
-                  on the result.
+                  Photo reads come back with low confidence — we&apos;ll say so on the result.
                 </p>
               </div>
             ) : null}
-          </>
+          </div>
         )}
       </div>
     </Sheet>

@@ -2,3 +2,6 @@ strands-agents
 pydantic
 pytest
 boto3
+# Groq speaks the OpenAI wire format; strands.models.openai needs this to
+# reach it. It's the deployed fallback while Bedrock model access is pending.
+openai

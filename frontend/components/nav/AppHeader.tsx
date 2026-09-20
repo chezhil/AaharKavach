@@ -1,14 +1,50 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Sun, Moon } from "lucide-react";
 import { usingMocks } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TABS, isActive } from "./tabs";
 
+/**
+ * The theme lives on <html class="dark">, put there by the blocking script in
+ * layout.tsx before first paint. That makes it external state React doesn't
+ * own, so it's read through useSyncExternalStore rather than mirrored into
+ * useState from an effect — which is what lets the server render "dark" (the
+ * script's default) and the client correct it during hydration without a
+ * render-phase setState.
+ */
+const subscribeToTheme = (onChange: () => void) => {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+};
+
+const getTheme = () =>
+  document.documentElement.classList.contains("dark") ? "dark" : "light";
+
+// layout.tsx adds `dark` unless localStorage says otherwise, so dark is what
+// the server-rendered markup corresponds to.
+const getServerTheme = () => "dark" as const;
+
 export function AppHeader() {
   const pathname = usePathname();
+  const theme = useSyncExternalStore(subscribeToTheme, getTheme, getServerTheme);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // Private mode or a full quota — the toggle still works for this session.
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur-lg">
@@ -22,12 +58,11 @@ export function AppHeader() {
               AaharKavach
             </span>
             <span className="mt-1 block text-[0.68rem] leading-none text-fg-subtle">
-              आहार कवच · food shield
+              आहार कवच · Food Shield
             </span>
           </span>
         </Link>
 
-        {/* On a phone this row is the floating pill at the bottom instead. */}
         <nav aria-label="Main" className="ml-auto hidden md:block">
           <ul className="flex gap-1 rounded-full bg-surface p-1">
             {TABS.map(({ href, label, icon: Icon }) => {
@@ -53,11 +88,21 @@ export function AppHeader() {
           </ul>
         </nav>
 
-        {usingMocks ? (
-          <span className="ml-auto shrink-0 rounded-full bg-surface px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wider text-fg-subtle md:ml-0">
-            Demo data
-          </span>
-        ) : null}
+        <div className={cn("flex items-center gap-2", !usingMocks && "ml-auto md:ml-0")}>
+          {usingMocks && (
+            <span className="ml-auto shrink-0 rounded-full bg-surface px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wider text-fg-subtle md:ml-0">
+              Demo data
+            </span>
+          )}
+          
+          <button
+            onClick={toggleTheme}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-fg-subtle hover:bg-surface-hover hover:text-fg transition-colors"
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </div>
     </header>
   );

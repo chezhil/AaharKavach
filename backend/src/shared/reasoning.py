@@ -50,7 +50,9 @@ DIET_RESTRICTIONS: dict[str, set[str]] = {
 ANIMAL_SOURCE_DIETS = {"vegetarian", "vegan", "jain", "eggetarian"}
 
 
-def _norm(value: str) -> str:
+def _norm(value: str | None) -> str:
+    if not value:
+        return ""
     return " ".join(value.lower().strip().split())
 
 
@@ -182,8 +184,17 @@ def evaluate_profile(
         # 1. Custom Restriction Substring Matching
         if not wanted and not diet:
             custom_term = _norm(restriction.label)
+            if not custom_term:
+                continue
+            
+            import re
+            # word boundary matching to avoid "nut" matching "coconut"
+            pattern = re.compile(rf"\b{re.escape(custom_term)}\b", re.IGNORECASE)
+            
             for ingredient_name in matches_by_token.keys():
-                if custom_term in _norm(ingredient_name):
+                norm_ingredient = _norm(ingredient_name)
+                # match with regex, or exact match if it's very short
+                if pattern.search(norm_ingredient) or custom_term == norm_ingredient:
                     flag = FlaggedIngredient(
                         ingredient=ingredient_name,
                         matched_allergen=restriction.label,
@@ -218,8 +229,8 @@ def evaluate_profile(
     
     limits = calculate_daily_limits(profile)
     nutrition_res = {}
-    if product and hasattr(product, 'nutriments'):
-        nutriments = product.nutriments or {}
+    if product and hasattr(product, 'nutritional_stats'):
+        nutriments = product.nutritional_stats or {}
         for metric in profile.tracked_nutrients:
             nutrition_res[metric] = NutrientMetric(
                 actual_value=nutriments.get(metric, 0.0),

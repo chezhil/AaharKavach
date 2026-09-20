@@ -156,6 +156,28 @@ export default function ResultPage() {
     );
   }
 
+  // Checked before "missing": a failed lookup also leaves `shown` null, so
+  // the !shown test below would otherwise claim the product simply isn't in
+  // the database and send people off to photograph a label for no reason.
+  if (view === "error") {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="That didn't go through"
+        body="The lookup failed on the way out. Check the connection and try the scan again."
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.refresh()}
+          >
+            Retry
+          </Button>
+        }
+      />
+    );
+  }
+
   if (view === "missing" || !shown) {
     return (
       <EmptyState
@@ -177,25 +199,6 @@ export default function ResultPage() {
               </Button>
             </Link>
           </div>
-        }
-      />
-    );
-  }
-
-  if (view === "error") {
-    return (
-      <EmptyState
-        icon={AlertTriangle}
-        title="That didn't go through"
-        body="The lookup failed on the way out. Check the connection and try the scan again."
-        action={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.refresh()}
-          >
-            Retry
-          </Button>
         }
       />
     );
@@ -296,16 +299,38 @@ export default function ResultPage() {
             </button>
           </div>
           
-          <div className="bg-white/5 rounded-xl p-4">
-            <NutritionHexagon 
-              currentStats={product.nutritional_stats || { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2, Fiber: 4, SatFat: 3, TransFat: 0 }}
-              userLimits={activeProfiles[0]?.daily_limits || { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6, Fiber: 30, SatFat: 20, TransFat: 2 }} 
-              labels={chartLabels}
-              className="w-full"
-            />
-            {(!product.nutritional_stats || !activeProfiles[0]?.daily_limits) && (
-              <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
-            )}
+          <div className="bg-white/5 rounded-xl px-6 py-4 overflow-hidden">
+            {(() => {
+              // An empty {} is truthy in JS, so `nutritional_stats || fallback`
+              // never actually falls back — the bundled offline catalogue's 13
+              // products carry no nutrition data at all, so every one of them
+              // rendered a degenerate all-zero hexagon with no explanation.
+              const hasStats =
+                !!product.nutritional_stats &&
+                Object.keys(product.nutritional_stats).length > 0;
+              const hasLimits = !!activeProfiles[0]?.daily_limits;
+              return (
+                <>
+                  <NutritionHexagon
+                    currentStats={
+                      hasStats
+                        ? product.nutritional_stats!
+                        : { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2, Fiber: 4, SatFat: 3, TransFat: 0 }
+                    }
+                    userLimits={
+                      hasLimits
+                        ? activeProfiles[0]!.daily_limits!
+                        : { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6, Fiber: 30, SatFat: 20, TransFat: 2 }
+                    }
+                    labels={chartLabels}
+                    className="w-full"
+                  />
+                  {(!hasStats || !hasLimits) && (
+                    <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
 
@@ -367,14 +392,22 @@ export default function ResultPage() {
           </div>
         )}
 
-        {evaluation.safe_alternatives_suggestion ? (
+        {/* Gated on having something to show, not on the prose line: the agent
+            leaves safe_alternatives_suggestion null while still returning real
+            alternatives, and keying the section off the sentence meant a safer
+            product was found and then never shown. */}
+        {evaluation.safe_alternatives_suggestion ||
+        (evaluation.safe_alternatives?.length ?? 0) > 0 ? (
           <section className="tile bg-surface p-4">
             <h3 className="display flex items-center gap-1.5 text-base">
               <Lightbulb size={16} className="text-brand" aria-hidden />
               Try instead
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-              {evaluation.safe_alternatives_suggestion}
+              {evaluation.safe_alternatives_suggestion ??
+                `Safer picks: ${evaluation.safe_alternatives
+                  ?.map((a) => a.name)
+                  .join(", ")}.`}
             </p>
             {evaluation.safe_alternatives &&
             evaluation.safe_alternatives.length > 0 ? (
