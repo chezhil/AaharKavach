@@ -7,8 +7,10 @@ model responds. Everything here returns ``None`` rather than raising, so
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
+import time
 from typing import Any
 
 from .contracts import (
@@ -30,22 +32,53 @@ logger = logging.getLogger(__name__)
 CALL_TIMEOUT_SECONDS = float(os.environ.get("AAHAR_AGENT_CALL_TIMEOUT", "10"))
 
 
+#: Total model time one *request* may spend, across every call it makes. A
+#: per-call cap is not enough: /api/compare evaluates two products, and each
+#: product costs a Swap It call plus a verdict call, so four capped calls still
+#: overran the 29s gateway ceiling and returned a 504. The budget is shared.
+REQUEST_BUDGET_SECONDS = float(os.environ.get("AAHAR_AGENT_BUDGET_SECONDS", "20"))
+
+_request_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "aahar_agent_deadline", default=None
+)
+
+
+def start_request_budget(seconds: float | None = None) -> None:
+    """Begin this request's shared model-time budget."""
+    _request_deadline.set(
+        time.monotonic() + (REQUEST_BUDGET_SECONDS if seconds is None else seconds)
+    )
+
+
+def remaining_budget() -> float | None:
+    """Seconds of model time left, or None when no budget was started."""
+    deadline = _request_deadline.get()
+    return None if deadline is None else max(0.0, deadline - time.monotonic())
+
+
 def call_with_timeout(fn, *args, **kwargs):
-    """Run `fn` but give up after CALL_TIMEOUT_SECONDS.
+    """Run `fn` under both the per-call cap and the request-wide budget.
 
     The worker thread cannot be killed and is left to finish on its own; under
     Lambda the container is frozen after the response, so it costs nothing.
-    Raising here lets the caller fall back rather than hang.
+    Raising here lets the caller fall back to the rulebook rather than hang.
     """
     import concurrent.futures
+
+    limit = CALL_TIMEOUT_SECONDS
+    budget = remaining_budget()
+    if budget is not None:
+        limit = min(limit, budget)
+        if limit <= 0.5:
+            raise TimeoutError("request model budget is spent")
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     future = executor.submit(fn, *args, **kwargs)
     try:
-        return future.result(timeout=CALL_TIMEOUT_SECONDS)
+        return future.result(timeout=limit)
     except concurrent.futures.TimeoutError:
         raise TimeoutError(
-            f"model call exceeded {CALL_TIMEOUT_SECONDS}s (provider slow or rate limited)"
+            f"model call exceeded {limit:.1f}s (provider slow or rate limited)"
         )
     finally:
         executor.shutdown(wait=False)
@@ -201,6 +234,13 @@ def extract_webpage(webpage_text: str):
         if extraction is None or not getattr(extraction, "found_ingredients", False):
             return None
         return extraction
+    except TimeoutError:
+        # Let this reach the caller. Unlike the verdict path there is no
+        # rulebook to fall back on here, and swallowing it into None made the
+        # endpoint answer "we couldn't find an ingredient list on that page"
+        # when the truth was that the reader never replied — sending people to
+        # inspect the page instead of retrying.
+        raise
     except Exception as exc:
         logger.warning("Webpage extraction failed: %s", exc)
         return None
