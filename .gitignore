@@ -32,6 +32,9 @@ venv/
 .aws-sam/
 .localstack/
 cdk.out/
+# sam deploy --guided writes deploy parameters here, and ours include the
+# model API key and the JWT signing secret. Never commit it.
+samconfig.toml
 
 # Next.js
 .next/
