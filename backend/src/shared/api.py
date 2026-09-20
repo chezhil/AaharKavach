@@ -371,7 +371,11 @@ def _alternatives(product: Product, profiles: list[Profile]) -> list[Alternative
                     household_status=alt.household_status,
                     tags=alt.tags
                 ))
-            return out
+            # Only when it actually found something. A terse model answering
+            # with an empty list is not a reason to withhold the catalogue's
+            # own safe picks, which is what returning `out` unconditionally did.
+            if out:
+                return out
         except Exception as exc:
             logger.warning("Swap It generation failed: %s", exc)
 

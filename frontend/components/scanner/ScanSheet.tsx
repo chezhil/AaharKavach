@@ -72,17 +72,33 @@ export function ScanSheet({
     router.push("/batch-result");
   };
 
-  const _validateFile = (file: File): boolean => {
-    if (!ALLOWED_MIMES.includes(file.type)) return false;
-    if (file.size > MAX_FILE_SIZE) return false;
-    return true;
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  /** null when the file is usable, otherwise why it isn't. */
+  const _rejectReason = (file: File): string | null => {
+    if (!ALLOWED_MIMES.includes(file.type)) {
+      // HEIC is the one people actually hit: it's the iPhone camera default,
+      // and the whole point of this screen is photographing a label on a phone.
+      return "That file type isn't supported — use a JPEG, PNG or WebP photo.";
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return "That photo is over 10 MB — try a smaller one.";
+    }
+    return null;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Client-side file validation: enforce MIME and size before base64 conversion
-    if (!_validateFile(file)) {
+    // Client-side file validation: enforce MIME and size before base64 conversion.
+    // Rejecting silently left the user staring at a screen that did nothing.
+    const rejected = _rejectReason(file);
+    if (rejected) {
+      showToast(rejected);
       e.target.value = "";
       return;
     }
@@ -94,7 +110,7 @@ export function ScanSheet({
         onLabelPhoto(base64);
       }
     };
-    reader.onerror = () => { /* silently handle corrupt file reads */ };
+    reader.onerror = () => showToast("That photo couldn't be read — try another.");
     reader.readAsDataURL(file);
     e.target.value = "";
   };
@@ -102,9 +118,15 @@ export function ScanSheet({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
-    // Client-side file validation: enforce MIME and size before base64 conversion
-    if (!_validateFile(file)) return;
+    if (!file) return;
+    // Same as the picker: say why nothing happened rather than ignoring the drop.
+    const rejected = !file.type.startsWith("image/")
+      ? "That isn't an image — drop a photo of the ingredients panel."
+      : _rejectReason(file);
+    if (rejected) {
+      showToast(rejected);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -113,7 +135,7 @@ export function ScanSheet({
         onLabelPhoto(base64);
       }
     };
-    reader.onerror = () => { /* silently handle corrupt file reads */ };
+    reader.onerror = () => showToast("That photo couldn't be read — try another.");
     reader.readAsDataURL(file);
   };
 

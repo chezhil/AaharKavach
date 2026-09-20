@@ -389,14 +389,22 @@ export default function ResultPage() {
           </div>
         )}
 
-        {evaluation.safe_alternatives_suggestion ? (
+        {/* Gated on having something to show, not on the prose line: the agent
+            leaves safe_alternatives_suggestion null while still returning real
+            alternatives, and keying the section off the sentence meant a safer
+            product was found and then never shown. */}
+        {evaluation.safe_alternatives_suggestion ||
+        (evaluation.safe_alternatives?.length ?? 0) > 0 ? (
           <section className="tile bg-surface p-4">
             <h3 className="display flex items-center gap-1.5 text-base">
               <Lightbulb size={16} className="text-brand" aria-hidden />
               Try instead
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-              {evaluation.safe_alternatives_suggestion}
+              {evaluation.safe_alternatives_suggestion ??
+                `Safer picks: ${evaluation.safe_alternatives
+                  ?.map((a) => a.name)
+                  .join(", ")}.`}
             </p>
             {evaluation.safe_alternatives &&
             evaluation.safe_alternatives.length > 0 ? (
