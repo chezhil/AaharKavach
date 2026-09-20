@@ -21,6 +21,7 @@ export default function BatchResultPage() {
 
   useEffect(() => {
     if (items.length === 0) {
+      setLoading(false);
       router.replace("/");
       return;
     }
@@ -30,9 +31,9 @@ export default function BatchResultPage() {
     const runAudit = async () => {
       try {
         const barcodes = items.map(i => i.barcode);
-        const householdId = "hh_1";
-        
-        const res = await api.auditBatch(barcodes, householdId);
+        // client.ts now injects the X-Aahar-Household header automatically
+        // so we don't need to pass a householdId parameter to the mock API call
+        const res = await api.auditBatch(barcodes);
         // Guard: do not update state if component unmounted during fetch
         if (!cancelled) setData(res);
       } catch (err) {

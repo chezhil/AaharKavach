@@ -307,7 +307,10 @@ def _corroborating_flag(
         
         if not wanted and not diet:
             custom_term = _norm(restriction.label)
-            if custom_term in _norm(flag.ingredient):
+            if not custom_term:
+                continue
+            import re
+            if re.search(rf"\b{re.escape(custom_term)}\b", _norm(flag.ingredient)):
                 return FlaggedIngredient(
                     ingredient=flag.ingredient,
                     matched_allergen=restriction.label,

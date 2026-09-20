@@ -35,6 +35,9 @@ export function BarcodeScanner({
   const batchModeRef = useRef(batchMode);
   const onDetectedRef = useRef(onDetected);
   useEffect(() => {
+    if (batchModeRef.current !== batchMode) {
+      done.current = false;
+    }
     batchModeRef.current = batchMode;
     onDetectedRef.current = onDetected;
   });
@@ -151,10 +154,12 @@ export function BarcodeScanner({
               // restarting the camera on batchMode toggle.
               if (batchModeRef.current) {
                 const now = Date.now();
-                const lastScanned = lastScannedMap.current[decoded] || 0;
+                // Strip leading zeros for deduplication: 00123 == 0123 == 123
+                const normalized = decoded.replace(/^0+/, "");
+                const lastScanned = lastScannedMap.current[normalized] || 0;
                 // 2.5-second cooldown per unique barcode
                 if (now - lastScanned < 2500) return;
-                lastScannedMap.current[decoded] = now;
+                lastScannedMap.current[normalized] = now;
                 onDetectedRef.current(decoded);
               } else {
                 done.current = true;
@@ -298,6 +303,8 @@ export function BarcodeScanner({
       canvas.width = 0;
       canvas.height = 0;
       onCaptureLabel(base64Image);
+      setIsCapturing(false);
+      isCapturingRef.current = false;
     } else {
       // GPU context exhausted — release canvas bitmap and allow retry
       canvas.width = 0;

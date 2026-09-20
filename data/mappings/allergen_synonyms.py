@@ -488,7 +488,7 @@ HARD_NEGATIVES = {
     "water chestnut": ["tree_nuts"],    # not a nut botanically; no allergy risk
     "coconut": ["tree_nuts"],           # not a tree nut for labelling purposes in EU
     "nutmeg": ["tree_nuts"],            # a seed, not a nut
-    "pineapple": ["pine_nut"],          # sub-string hazard — pineapple vs pine nut
+    "pineapple": ["tree_nuts"],          # sub-string hazard — pineapple vs pine nut
     "rocket": ["mustard"],              # arugula source confusion, not mustard seed
     # Phrase-level false friends. "butter" is a milk synonym, so containment
     # matching would otherwise read cocoa butter and peanut butter as dairy.
@@ -520,19 +520,22 @@ HARD_NEGATIVES = {
 }
 
 
-def resolve_synonym(token: str) -> dict | None:
+def resolve_synonym(token: str | None) -> dict | None:
     """Resolve a single normalised (lower-cased) token to an allergen entry.
 
     Returns the allergen dict or None. Substring boundaries are handled by
     the fuzzy matcher — this function only does exact term lookup so we never
     accidentally return a false positive on partial names.
     """
+    if not token:
+        return None
+        
     t = token.lower().strip()
     for allergen_id, entry in ALLERGENS.items():
         if t in entry["aliases"]:
             return entry
         for term in entry["synonym_terms"]:
-            if t == term["term"]:
+            if t == term["term"].lower():
                 return {**entry, "matched_confidence": term["confidence"]}
     # E-number lookup also short-circuits to additive allergen (e.g. E120 → carmine).
     return None

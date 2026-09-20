@@ -98,11 +98,11 @@ class Product:
             "name": self.name,
             "brand": self.brand,
             "image_url": self.image_url,
-            "categories": self.categories,
-            "ingredients": [i.to_dict() for i in self.ingredients],
+            "categories": self.categories or [],
+            "ingredients": [i.to_dict() for i in (self.ingredients or [])],
             "data_confidence": self.data_confidence,
             "source": self.source,
-            "nutritional_stats": self.nutritional_stats,
+            "nutritional_stats": self.nutritional_stats or {},
         }
 
 

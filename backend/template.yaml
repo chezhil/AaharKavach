@@ -6,6 +6,10 @@ Description: >
   compare and scan history.
 
 Parameters:
+  JwtSecret:
+    Type: String
+    Description: Secret key used to sign JWT tokens. Do not use default in production.
+    Default: "super_secret_dev_key"
   UseAgent:
     Type: String
     Default: "true"
@@ -69,7 +73,7 @@ Resources:
       Environment:
         Variables:
           PROFILES_TABLE: !Ref ProfilesTable
-          JWT_SECRET: super_secret_dev_key
+          JWT_SECRET: !Ref JwtSecret
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProfilesTable

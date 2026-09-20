@@ -116,11 +116,13 @@ export function ScanSheet({
 
   // Clean up the label viewfinder when the sheet unmounts or closes
   useEffect(() => {
+    if (!open) {
+      stopLabelCam();
+    }
     return () => {
-      labelStreamRef.current?.getTracks().forEach((t) => t.stop());
-      labelStreamRef.current = null;
+      stopLabelCam();
     };
-  }, []);
+  }, [open, stopLabelCam]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -237,6 +239,12 @@ export function ScanSheet({
     [onBarcode],
   );
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
   const submitTyped = () => {
     const value = typed.trim();
     if (!value) return;
@@ -248,6 +256,7 @@ export function ScanSheet({
     // only ever be filled by camera, and a laptop demo can't use it at all.
     if (isUrl) {
       onBarcode(value);
+      setTyped("");
       return;
     }
     handleDetected(value);

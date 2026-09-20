@@ -14,6 +14,22 @@ import { ApiError, ProductNotFoundError, type AaharApi } from "./types";
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let token = "";
+  let household = "";
+  let user = "";
+  if (typeof window !== "undefined") {
+    token = localStorage.getItem("aahar_token") || "";
+    try {
+      const parsed = token ? JSON.parse(atob(token.split(".")[1])) : null;
+      if (parsed) {
+        household = parsed.household || "";
+        user = parsed.sub || "";
+      }
+    } catch (e) {
+      // Ignore malformed tokens
+    }
+  }
+
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
@@ -22,6 +38,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.body instanceof FormData
           ? {}
           : { "Content-Type": "application/json" }),
+        ...(household ? { "X-Aahar-Household": household } : {}),
+        ...(user ? { "X-Aahar-User": user } : {}),
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
         ...init?.headers,
       },
     });
@@ -112,10 +131,10 @@ export const httpApi: AaharApi = {
       body: JSON.stringify(req),
     }),
 
-  auditBatch: (barcodes: string[], householdId: string) =>
+  auditBatch: (barcodes: string[]) =>
     request<BatchAuditResult>("/api/audit/batch", {
       method: "POST",
-      body: JSON.stringify({ barcodes, household_id: householdId }),
+      body: JSON.stringify({ barcodes }),
     }),
 
   listHistory: () => request<ScanResult[]>("/api/history"),

@@ -104,17 +104,21 @@ def _profile_from_draft(draft: dict[str, Any], profile_id: str) -> Profile:
 
 
 def create_profile(caller: Caller, draft: dict[str, Any]) -> tuple[int, Any]:
+    if not draft:
+        raise ApiError(400, "Empty request body")
     profile_id = str(draft.get("id") or f"p_{uuid.uuid4().hex[:8]}")
     if not check_permission(caller.user_id, caller.role, caller.household,
                             "CreateProfile", profile_id, caller.user_id, caller.household):
         raise ApiError(403, "Only an admin can add someone to the household")
     profile = _profile_from_draft(draft, profile_id)
-    store.put_profile(profile, owner=caller.user_id)
+    store.put_profile(profile, owner=caller.user_id, household_id=caller.household)
     return 201, profile.to_dict()
 
 
 def update_profile(caller: Caller, profile_id: str, draft: dict[str, Any]) -> tuple[int, Any]:
-    existing = store.get_profile_item(profile_id)
+    if not draft:
+        raise ApiError(400, "Empty request body")
+    existing = store.get_profile_item(profile_id, household_id=caller.household)
     if not existing:
         raise ApiError(404, f"No profile {profile_id}")
     if not check_permission(caller.user_id, caller.role, caller.household, "UpdateProfile",
@@ -122,19 +126,19 @@ def update_profile(caller: Caller, profile_id: str, draft: dict[str, Any]) -> tu
                             str(existing.get("householdId", caller.household))):
         raise ApiError(403, "Household policy does not allow editing this profile")
     profile = _profile_from_draft(draft, profile_id)
-    store.put_profile(profile, owner=str(existing.get("owner", caller.user_id)))
+    store.put_profile(profile, owner=str(existing.get("owner", caller.user_id)), household_id=caller.household)
     return 200, profile.to_dict()
 
 
 def remove_profile(caller: Caller, profile_id: str) -> tuple[int, Any]:
-    existing = store.get_profile_item(profile_id)
+    existing = store.get_profile_item(profile_id, household_id=caller.household)
     if not existing:
         raise ApiError(404, f"No profile {profile_id}")
     if not check_permission(caller.user_id, caller.role, caller.household, "DeleteProfile",
                             profile_id, str(existing.get("owner", caller.user_id)),
                             str(existing.get("householdId", caller.household))):
         raise ApiError(403, "Only an admin can remove someone from the household")
-    store.delete_profile(profile_id)
+    store.delete_profile(profile_id, household_id=caller.household)
     return 204, None
 
 
@@ -268,7 +272,7 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
         evaluation=evaluation,
         profile_ids=[p.id for p in profiles],
     )
-    store.record_scan(scan)
+    store.record_scan(scan, household_id=caller.household)
     return 200, scan.to_dict()
 
 def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, Any]:
@@ -415,7 +419,7 @@ def _product_from_payload(raw: dict[str, Any]) -> Product:
         ],
         data_confidence=str(raw.get("data_confidence", "LOW")).upper(),  # type: ignore[arg-type]
         source=str(raw.get("source", "MANUAL")),
-        nutritional_stats=raw.get("nutriments", {}),
+        nutritional_stats=raw.get("nutritional_stats", {}),
     )
 
 
@@ -446,7 +450,8 @@ def evaluate_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             product=product,
             evaluation=result,
             profile_ids=[p.id for p in profiles],
-        )
+        ),
+        household_id=caller.household,
     )
     return 200, result.to_dict()
 

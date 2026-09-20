@@ -49,8 +49,8 @@ export default function SignupPage() {
     };
 
     try {
-      // Pointing to the new API Gateway endpoint for auth
-      const res = await fetch("http://127.0.0.1:3001/api/signup", {
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+      const res = await fetch(`${baseUrl}/api/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

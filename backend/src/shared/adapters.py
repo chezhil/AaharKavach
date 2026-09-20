@@ -193,12 +193,17 @@ def profile_from_item(item: dict[str, Any], *, can_edit: bool = True) -> Profile
         restrictions=restrictions,
         accent=str(item.get("accent") or "teal"),
         can_edit=can_edit,
+        age=int(item["age"]) if item.get("age") else None,
+        weight_kg=float(item["weight_kg"]) if item.get("weight_kg") else None,
+        height_cm=float(item["height_cm"]) if item.get("height_cm") else None,
+        gender=item.get("gender"),
+        tracked_nutrients=item.get("tracked_nutrients") or [],
     )
 
 
 def item_from_profile(profile: Profile, household_id: str, owner: str) -> dict[str, Any]:
     """Canonical ``Profile`` -> storage row, keeping Role 3's key schema."""
-    return {
+    item = {
         "householdId": household_id,
         "profileId": profile.id,
         "id": profile.id,
@@ -207,4 +212,14 @@ def item_from_profile(profile: Profile, household_id: str, owner: str) -> dict[s
         "household_role": profile.household_role,
         "accent": profile.accent,
         "restrictions": [r.to_dict() for r in profile.restrictions],
+        "tracked_nutrients": profile.tracked_nutrients or [],
     }
+    if profile.age is not None:
+        item["age"] = profile.age
+    if profile.weight_kg is not None:
+        item["weight_kg"] = profile.weight_kg
+    if profile.height_cm is not None:
+        item["height_cm"] = profile.height_cm
+    if profile.gender is not None:
+        item["gender"] = profile.gender
+    return item

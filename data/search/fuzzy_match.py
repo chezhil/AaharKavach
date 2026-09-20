@@ -68,12 +68,16 @@ class Match:
         }
 
 
-def _normalise(raw: str) -> str:
+def _normalise(raw: str | None) -> str:
     """Lowercase, strip punctuation, collapse whitespace, fold accents."""
+    import string
+    if not raw:
+        return ""
     out = raw.lower().strip()
+    out = out.translate(str.maketrans("", "", string.punctuation))
     # Fold diacritics to ASCII for more forgiving matching.
     out = out.replace("é", "e").replace("è", "e").replace("ê", "e")
-    out = out.replace("í", "i").replace("í", "i")
+    out = out.replace("í", "i").replace("ì", "i")
     out = out.replace("ó", "o").replace("ö", "o").replace("ò", "o")
     out = out.replace("ü", "u").replace("ú", "u")
     out = out.replace("ç", "c").replace("ñ", "n").replace("ß", "ss")
