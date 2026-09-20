@@ -14,23 +14,20 @@ Parameters:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
-    Description: Route reasoning through the Strands agent on Bedrock.
-  BedrockModelId:
+    Description: Route reasoning through Role 1's Strands agent.
+  ModelId:
     Type: String
     Default: ""
     Description: >
-      A model enabled in this account and region. List them with
-      `aws bedrock list-inference-profiles`. Leave blank to run the
-      deterministic rulebook instead of the agent.
+      Model to ask for. Leave blank to use the provider's own default.
   GroqApiKey:
     Type: String
     Default: ""
     NoEcho: true
     Description: >
-      Fallback reasoning provider while Bedrock model access is pending
-      approval — the agent tries Bedrock first, then Groq. Free tier at
-      console.groq.com/keys. Leave blank to fall back straight to the
-      deterministic rulebook instead.
+      Reasoning provider for the Strands agent. Free tier at
+      console.groq.com/keys. Leave blank to run the deterministic rulebook
+      instead of the agent.
 
 Globals:
   Function:
@@ -45,15 +42,12 @@ Globals:
         HISTORY_TABLE: !Ref HistoryTable
         EXPLANATIONS_TABLE: !Ref ExplanationsTable
         AAHAR_HOUSEHOLD_ID: hh_1
-        # Set to "true" and give AAHAR_BEDROCK_MODEL a model enabled in your
-        # account to route reasoning through Role 1's Strands agent. Left off,
-        # the deterministic rulebook answers instead.
+        # Set to "true" and give GroqApiKey a key to route reasoning through
+        # Role 1's Strands agent. Left off — or with no key — the deterministic
+        # rulebook answers instead, which is a safe default rather than an error.
         AAHAR_USE_AGENT: !Ref UseAgent
-        AAHAR_MODEL_PROVIDER: bedrock
-        AAHAR_BEDROCK_MODEL: !Ref BedrockModelId
-        # Bedrock first, Groq if that fails (see agent/providers.py's default
-        # fallback chain) — this is the hackathon-timeline stopgap while
-        # Bedrock model access is pending, not a replacement for it.
+        AAHAR_MODEL_PROVIDER: groq
+        AAHAR_MODEL_ID: !Ref ModelId
         GROQ_API_KEY: !Ref GroqApiKey
         # Tesseract needs a native binary that a plain Lambda zip cannot carry,
         # so the deployed label reader is Textract. Locally it stays tesseract.
@@ -67,9 +61,14 @@ Globals:
 Resources:
   AuthFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      # data/ and agent/ live outside CodeUri; see the Makefile.
+      BuildMethod: makefile
     Properties:
-      CodeUri: src/auth/
-      Handler: app.lambda_handler
+      # src/, not src/auth/ — the handler imports shared.api like every other
+      # entry point, and a package rooted at src/auth/ ships none of it.
+      CodeUri: src/
+      Handler: auth.app.lambda_handler
       Environment:
         Variables:
           PROFILES_TABLE: !Ref ProfilesTable
@@ -78,16 +77,28 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProfilesTable
       Events:
+        # These paths are what frontend/lib/api/client.ts actually calls.
+        # They were /api/signup and /api/login, which it never requests.
         Signup:
           Type: Api
           Properties:
-            Path: /api/signup
+            Path: /api/auth/signup
             Method: post
-        Login:
+        Signin:
           Type: Api
           Properties:
-            Path: /api/login
+            Path: /api/auth/signin
             Method: post
+        Me:
+          Type: Api
+          Properties:
+            Path: /api/auth/me
+            Method: get
+        SignupOptions:
+          Type: Api
+          Properties:
+            Path: /api/auth/{proxy+}
+            Method: options
 
   ProfilesTable:
     Type: AWS::DynamoDB::Table
@@ -178,15 +189,6 @@ Resources:
         - Statement:
             - Effect: Allow
               Action:
-                # Strands streams responses, so InvokeModel alone is not enough.
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-                - bedrock:Converse
-                - bedrock:ConverseStream
-              Resource: "*"
-        - Statement:
-            - Effect: Allow
-              Action:
                 # Reads the ingredients panel from a label photo.
                 - textract:DetectDocumentText
               Resource: "*"
@@ -233,14 +235,6 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ProfilesTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-                - bedrock:Converse
-                - bedrock:ConverseStream
-              Resource: "*"
       Events:
         Compare:
           Type: Api

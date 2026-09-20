@@ -21,7 +21,9 @@ export default function BatchResultPage() {
 
   useEffect(() => {
     if (items.length === 0) {
-      setLoading(false);
+      // Nothing to audit — leave. `loading` deliberately stays true so the
+      // spinner holds until the redirect lands, instead of flashing the
+      // "Go Back" error state on the way out.
       router.replace("/");
       return;
     }
@@ -96,7 +98,7 @@ export default function BatchResultPage() {
           isSafe ? "bg-safe-soft text-safe border border-safe-border" : "bg-unsafe-soft text-unsafe border border-unsafe-border"
         )}>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-current/80">Household Clear</h2>
+            <h2 className="text-sm font-semibold text-current/80">Household verdict</h2>
             {isSafe ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
           </div>
           <p className="text-3xl font-black mt-2 tracking-tight">

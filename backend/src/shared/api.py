@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import uuid
 from typing import Any
 
@@ -46,10 +47,29 @@ class Caller:
     rules actually biting.
     """
 
+    #: Cedar's policies compare `principal.role` to these exact strings, but
+    #: the role arrives spelled three different ways: the profile store keeps
+    #: "ADMIN", sign-up puts "Admin" in the JWT and sign-in puts the stored
+    #: "ADMIN" in it. "ADMIN" != "Admin" in Cedar, so it failed closed and a
+    #: signed-in user got 403 on their own household — signing *up* worked and
+    #: signing *in* did not. Normalised here, once, for every entry point.
+    _CEDAR_ROLES = {"admin": "Admin", "member": "Member", "child": "Child"}
+
+    @classmethod
+    def _role(cls, raw: str | None, fallback: str = "Admin") -> str:
+        text = str(raw or "").strip()
+        if not text:
+            # Nothing was claimed at all — the header-less local demo default.
+            return fallback
+        # A role that *was* claimed but is not one Cedar knows is passed through
+        # verbatim, so it matches no policy and Cedar denies. Mapping it onto a
+        # known role here would be a way to spell "admin" wrong and be let in.
+        return cls._CEDAR_ROLES.get(text.lower(), text)
+
     def __init__(self, headers: dict[str, str] | None = None):
         h = {k.lower(): v for k, v in (headers or {}).items()}
         self.user_id = h.get("x-aahar-user", "user_123")
-        self.role = h.get("x-aahar-role", "Admin")
+        self.role = self._role(h.get("x-aahar-role"))
         
         if "x-aahar-household" in h:
             self.household = h["x-aahar-household"]
@@ -71,7 +91,7 @@ class Caller:
                 if "x-aahar-user" not in h:
                     self.user_id = payload.get("sub", self.user_id)
                 if "x-aahar-role" not in h:
-                    self.role = payload.get("role", self.role)
+                    self.role = self._role(payload.get("role"), self.role)
                 if "x-aahar-household" not in h:
                     self.household = payload.get("householdId", self.household)
             except Exception:
@@ -123,15 +143,11 @@ def signup_endpoint(draft: dict[str, Any]) -> tuple[int, Any]:
     item["password_hash"] = hashed
     item["email"] = email
     item["bmi"] = bmi
-    
-    if store._use_dynamo():
-        import boto3
-        table = boto3.resource("dynamodb").Table(os.environ["PROFILES_TABLE"])
-        table.put_item(Item=item)
-    else:
-        store._LOCAL[profile.id] = item
-        store._save_local(store._LOCAL)
-        
+    # One call for both back-ends. The local branch used to assign into
+    # `store._LOCAL` and call `store._save_local`, neither of which exists —
+    # so every sign-up answered 500 with an AttributeError.
+    store.put_profile_item(item)
+
     secret = os.environ.get("JWT_SECRET", "super_secret_dev_key")
     payload = {
         "sub": user_id,
@@ -170,26 +186,21 @@ def signin_endpoint(draft: dict[str, Any]) -> tuple[int, Any]:
     import jwt
     import datetime
     
-    found_item = None
-    if store._use_dynamo():
-        import boto3
-        from boto3.dynamodb.conditions import Attr
-        table = boto3.resource("dynamodb").Table(os.environ["PROFILES_TABLE"])
-        # In a real app we'd have a GSI, but for hackathon we scan
-        res = table.scan(FilterExpression=Attr("email").eq(email))
-        if res.get("Items"):
-            found_item = res["Items"][0]
-    else:
-        for item in store._LOCAL.values():
-            if item.get("email") == email:
-                found_item = item
-                break
-                
+    # A real deployment would put a GSI on email; the store scans instead,
+    # which is fine at household scale and keeps both back-ends on one path.
+    found_item = store.find_profile_item(email=email)
+
     if not found_item:
         raise ApiError(401, "Invalid email or password")
         
-    hashed = found_item.get("password_hash", "")
-    if not bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8')):
+    hashed = str(found_item.get("password_hash") or "")
+    try:
+        ok = bool(hashed) and bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+        # Malformed or absent hash — a seeded demo profile has no password at
+        # all, and checkpw raises rather than returning False.
+        ok = False
+    if not ok:
         raise ApiError(401, "Invalid email or password")
         
     user_id = found_item.get("id") or found_item.get("profileId")
@@ -286,6 +297,20 @@ def _profile_from_draft(draft: dict[str, Any], profile_id: str) -> Profile:
                 severity=str(r.get("severity", "MODERATE")).upper(),  # type: ignore[arg-type]
             )
         )
+    def _number(key: str, cast):
+        """None unless the draft carries a usable value for this field."""
+        raw = draft.get(key)
+        if raw is None or raw == "":
+            return None
+        try:
+            return cast(raw)
+        except (TypeError, ValueError):
+            return None
+
+    gender = str(draft.get("gender") or "").strip().lower() or None
+    if gender not in ("male", "female", "other"):
+        gender = None
+
     return Profile(
         id=profile_id,
         name=str(draft.get("name", "")).strip() or "Unnamed",
@@ -293,6 +318,16 @@ def _profile_from_draft(draft: dict[str, Any], profile_id: str) -> Profile:
         restrictions=restrictions,
         accent=str(draft.get("accent", "teal")),
         can_edit=True,
+        # Carried, not dropped. These are what nutrition.calculate_daily_limits
+        # works from, so losing them here meant the profile editor's age /
+        # weight / height / gender inputs and the BMI they drive saved nothing,
+        # and every household member silently fell back to default limits.
+        age=_number("age", int),
+        weight_kg=_number("weight_kg", float),
+        height_cm=_number("height_cm", float),
+        gender=gender,  # type: ignore[arg-type]
+        tracked_nutrients=list(draft.get("tracked_nutrients") or [])
+        or Profile.__dataclass_fields__["tracked_nutrients"].default_factory(),  # type: ignore[misc]
     )
 
 
@@ -468,6 +503,25 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     store.record_scan(scan, household_id=caller.household)
     return 200, scan.to_dict()
 
+# Names a camera, screenshot tool or messaging app assigns on its own. None of
+# them say anything about the product, so they must not become its title.
+_CAMERA_ROLL_NAME = re.compile(
+    r"""^(
+        screenshot .* | screen\s?shot .* |
+        (img|dsc|dscn|pxl|mvimg|gopr|photo|image|picture|pic|capture|scan|download)
+            ([\s\-]* \d+)* |
+        whatsapp\s(image|photo).* |
+        signal-\d.* |
+        \d+
+    )$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _is_camera_roll_name(stem: str) -> bool:
+    return bool(_CAMERA_ROLL_NAME.match(stem.strip()))
+
+
 def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, Any]:
     """Read a photographed ingredients panel.
 
@@ -515,6 +569,12 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
     # synthetic one — "capture.jpg" was reaching the UI as a product named
     # "capture" whenever OCR found no product name on the label.
     stem = (filename or "").rsplit(".", 1)[0].replace("_", " ").strip()
+    # Whatever a phone or a screenshot tool named the file is not a product
+    # name. "Screenshot 2026-09-18 at 10.59.32 AM" and "IMG 4821" both reached
+    # the history list as product titles, which reads like the app failed.
+    if _is_camera_roll_name(stem):
+        stem = ""
+
     product = Product(
         barcode=f"photo_{uuid.uuid4().hex[:8]}",
         name=parsed.product_name or stem or "Photographed label",
@@ -612,12 +672,20 @@ def _product_from_payload(raw: dict[str, Any]) -> Product:
         ],
         data_confidence=str(raw.get("data_confidence", "LOW")).upper(),  # type: ignore[arg-type]
         source=str(raw.get("source", "MANUAL")),
-        nutritional_stats=raw.get("nutritional_stats", {}),
+        # The wire format is `nutritional_stats` — that is what Product.to_dict
+        # emits and what the frontend type declares. Open Food Facts' own raw
+        # `nutriments` key is still accepted for anything upstream that hands
+        # the raw record straight over.
+        nutritional_stats=raw.get("nutritional_stats") or raw.get("nutriments") or {},
     )
 
 
 def _resolve_profiles(caller: Caller, profile_ids: list[str]) -> list[Profile]:
-    profiles = store.load_profiles(profile_ids or None)
+    # Scoped to the caller's household. Without it this always searched the
+    # default household, so a signed-up user's own profile ids resolved to
+    # nothing and every scan they ran came back 400 "Select at least one
+    # person to check against" — with someone selected on screen.
+    profiles = store.load_profiles(profile_ids or None, household_id=caller.household)
     if not profiles:
         raise ApiError(400, "Select at least one person to check against")
     return profiles
@@ -719,7 +787,7 @@ def explain_endpoint(token: str) -> tuple[int, Any]:
 
     # Neither the curated tables nor the ontology's fuzzy match had this one.
     # Ask the model once, then remember the answer — the knowledge base only
-    # covers ~199 entries, and Bedrock/Groq bills per call.
+    # covers ~199 entries, and the model bills per call.
     if not ingredient.explainer:
         cache_key = " ".join(token.lower().strip().split())
         cached = store.get_cached_explanation(cache_key)

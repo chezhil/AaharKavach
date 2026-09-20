@@ -143,6 +143,56 @@ def put_profile(profile: Profile, owner: str = "user_123", household_id: str | N
     return profile
 
 
+def put_profile_item(item: dict[str, Any]) -> None:
+    """Upsert a raw profile row, keeping fields ``Profile`` has no place for.
+
+    Sign-up stores ``password_hash``, ``email`` and ``bmi`` alongside the
+    profile. put_profile() round-trips through the Profile dataclass, which
+    would drop all three, so the account it created could never be signed in
+    to. The row's own householdId/profileId decide where it lands.
+    """
+    hid = str(item.get("householdId") or HOUSEHOLD_ID)
+    pid = str(item.get("profileId") or item.get("id") or "")
+    if _use_dynamo():
+        profiles_table, _ = _tables()
+        profiles_table.put_item(Item=_floats_to_decimal(item))
+        return
+    with _lock:
+        data = _read_local()
+        data["profiles"] = [
+            p for p in data["profiles"]
+            if not (p.get("profileId") == pid and p.get("householdId") == hid)
+        ]
+        data["profiles"].append(item)
+        _write_local(data)
+
+
+def find_profile_item(**match: Any) -> dict[str, Any] | None:
+    """The first profile row, in any household, whose fields all match.
+
+    Sign-in looks someone up by email before it knows their household, so it
+    cannot use list_profile_items(), which is scoped to one.
+    """
+    if not match:
+        return None
+    if _use_dynamo():
+        from boto3.dynamodb.conditions import Attr
+
+        profiles_table, _ = _tables()
+        expression = None
+        for key, value in match.items():
+            condition = Attr(key).eq(value)
+            expression = condition if expression is None else expression & condition
+        resp = profiles_table.scan(FilterExpression=expression)
+        items = list(resp.get("Items", []))
+        return items[0] if items else None
+    with _lock:
+        for item in _read_local()["profiles"]:
+            if all(item.get(k) == v for k, v in match.items()):
+                return item
+    return None
+
+
 def delete_profile(profile_id: str, household_id: str | None = None) -> None:
     hid = household_id or HOUSEHOLD_ID
     if _use_dynamo():

@@ -74,6 +74,14 @@ export function ScanSheet({
     router.push("/batch-result");
   };
 
+  // Declared above startLabelCam, which calls it: as a `const` arrow function
+  // further down the body it was referenced before initialisation.
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
+  }, []);
+
   // ---- Label photo live viewfinder helpers ----
   const stopLabelCam = useCallback(() => {
     labelStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -95,10 +103,10 @@ export function ScanSheet({
           labelVideoRef.current.srcObject = stream;
         }
       });
-    } catch (err) {
-      showToast("Camera access denied — use \"Choose File\" instead.");
+    } catch {
+      showToast('Camera access denied — use "Choose File" instead.');
     }
-  }, []);
+  }, [showToast]);
 
   const snapLabel = useCallback(() => {
     const video = labelVideoRef.current;
@@ -114,21 +122,15 @@ export function ScanSheet({
     onLabelPhoto(base64);
   }, [stopLabelCam, onLabelPhoto]);
 
-  // Clean up the label viewfinder when the sheet unmounts or closes
+  // Clean up the label viewfinder when the sheet closes or unmounts. The
+  // cleanup alone covers both: `open` is a dependency, so closing the sheet
+  // re-runs the effect and tears the previous one down. Calling it in the body
+  // as well just set state during the effect for no extra coverage.
   useEffect(() => {
-    if (!open) {
-      stopLabelCam();
-    }
     return () => {
       stopLabelCam();
     };
   }, [open, stopLabelCam]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
-  };
 
   /** null when the file is usable, otherwise why it isn't. */
   const _rejectReason = (file: File): string | null => {
@@ -317,8 +319,14 @@ export function ScanSheet({
               <p className="text-sm text-fg-subtle mb-4">
                 Snap a photo of the ingredients list on the back of the package to evaluate it now.
               </p>
-              <Button onClick={() => setMode("camera")} className="w-full">
-                Open Camera & Snap Ingredients
+              {/* The label-photo tab, not the barcode camera: it offers both
+                  "Take Photo" (which opens the camera on a phone) and "Choose
+                  File", so it works on a laptop with no camera too — where the
+                  camera tab is a dead end reading "Camera blocked". It is also
+                  where the same message on the result screen already sends
+                  people, via /?scan=photo. */}
+              <Button onClick={() => handleTabChange("photo")} className="w-full">
+                Photograph the ingredients panel
               </Button>
             </div>
           ) : (
@@ -339,7 +347,7 @@ export function ScanSheet({
               aria-hidden
             />
             <p className="text-sm font-semibold">
-              {busyMessage?.title || "Checking against your household?"}
+              {busyMessage?.title || "Checking against your household…"}
             </p>
             <p className="text-xs text-fg-subtle">
               {busyMessage?.desc || "Looking up the product, then reasoning over every ingredient."}
@@ -351,41 +359,6 @@ export function ScanSheet({
               <BarcodeScanner onDetected={handleDetected} onCaptureLabel={onLabelPhoto} batchMode={batchMode} />
             ) : null}
 
-            {/* The basket belongs to the sheet, not to one input method: gating
-                this on the camera tab meant a machine with no camera could
-                never see the basket or reach the audit button at all. */}
-            {batchMode && items.length > 0 && (
-              <div
-                className={cn(
-                  "z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3",
-                  mode === "camera" ? "absolute bottom-4 left-4 right-4" : "mt-3",
-                )}
-              >
-                <div className="flex items-center justify-between text-sm font-semibold">
-                  <span>🛒 {items.length} {items.length === 1 ? "Item" : "Items"} in Cart</span>
-                  <button onClick={clearCart} className="text-xs text-fg-subtle hover:text-fg-muted underline">Clear</button>
-                </div>
-                
-                <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
-                  {items.map((item) => (
-                    <div key={item.barcode} className="relative flex shrink-0 items-center justify-center h-12 w-12 rounded-lg bg-bg border border-border-subtle">
-                      <span className="text-[10px] text-fg-muted">{item.barcode.slice(-4)}</span>
-                      <button 
-                        onClick={() => removeItem(item.barcode)}
-                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-bg"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                
-                <Button onClick={handleAuditBatch} className="w-full h-10 mt-1 shadow-sm">
-                  Audit Household Cart <ArrowRight size={16} className="ml-1" />
-                </Button>
-              </div>
-            )}
-            
             {toastMessage && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-brand-fg shadow-lg animate-in fade-in slide-in-from-top-2">
                 {toastMessage}
@@ -505,10 +478,54 @@ export function ScanSheet({
                 />
                 
                 <p className="rounded-xl border border-caution-border bg-caution-soft px-3 py-2 text-xs text-caution">
-                  Photo reads come back with low confidence — we&apos;ll say so on the result.
+                  A photo read is less certain than a barcode lookup — the result
+                  carries its own data-quality rating, so a thin read never
+                  looks like a confident all-clear.
                 </p>
               </div>
             ) : null}
+
+            {/* The basket belongs to the sheet, not to one input method: gating
+                this on the camera tab meant a machine with no camera could
+                never see the basket or reach the audit button at all.
+
+                Placed after the input blocks, not before them: in camera mode
+                it is absolutely positioned so DOM order is invisible, but on
+                the "Type it" and "Label photo" tabs it sits in normal flow,
+                and rendering it first pushed the field being typed into below
+                the basket and the Audit button. */}
+            {batchMode && items.length > 0 && (
+              <div
+                className={cn(
+                  "z-10 flex flex-col gap-2 rounded-2xl border border-border bg-surface/95 backdrop-blur shadow-lg p-3",
+                  mode === "camera" ? "absolute bottom-4 left-4 right-4" : "mt-3",
+                )}
+              >
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>🛒 {items.length} {items.length === 1 ? "Item" : "Items"} in Cart</span>
+                  <button onClick={clearCart} className="text-xs text-fg-subtle hover:text-fg-muted underline">Clear</button>
+                </div>
+                
+                <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
+                  {items.map((item) => (
+                    <div key={item.barcode} className="relative flex shrink-0 items-center justify-center h-12 w-12 rounded-lg bg-bg border border-border-subtle">
+                      <span className="text-[10px] text-fg-muted">{item.barcode.slice(-4)}</span>
+                      <button 
+                        onClick={() => removeItem(item.barcode)}
+                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-bg"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button onClick={handleAuditBatch} className="w-full h-10 mt-1 shadow-sm">
+                  Audit Household Cart <ArrowRight size={16} className="ml-1" />
+                </Button>
+              </div>
+            )}
+            
           </div>
         )}
       </div>

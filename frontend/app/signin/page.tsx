@@ -24,8 +24,12 @@ export default function SigninPage() {
       const data = await api.signIn({ email, password });
       login(data);
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Invalid email or password");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Invalid email or password",
+      );
     } finally {
       setLoading(false);
     }

@@ -168,3 +168,33 @@ def test_every_engine_failing_gives_a_clean_error(monkeypatch):
         )
     with pytest.raises(ocr.OcrUnavailable):
         ocr.read_label(b"bytes")
+
+
+def test_a_camera_roll_filename_never_becomes_the_product_name():
+    """"Screenshot 2026-09-18 at 10.59 AM" is not what the shopper bought.
+
+    The filename is only a fallback title for when OCR finds no product name on
+    the label. A descriptive one ("oreo-label.jpg") is worth keeping; whatever
+    a phone, a screenshot tool or WhatsApp named the file is not, and it was
+    reaching the history list as the product's title.
+    """
+    from shared.api import _is_camera_roll_name
+
+    for generic in (
+        "Screenshot 2026-09-18 at 10.59.32 AM",
+        "IMG 4821",
+        "PXL 20240101 120000",
+        "DSC 0001",
+        "WhatsApp Image 2026-09-18 at 21.10",
+        "capture",
+        "download",
+        "20260918",
+    ):
+        assert _is_camera_roll_name(generic), f"{generic!r} should be rejected"
+
+    for descriptive in (
+        "oreo-label",
+        "britannia good day back",
+        "maggi masala packet",
+    ):
+        assert not _is_camera_roll_name(descriptive), f"{descriptive!r} should be kept"

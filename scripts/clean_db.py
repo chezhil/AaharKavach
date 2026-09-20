@@ -1,37 +1,58 @@
+"""Drop test rows from the local demo database.
+
+`backend/.local-db.json` is the dev store, and it accumulates whatever the test
+scripts scanned — barcodes like `t1`/`t2` ("Test Sauce", "Plain Water") that
+only exist in fixtures. Those rows then show up in "Recent scans" on the home
+screen and in the Compare picker, where choosing one fails outright because no
+lookup can resolve the barcode.
+
+Run from the repo root:
+
+    .venv/bin/python scripts/clean_db.py
+"""
+
+from __future__ import annotations
+
 import json
+import re
+from pathlib import Path
 
-with open("backend/.local-db.json", "r") as f:
-    db = json.load(f)
+DB = Path(__file__).resolve().parent.parent / "backend" / ".local-db.json"
 
-# Keep only intended profiles in hh_1
-db["profiles"] = [
-    p for p in db.get("profiles", [])
-    if p.get("householdId") != "hh_1" or not p.get("name", "").startswith("Test")
-]
+# A real barcode is 8-14 digits; `photo_*` is a label photo the app can
+# re-evaluate from its stored product. Anything else came from a fixture.
+REAL_BARCODE = re.compile(r"^\d{8,14}$")
 
-# Keep only valid scans (we can keep history for hh_1 if they are not automated test scans,
-# but the tests used hh_1 and default users or maybe just random scans.
-# Let's remove any scan history for "hh_test_runner" and any scans from hh_1 that were automated.
-# Wait, automated scans were for Maggi, Parle-G, Snickers, Nutella, Coca-Cola.
-# We can just remove scans from today that were automated, or just wipe history for demo?
-# Prompt says: "Clear test entries from the recent scans database / local history storage so only genuine scans appear in the "RECENT SCANS" feed."
-# Let's look at the history in db["history"].
-# If we just keep a few known scans or just wipe history?
-db["history"] = [
-    h for h in db.get("history", [])
-    if h.get("householdId") != "hh_test_runner" and "test_" not in h.get("userId", "")
-]
 
-# Actually, the automated scripts used X-Aahar-User: "test_user" or "user_test".
-# Let's see what users were in the automated script.
-# test_diverse_barcodes used X-Aahar-Household: "hh_test", X-Aahar-User: "user_test".
-# Scripts previously used hh_1. Let's filter history where userId == "test_user" or "user_test".
-db["history"] = [
-    h for h in db.get("history", [])
-    if h.get("userId") not in ["test_user", "user_test", ""]
-]
+def is_test_row(barcode: str) -> bool:
+    return not (REAL_BARCODE.match(barcode) or barcode.startswith("photo_"))
 
-with open("backend/.local-db.json", "w") as f:
-    json.dump(db, f, indent=2)
 
-print("Cleaned .local-db.json")
+def main() -> None:
+    if not DB.is_file():
+        print(f"{DB} does not exist yet — nothing to clean.")
+        return
+
+    db = json.loads(DB.read_text())
+
+    profiles = db.get("profiles", [])
+    kept_profiles = [p for p in profiles if not str(p.get("name", "")).startswith("Test")]
+
+    history = db.get("history", [])
+    dropped = [h for h in history if is_test_row(str(h.get("barcode", "")))]
+    kept_history = [h for h in history if not is_test_row(str(h.get("barcode", "")))]
+
+    db["profiles"] = kept_profiles
+    db["history"] = kept_history
+    DB.write_text(json.dumps(db, indent=2))
+
+    for row in dropped:
+        print(f"  dropped scan {row.get('barcode')!r}")
+    print(
+        f"Cleaned {DB.name}: "
+        f"{len(profiles) - len(kept_profiles)} profile(s), {len(dropped)} scan(s) removed."
+    )
+
+
+if __name__ == "__main__":
+    main()

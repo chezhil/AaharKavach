@@ -59,7 +59,7 @@ export function BarcodeScanner({
         v.onerror = null;
         try {
           v.pause();
-        } catch (e) {}
+        } catch {}
 
         if (v.srcObject) {
           try {
@@ -67,7 +67,7 @@ export function BarcodeScanner({
               t.stop();
               t.enabled = false;
             });
-          } catch (e) {}
+          } catch {}
           v.srcObject = null;
         }
       });
@@ -230,12 +230,12 @@ export function BarcodeScanner({
           videoEl.onerror = null;
           try {
             videoEl.pause();
-          } catch (e) {}
+          } catch {}
           if (videoEl.srcObject) {
             try {
               const stream = videoEl.srcObject as MediaStream;
               stream.getTracks().forEach((t) => t.stop());
-            } catch (e) {}
+            } catch {}
           }
           videoEl.srcObject = null;
         }
@@ -264,7 +264,6 @@ export function BarcodeScanner({
         } catch {}
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [isCapturing, setIsCapturing] = useState(false);
@@ -327,8 +326,8 @@ export function BarcodeScanner({
         </p>
         <p className="max-w-[30ch] text-xs text-fg-subtle">
           {status === "unsupported"
-            ? "This browser can't open a camera. Type the barcode below instead."
-            : "Allow camera access in your browser, or type the barcode below instead."}
+            ? "This browser can't open a camera. Use the “Type it” tab above to enter the barcode by hand."
+            : "Allow camera access in your browser, or use the “Type it” tab above to enter the barcode by hand."}
         </p>
       </div>
     );

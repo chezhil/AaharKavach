@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Camera, ImagePlus, Keyboard, Loader2 } from "lucide-react";
+import { Camera, ImagePlus, Keyboard } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
@@ -9,6 +9,7 @@ import { MOCK_PRODUCTS } from "@/lib/mocks/fixtures";
 import { usingMocks } from "@/lib/api";
 import { useApp } from "@/lib/store/app-store";
 import { cn, isValidBarcode } from "@/lib/utils";
+import type { Product } from "@/lib/types";
 
 type ScanMode = "camera" | "manual" | "photo";
 
@@ -21,7 +22,7 @@ const MODES: Array<{ id: ScanMode; label: string; icon: typeof Camera }> = [
 interface Props {
   open: boolean;
   onClose: () => void;
-  onPick: (value: string | File) => void;
+  onPick: (value: string | File | Product) => void;
   exclude?: string | null;
 }
 
@@ -40,11 +41,16 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
       !recent.some((s) => s.product.barcode === p.barcode),
   );
 
-  const row = (barcode: string, name: string, sub: string) => (
-    <li key={barcode}>
+  // `value` is what gets picked, which is not always the barcode. A product
+  // that came from history is handed over whole: its barcode may be one the
+  // API can't look up again (a label photo, or an id that only ever existed
+  // in this session), and passing the bare string meant every such pick died
+  // with "No product found" — while the card it left behind sat on "Loading".
+  const row = (key: string, value: string | Product, name: string, sub: string) => (
+    <li key={key}>
       <button
         onClick={() => {
-          onPick(barcode);
+          onPick(value);
           onClose();
         }}
         className="flex w-full items-center gap-3 rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-left transition-colors hover:border-brand"
@@ -170,6 +176,7 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
               {recent.map((scan) =>
                 row(
                   scan.product.barcode,
+                  scan.product,
                   scan.product.name,
                   scan.product.brand ?? scan.product.barcode,
                 ),
@@ -186,6 +193,7 @@ export function ProductPicker({ open, onClose, onPick, exclude }: Props) {
             <ul className="space-y-1.5">
               {catalogue.map((product) =>
                 row(
+                  product.barcode,
                   product.barcode,
                   product.name,
                   product.brand ?? product.barcode,

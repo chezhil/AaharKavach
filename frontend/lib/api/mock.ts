@@ -1,4 +1,5 @@
 import type {
+  SignInRequest,
   BatchAuditItem,
   BatchAuditResult,
   CompareRequest,
@@ -257,7 +258,7 @@ export const mockApi: AaharApi = {
     return { explainer: `${name} — a mock explanation (mocks are on).` };
   },
 
-  async signIn(req: any) {
+  async signIn(req: SignInRequest) {
     await delay();
     return {
       token: "mock.token.str",

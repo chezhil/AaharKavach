@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AuthSession, Biometrics } from "@/lib/types";
 
 export interface AuthUser {
   id: string;
@@ -7,30 +8,16 @@ export interface AuthUser {
   email: string;
   householdId: string;
   role: "admin" | "member";
-  biometrics?: {
-    age: number;
-    gender: string;
-    height: number;
-    weight: number;
-    bmi: number;
-  };
+  biometrics?: Biometrics;
 }
 
-export interface AuthResponse {
-  token: string;
-  user_id: string;
-  name: string;
-  email: string;
-  household_id: string;
-  role: string;
-  biometrics: {
-    age: number;
-    gender: string;
-    height: number;
-    weight: number;
-    bmi: number;
-  };
-}
+/**
+ * Re-exported from the wire contract rather than restated here. The local copy
+ * declared every biometric as a plain `number`, but the API returns null for
+ * any the account never supplied — so the types said a field was always there
+ * while the values said otherwise.
+ */
+export type AuthResponse = AuthSession;
 
 export interface AuthState {
   user: AuthUser | null;
@@ -53,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
           if (typeof window !== "undefined") {
             window.localStorage.setItem("aahar_token", data.token);
           }
-        } catch (e) {}
+        } catch {}
         
         set({
           user: {
@@ -73,7 +60,7 @@ export const useAuthStore = create<AuthState>()(
           if (typeof window !== "undefined") {
             window.localStorage.removeItem("aahar_token");
           }
-        } catch (e) {}
+        } catch {}
 
         set({
           user: null,

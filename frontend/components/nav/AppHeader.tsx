@@ -8,7 +8,6 @@ import { usingMocks } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TABS, isActive } from "./tabs";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useEffect, useState } from "react";
 
 /**
  * The theme lives on <html class="dark">, put there by the blocking script in
@@ -34,15 +33,23 @@ const getTheme = () =>
 // the server-rendered markup corresponds to.
 const getServerTheme = () => "dark" as const;
 
+/** Hydration never reverses, so this snapshot never changes after the first. */
+const subscribeToNothing = () => () => {};
+
 export function AppHeader() {
   const pathname = usePathname();
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, getServerTheme);
   const { user, isAuthenticated, logout } = useAuthStore();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // The auth block renders only after hydration, because the signed-in state
+  // lives in localStorage and the server has no way to know it. Read the same
+  // way as the theme above — a store whose server snapshot is false and client
+  // snapshot is true — rather than setting state from an effect, which React
+  // flags as a cascading render.
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";

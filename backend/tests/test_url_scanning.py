@@ -99,3 +99,84 @@ def test_page_reading_is_refused_when_the_reader_is_off(monkeypatch):
     with pytest.raises(api.ApiError) as exc:
         api.scan_url_endpoint(ADMIN, {"url": "https://example.com", "profile_ids": ["kid_1"]})
     assert exc.value.status == 503
+
+
+# ------------------------------------------------- finding the actual list
+
+
+def test_the_window_is_centred_on_the_ingredient_list_not_the_top_of_the_page():
+    """A head window returns navigation, not ingredients.
+
+    On a real Open Food Facts page the word "ingredients" first appears ~2,000
+    characters in, inside a Nutri-Score explainer, while the list itself starts
+    near 7,600. Slicing the first 4,000 characters therefore handed the reader
+    everything except the list, and every scan of a real product URL answered
+    "we couldn't find an ingredient list on that page".
+    """
+    from shared.urlfetch import best_window
+
+    page = (
+        "Site navigation Log in Sign up Cookie notice " * 60
+        + "There are 17 ingredients: discover the new Nutri-Score, which is "
+        "evolving to provide better recommendations based on evidence. " * 12
+        + "Ingredients: Milk Chocolate, sugar, cocoa butter, skim milk, "
+        "lactose, milkfat, soy lecithin, peanuts, corn syrup, palm oil, salt, "
+        "egg whites, artificial flavour. "
+        + "Footer links Privacy Terms Contact " * 60
+    )
+    assert len(page) > 4000
+
+    window = best_window(page, 4000)
+    assert "peanuts" in window.lower()
+    assert "egg whites" in window.lower()
+
+
+def test_the_window_keeps_the_top_of_the_page_so_the_product_keeps_its_name():
+    """Centring on the list alone lost the title, and the scan came back
+    named "Product from page" with the right ingredients under it."""
+    from shared.urlfetch import best_window
+
+    page = (
+        "Snickers - Mars Wrigley Confectionery - 48g "
+        + "navigation filler " * 400
+        + "Ingredients: milk chocolate, sugar, peanuts, corn syrup, palm oil, "
+        "skim milk, lactose, egg whites, salt. "
+        + "footer filler " * 400
+    )
+    window = best_window(page, 2000)
+    assert "snickers" in window.lower()
+    assert "peanuts" in window.lower()
+
+
+def test_a_page_with_no_ingredient_list_falls_back_to_the_head():
+    from shared.urlfetch import best_window
+
+    page = "Marketing copy with no list at all. " * 500
+    window = best_window(page, 400)
+    assert window == page[:400]
+
+
+def test_a_short_page_is_returned_whole():
+    from shared.urlfetch import best_window
+
+    assert best_window("Ingredients: salt, sugar.", 4000) == "Ingredients: salt, sugar."
+
+
+# --------------------------------------------------------------- redirects
+
+
+def test_a_redirect_onto_a_private_address_is_still_refused():
+    """Redirects are followed now, so each hop has to be re-checked.
+
+    Product URLs redirect constantly — Open Food Facts 302s to add the slug —
+    so refusing them outright broke the ordinary case. The SSRF guarantee is
+    kept by validating the new URL instead of by refusing to move.
+    """
+    from shared.urlfetch import UnsafeUrl, _CheckedRedirects
+
+    handler = _CheckedRedirects()
+    with pytest.raises(UnsafeUrl):
+        handler.redirect_request(
+            req=None, fp=None, code=302, msg="Found", headers={},
+            newurl="http://169.254.169.254/latest/meta-data/",
+        )

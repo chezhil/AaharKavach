@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 import type { BatchAuditItem, Profile, Verdict } from "@/lib/types";
 import { accentVar, cn } from "@/lib/utils";
 

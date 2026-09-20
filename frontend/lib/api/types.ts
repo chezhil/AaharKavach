@@ -1,6 +1,8 @@
 import type {
+  AuthSession,
   BatchAuditResult,
   CompareRequest,
+  CurrentUser,
   CompareResult,
   EvaluateRequest,
   EvaluationResult,
@@ -8,6 +10,7 @@ import type {
   Profile,
   ProfileDraft,
   ScanResult,
+  SignInRequest,
 } from "@/lib/types";
 
 /**
@@ -46,9 +49,9 @@ export interface AaharApi {
   /** Log a scan manually (noop on client). */
   recordScan(result: ScanResult): Promise<void>;
   /** POST /api/auth/signin */
-  signIn(req: any): Promise<any>;
+  signIn(req: SignInRequest): Promise<AuthSession>;
   /** GET /api/auth/me */
-  getMe(): Promise<any>;
+  getMe(): Promise<CurrentUser>;
   /**
    * POST /api/history — the real backend logs a scan as a side effect of
    * /api/evaluate, so the HTTP client makes this a no-op. The mock needs it.

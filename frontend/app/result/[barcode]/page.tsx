@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -50,13 +50,22 @@ const sameSelection = (a: string[], b: string[]) =>
 
 export default function ResultPage() {
   const { barcode } = useParams<{ barcode: string }>();
-  const router = useRouter();
   const { activeIds, activeProfiles, profiles, history, addScan, loading } =
     useApp();
   
   const [isEditChartOpen, setIsEditChartOpen] = useState(false);
   const [chartLabels, setChartLabels] = useState<NutritionLabel[]>(ALL_NUTRIENTS.slice(0, 6));
   const [tempLabels, setTempLabels] = useState<NutritionLabel[]>(ALL_NUTRIENTS.slice(0, 6));
+
+  // Escape closes the nutrient picker, like every other dialog in the app.
+  useEffect(() => {
+    if (!isEditChartOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsEditChartOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isEditChartOpen]);
 
   // Keyed by barcode + selection so a stale answer never renders under a new
   // question; anything not resolved for the current key reads as loading.
@@ -66,6 +75,10 @@ export default function ResultPage() {
     scan: ScanResult | null;
     status: "ready" | "missing" | "error";
   } | null>(null);
+  // Bumped by the Retry button. router.refresh() only re-renders server
+  // components, so it could never re-run the client effect below — the button
+  // looked live and did nothing. This is what actually re-asks the question.
+  const [attempt, setAttempt] = useState(0);
 
   // Reuse the scan we already have when it was run against this exact selection;
   // only re-evaluate when the household selection actually changed.
@@ -132,7 +145,7 @@ export default function ResultPage() {
     // `history` is intentionally read but not tracked: it changes on every
     // addScan, which would re-trigger the very effect that added the scan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barcode, activeIds, cached, loading, addScan, key]);
+  }, [barcode, activeIds, cached, loading, addScan, key, attempt]);
 
   const current = resolved?.key === key ? resolved : null;
   const shown = cached ?? current?.scan ?? null;
@@ -169,7 +182,13 @@ export default function ResultPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.refresh()}
+            onClick={() => {
+              // Drop the failed answer first so the page falls back to the
+              // skeletons while the retry is in flight, instead of sitting on
+              // the error until it resolves.
+              setResolved(null);
+              setAttempt((n) => n + 1);
+            }}
           >
             Retry
           </Button>
@@ -205,6 +224,20 @@ export default function ResultPage() {
   }
 
   const { product, evaluation } = shown;
+
+  // Does this product record actually carry a nutrition panel, and do we have
+  // the selected person's own daily limits to measure it against?
+  const hasStats =
+    !!product.nutritional_stats &&
+    Object.keys(product.nutritional_stats).length > 0;
+  const hasLimits = !!activeProfiles[0]?.daily_limits;
+  // FSSAI/Codex-style adult reference values, used only to give the chart a
+  // scale when the selected person has no limits of their own. The caption
+  // below says which of the two is in play.
+  const limits = hasLimits
+    ? activeProfiles[0]!.daily_limits!
+    : { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 2000, Fiber: 30, SatFat: 20, TransFat: 2 };
+
   const verdict = worstVerdict(evaluation.profile_evaluations);
   const style = verdictStyles[verdict];
   const Icon = ICONS[verdict];
@@ -286,108 +319,134 @@ export default function ResultPage() {
         />
 
         <section className="tile bg-surface p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="display text-base">Nutritional Balance</h3>
-            <button 
-              onClick={() => {
-                setTempLabels(chartLabels);
-                setIsEditChartOpen(true);
-              }}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md bg-white/5 hover:bg-white/10"
-            >
-              <Settings size={16} />
-            </button>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="display text-base">Nutritional balance</h3>
+            {hasStats ? (
+              <button
+                onClick={() => {
+                  setTempLabels(chartLabels);
+                  setIsEditChartOpen(true);
+                }}
+                aria-label="Choose which nutrients to chart"
+                className="rounded-md bg-surface-hover p-1.5 text-fg-subtle transition-colors hover:text-fg"
+              >
+                <Settings size={16} />
+              </button>
+            ) : null}
           </div>
-          
-          <div className="bg-white/5 rounded-xl px-6 py-4 overflow-hidden">
-            {(() => {
-              // An empty {} is truthy in JS, so `nutritional_stats || fallback`
-              // never actually falls back — the bundled offline catalogue's 13
-              // products carry no nutrition data at all, so every one of them
-              // rendered a degenerate all-zero hexagon with no explanation.
-              const hasStats =
-                !!product.nutritional_stats &&
-                Object.keys(product.nutritional_stats).length > 0;
-              const hasLimits = !!activeProfiles[0]?.daily_limits;
-              return (
-                <>
-                  <NutritionHexagon
-                    currentStats={
-                      hasStats
-                        ? product.nutritional_stats!
-                        : { Energy_kcal: 250, Protein: 12, Carbs: 30, Sugars: 18, Fat: 8, Salt: 1.2, Fiber: 4, SatFat: 3, TransFat: 0 }
-                    }
-                    userLimits={
-                      hasLimits
-                        ? activeProfiles[0]!.daily_limits!
-                        : { Energy_kcal: 2000, Protein: 50, Carbs: 260, Sugars: 30, Fat: 70, Salt: 6, Fiber: 30, SatFat: 20, TransFat: 2 }
-                    }
-                    labels={chartLabels}
-                    className="w-full"
-                  />
-                  {(!hasStats || !hasLimits) && (
-                    <p className="text-center text-[10px] mt-2 opacity-50">Demo Data (Backend integration pending)</p>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+
+          {/* An empty {} is truthy in JS, so `nutritional_stats || fallback`
+              never actually falls back. The old fallback filled the gap with
+              invented numbers (250 kcal, 12 g protein…) and labelled them
+              "Demo Data" in 10px grey — on a food-safety screen, next to real
+              per-person verdicts, that reads as this product's nutrition.
+              A product record with no nutrition panel now says exactly that. */}
+          {hasStats ? (
+            <div className="overflow-hidden rounded-xl bg-bg px-6 py-4">
+              <NutritionHexagon
+                currentStats={product.nutritional_stats!}
+                userLimits={limits}
+                labels={chartLabels}
+                className="w-full"
+              />
+              <p className="mt-2 text-center text-[0.65rem] text-fg-subtle">
+                {hasLimits
+                  ? `Per serving, against ${activeProfiles[0]!.name}'s daily limits.`
+                  : "Per serving, against general adult daily reference values."}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-bg px-4 py-5 text-center">
+              <p className="text-sm font-semibold text-fg-muted">
+                No nutrition panel on record
+              </p>
+              <p className="mx-auto mt-1 max-w-[34ch] text-xs leading-relaxed text-fg-subtle">
+                This product&apos;s record carries ingredients but no per-serving
+                figures, so there is nothing to chart. The allergen check above is
+                unaffected.
+              </p>
+            </div>
+          )}
         </section>
 
+        {/* Themed off the design tokens, not hardcoded slate/indigo: this was
+            a dark slab floating in the light theme. */}
         {isEditChartOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl animate-in fade-in zoom-in-95">
-               <div className="flex justify-between items-center mb-4">
-                 <h4 className="text-lg font-bold text-white">Customize Chart</h4>
-                 <span className="text-xs font-semibold px-2 py-1 bg-slate-800 text-slate-300 rounded-md">
-                   Selected: {tempLabels.length}/6
-                 </span>
-               </div>
-               
-               <div className="space-y-2 mb-6">
-                 {ALL_NUTRIENTS.map(n => {
-                   const isSelected = tempLabels.some(s => s.key === n.key);
-                   const isDisabled = !isSelected && tempLabels.length >= 6;
-                   return (
-                     <label 
-                       key={n.key} 
-                       className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors cursor-pointer ${
-                         isSelected ? "bg-indigo-500/10 border-indigo-500/50" : "border-transparent hover:bg-white/5"
-                       } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                     >
-                       <input 
-                         type="checkbox" 
-                         className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-900"
-                         checked={isSelected}
-                         disabled={isDisabled}
-                         onChange={(e) => {
-                           if (e.target.checked) {
-                             if (tempLabels.length < 6) setTempLabels([...tempLabels, n]);
-                           } else {
-                             setTempLabels(tempLabels.filter(s => s.key !== n.key));
-                           }
-                         }}
-                       />
-                       <p className={`text-sm font-medium ${isSelected ? "text-white" : "text-slate-300"}`}>
-                         {n.label}
-                       </p>
-                     </label>
-                   )
-                 })}
-               </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              aria-label="Cancel"
+              onClick={() => setIsEditChartOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Choose which nutrients to chart"
+              className="animate-rise relative w-full max-w-sm rounded-2xl border border-border bg-bg-elevated p-5 shadow-2xl"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h4 className="display text-base">Customise the chart</h4>
+                <span className="shrink-0 rounded-md bg-surface-hover px-2 py-1 text-xs font-semibold text-fg-subtle">
+                  {tempLabels.length}/6 picked
+                </span>
+              </div>
 
-               <div className="flex justify-end gap-3">
-                 <Button variant="secondary" onClick={() => setIsEditChartOpen(false)}>Cancel</Button>
-                 <Button 
-                   disabled={tempLabels.length !== 6} 
-                   onClick={() => { 
-                     setChartLabels(tempLabels); 
-                     setIsEditChartOpen(false); 
-                   }}
-                 >
-                   Apply
-                 </Button>
-               </div>
+              <div className="mb-5 space-y-1.5">
+                {ALL_NUTRIENTS.map((n) => {
+                  const isSelected = tempLabels.some((t) => t.key === n.key);
+                  const isDisabled = !isSelected && tempLabels.length >= 6;
+                  return (
+                    <label
+                      key={n.key}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border px-2.5 py-2 transition-colors",
+                        isSelected
+                          ? "border-brand/50 bg-brand-soft/60 text-fg"
+                          : "border-transparent text-fg-muted hover:bg-surface-hover",
+                        isDisabled && "cursor-not-allowed opacity-45",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[var(--brand)]"
+                        checked={isSelected}
+                        disabled={isDisabled}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            if (tempLabels.length < 6)
+                              setTempLabels([...tempLabels, n]);
+                          } else {
+                            setTempLabels(
+                              tempLabels.filter((t) => t.key !== n.key),
+                            );
+                          }
+                        }}
+                      />
+                      <span className="text-sm font-medium">{n.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsEditChartOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={tempLabels.length !== 6}
+                  onClick={() => {
+                    setChartLabels(tempLabels);
+                    setIsEditChartOpen(false);
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
             </div>
           </div>
         )}

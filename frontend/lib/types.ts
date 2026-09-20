@@ -178,6 +178,37 @@ export interface BatchAuditResult {
   items: BatchAuditItem[];
 }
 
+/* ---------- auth ---------- */
+
+export type Gender = "male" | "female" | "other";
+
+export interface Biometrics {
+  age: number | null;
+  gender: string | null;
+  height: number | null;
+  weight: number | null;
+  bmi: number | null;
+}
+
+/** POST /api/auth/signin and /api/auth/signup both answer with this. */
+export interface AuthSession {
+  token: string;
+  user_id: string;
+  name: string;
+  email: string;
+  household_id: string;
+  role: string;
+  biometrics: Biometrics;
+}
+
+export interface SignInRequest {
+  email: string;
+  password: string;
+}
+
+/** GET /api/auth/me — the session without re-issuing the token. */
+export type CurrentUser = Omit<AuthSession, "token">;
+
 /* ---------- request payloads ---------- */
 
 export interface EvaluateRequest {

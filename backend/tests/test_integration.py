@@ -336,3 +336,30 @@ def test_outage_still_falls_back_to_the_bundled_catalogue(monkeypatch):
     product = api.lookup_product("5000159461122")   # in the catalogue
     assert product.source == "OFFLINE_CATALOGUE"
     assert product.ingredients
+
+
+def test_a_product_body_keeps_its_nutrition_panel():
+    """A product sent as a request body must not lose its nutrition panel.
+
+    _product_from_payload read Open Food Facts' raw `nutriments` key, but the
+    wire format this API both emits and documents is `nutritional_stats` — the
+    two never met, so any product round-tripped through /api/evaluate as a body
+    came back with its panel silently emptied, and the result screen (which
+    renders from the stored scan) had nothing left to chart.
+    """
+    stats = {"Energy_kcal": 481.0, "Protein": 8.6, "Sugars": 51.8}
+
+    ours = api._product_from_payload(
+        {"barcode": "1", "name": "Round Trip", "nutritional_stats": stats}
+    )
+    assert ours.nutritional_stats == stats
+
+    # Open Food Facts' own key is still accepted, for anything upstream that
+    # hands the raw record straight over.
+    theirs = api._product_from_payload(
+        {"barcode": "1", "name": "Round Trip", "nutriments": stats}
+    )
+    assert theirs.nutritional_stats == stats
+
+    # A product with no panel stays empty rather than becoming None.
+    assert api._product_from_payload({"barcode": "1", "name": "Bare"}).nutritional_stats == {}

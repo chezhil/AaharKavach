@@ -1,5 +1,7 @@
 import type {
+  AuthSession,
   BatchAuditResult,
+  CurrentUser,
   CompareRequest,
   CompareResult,
   EvaluateRequest,
@@ -8,6 +10,7 @@ import type {
   Profile,
   ProfileDraft,
   ScanResult,
+  SignInRequest,
 } from "@/lib/types";
 import { ApiError, ProductNotFoundError, type AaharApi } from "./types";
 
@@ -25,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         household = parsed.householdId || parsed.household || "";
         user = parsed.sub || "";
       }
-    } catch (e) {
+    } catch {
       // Ignore malformed tokens
     }
   }
@@ -147,11 +150,11 @@ export const httpApi: AaharApi = {
   // /api/evaluate writes history server-side; nothing to do from the client.
   async recordScan() {},
 
-  signIn: (req: any) =>
-    request<any>("/api/auth/signin", {
+  signIn: (req: SignInRequest) =>
+    request<AuthSession>("/api/auth/signin", {
       method: "POST",
       body: JSON.stringify(req),
     }),
 
-  getMe: () => request<any>("/api/auth/me"),
+  getMe: () => request<CurrentUser>("/api/auth/me"),
 };

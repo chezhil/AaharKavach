@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/useAuthStore";
 import type { Profile, ProfileDraft, ScanResult } from "@/lib/types";
 
 const ACTIVE_KEY = "aahar.active.v1";
@@ -51,7 +52,24 @@ function readActive(): string[] {
   }
 }
 
+/**
+ * Everything below is scoped to whoever is signed in, so signing in or out has
+ * to discard all of it — profiles, history and the selection alike.
+ *
+ * That is done by remounting on the token rather than by clearing five pieces
+ * of state at the top of the loader: a `key` change gives the provider fresh
+ * initial state for free, which is React's own idiom for "different identity,
+ * different state", and it lets the loader below keep an empty dependency
+ * array instead of setting state synchronously inside an effect.
+ */
 export function AppProvider({ children }: { children: ReactNode }) {
+  const token = useAuthStore((state) => state.token);
+  return (
+    <HouseholdProvider key={token ?? "anonymous"}>{children}</HouseholdProvider>
+  );
+}
+
+function HouseholdProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

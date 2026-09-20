@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { api } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -70,8 +69,12 @@ export default function SignupPage() {
       const data = await res.json();
       login(data);
       router.push("/");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't create that account. Try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,7 @@ export default function SignupPage() {
                   <label className="text-xs font-semibold text-fg-subtle block mb-1">Gender</label>
                   <select
                     value={gender}
-                    onChange={(e) => setGender(e.target.value as any)}
+                    onChange={(e) => setGender(e.target.value as typeof gender)}
                     className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none focus:border-brand"
                   >
                     <option value="male">Male</option>

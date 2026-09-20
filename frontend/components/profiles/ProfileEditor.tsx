@@ -199,7 +199,7 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
             </div>
             <div className="space-y-2">
               <label htmlFor="profile-gender" className="text-xs font-semibold text-fg-subtle">Gender</label>
-              <select id="profile-gender" value={gender} onChange={(e) => setGender(e.target.value as any)} className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none focus:border-brand">
+              <select id="profile-gender" value={gender} onChange={(e) => setGender(e.target.value as typeof gender)} className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none focus:border-brand">
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>

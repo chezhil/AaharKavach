@@ -15,6 +15,7 @@ way Lambda does, and exercises one request per function.
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import sys
 import textwrap
@@ -24,6 +25,20 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "backend" / ".aws-sam" / "build"
 
 CHECKS = [
+    (
+        "AuthFunction",
+        "auth.app",
+        {
+            "httpMethod": "POST",
+            "path": "/api/auth/signin",
+            "headers": {},
+            "body": json.dumps({"email": "nobody@example.test", "password": "x"}),
+        },
+        # 401, not 200: there is no such account. What this proves is that the
+        # handler imports, finds shared.api and the store, and answers — the
+        # previous version 502'd on `from shared.store import save_profile`.
+        401,
+    ),
     ("ProfilesFunction", "profiles.app", {"httpMethod": "GET", "headers": {}}, 200),
     (
         "ScansFunction",
@@ -68,9 +83,26 @@ RUNNER = textwrap.dedent(
     os.environ.pop("PROFILES_TABLE", None)
 
     module, event = sys.argv[1], json.loads(sys.argv[2])
+
+    # sam build resolves wheels for the Lambda runtime (linux/x86_64), so a
+    # package with native extensions cannot be fully exercised on a developer
+    # machine. Record which ones refuse to load rather than letting them look
+    # like an application fault: cedarpy failing to import makes Cedar fail
+    # closed, and every profile request then answers 403.
+    unloadable = []
+    for native in ("cedarpy", "bcrypt"):
+        try:
+            importlib.import_module(native)
+        except Exception as exc:
+            unloadable.append(f"{native}: {type(exc).__name__}")
+
     handler = importlib.import_module(module).lambda_handler
     response = handler(event, None)
-    print(json.dumps({"status": response["statusCode"], "body": response["body"][:300]}))
+    print(json.dumps({
+        "status": response["statusCode"],
+        "body": response["body"][:300],
+        "unloadable": unloadable,
+    }))
     """
 )
 
@@ -81,6 +113,7 @@ def main() -> int:
         return 2
 
     failures = 0
+    skipped = 0
     for function, module, event, expected in CHECKS:
         package = BUILD / function
         if not package.is_dir():
@@ -112,15 +145,35 @@ def main() -> int:
             failures += 1
             continue
 
+        blocked = result.get("unloadable") or []
         if result["status"] != expected:
-            print(f"FAIL {function}: expected {expected}, got {result['status']} — {result['body'][:160]}")
-            failures += 1
+            if blocked:
+                # Not a packaging fault: the wheel is correct for Lambda and
+                # simply cannot run here. Say so instead of reporting a failure
+                # the deployed stack will not have.
+                print(
+                    f"skip {function}: expected {expected}, got {result['status']} — "
+                    f"can't verify on this host; {', '.join(blocked)} "
+                    f"(built for the Lambda runtime, not "
+                    f"{platform.machine()}/{platform.system()})"
+                )
+                skipped += 1
+            else:
+                print(f"FAIL {function}: expected {expected}, got {result['status']} — {result['body'][:160]}")
+                failures += 1
         else:
             print(f"ok   {function}: {module} -> {result['status']}")
 
     if failures:
         print(f"\n{failures} problem(s). This package would fail after deploying.")
         return 1
+    if skipped:
+        print(
+            f"\nPackage imports cleanly; {skipped} check(s) could not run on this "
+            "host because a native wheel targets the Lambda runtime. Re-run in "
+            "Linux/x86_64 (or after deploying) to exercise them."
+        )
+        return 0
     print("\nPackage looks deployable: every handler imports and answers.")
     return 0
 

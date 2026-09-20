@@ -42,8 +42,13 @@ function CompareInner() {
   // page) has no name to show until the other slot is picked and /api/compare
   // runs. Resolve it eagerly, keyed by barcode, so the card doesn't sit on
   // "Loading..." forever and a stale preview never outlives its barcode.
-  const [previewA, setPreviewA] = useState<{ barcode: string; product: Product } | null>(null);
-  const [previewB, setPreviewB] = useState<{ barcode: string; product: Product } | null>(null);
+  // `product: null` means the lookup came back and found nothing — which is a
+  // different state from "no preview yet", and the card has to tell them
+  // apart. Swallowing the rejection left the slot reading "Loading..." for
+  // good, even once the comparison below had failed and said why.
+  type Preview = { barcode: string; product: Product | null };
+  const [previewA, setPreviewA] = useState<Preview | null>(null);
+  const [previewB, setPreviewB] = useState<Preview | null>(null);
 
   useEffect(() => {
     if (typeof a !== "string") return;
@@ -53,7 +58,9 @@ function CompareInner() {
       .then((product) => {
         if (!cancelled) setPreviewA({ barcode: a, product });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setPreviewA({ barcode: a, product: null });
+      });
     return () => {
       cancelled = true;
     };
@@ -67,7 +74,9 @@ function CompareInner() {
       .then((product) => {
         if (!cancelled) setPreviewB({ barcode: b, product });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setPreviewB({ barcode: b, product: null });
+      });
     return () => {
       cancelled = true;
     };
@@ -121,14 +130,15 @@ function CompareInner() {
     // Otherwise, if the input itself is a Product (e.g. from a photo), show its name while loading.
     const evaluatedProduct = which === "A" ? result?.a.product : result?.b.product;
     const preview = which === "A" ? previewA : previewB;
+    // Only a preview for *this* barcode counts; a stale one must not label a
+    // slot the user has since changed.
+    const settled =
+      typeof value === "string" && preview?.barcode === value ? preview : null;
     const fallbackProduct =
-      typeof value === "object"
-        ? value
-        : typeof value === "string" && preview?.barcode === value
-        ? preview.product
-        : null;
+      typeof value === "object" ? value : (settled?.product ?? null);
     const product = evaluatedProduct ?? fallbackProduct;
-    
+    const notFound = settled !== null && settled.product === null;
+
     const idString = typeof value === "string" ? value : (value?.barcode ?? "");
     const winner = result?.safer_pick === which;
 
@@ -161,10 +171,11 @@ function CompareInner() {
                 winner ? "mt-8" : "mt-2",
               )}
             >
-              {product?.name ?? "Loading..."}
+              {product?.name ?? (notFound ? idString : "Loading…")}
             </p>
             <p className="mt-0.5 text-xs opacity-70">
-              {product?.brand ?? idString}
+              {product?.brand ??
+                (notFound ? "Not in the database" : idString)}
             </p>
             <span className="mt-auto pt-2">
               {which === "A" && result ? (
@@ -330,9 +341,13 @@ function CompareInner() {
               console.error(err);
               setError("Couldn't read product info from that URL.");
             }
-          } else {
+          } else if (typeof value === "string") {
             // Barcode
-            choose(currentSlot, value as string);
+            choose(currentSlot, value);
+          } else {
+            // A product handed over whole from history — no lookup needed, and
+            // no lookup possible for a label photo that never had a barcode.
+            choose(currentSlot, value);
           }
         }}
       />
