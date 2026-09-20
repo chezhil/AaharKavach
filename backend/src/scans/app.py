@@ -46,7 +46,7 @@ def lambda_handler(event, context):
                 image_bytes = base64.b64decode(b64)
             except binascii.Error:
                 return respond(400, {"error": "Malformed image data"})
-            return run(lambda: api.scan_label_endpoint("capture.jpg", image_bytes))
+            return run(lambda: api.scan_label_endpoint("", image_bytes))
 
         body = event.get("body") or ""
         # API Gateway base64-encodes binary bodies.

@@ -313,6 +313,10 @@ def scan_label_endpoint(filename: str, image_bytes: bytes = b"") -> tuple[int, A
             "ingredients panel square in frame and try again.",
         )
 
+    # An uploaded file's name is a decent fallback title ("oreo-label.jpg"),
+    # but the camera path has no real filename, so it passes none rather than a
+    # synthetic one — "capture.jpg" was reaching the UI as a product named
+    # "capture" whenever OCR found no product name on the label.
     stem = (filename or "").rsplit(".", 1)[0].replace("_", " ").strip()
     product = Product(
         barcode=f"photo_{uuid.uuid4().hex[:8]}",

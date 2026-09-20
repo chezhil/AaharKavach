@@ -205,7 +205,7 @@ class Handler(BaseHTTPRequestHandler):
                     image_bytes = base64.b64decode(b64)
                 except binascii.Error:
                     raise api.ApiError(400, "Malformed image data")
-                return api.scan_label_endpoint("capture.jpg", image_bytes)
+                return api.scan_label_endpoint("", image_bytes)
             filename, image = _parse_multipart(self._body())
             return api.scan_label_endpoint(filename, image)
 
