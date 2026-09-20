@@ -50,7 +50,200 @@ class Caller:
         h = {k.lower(): v for k, v in (headers or {}).items()}
         self.user_id = h.get("x-aahar-user", "user_123")
         self.role = h.get("x-aahar-role", "Admin")
-        self.household = h.get("x-aahar-household", store.HOUSEHOLD_ID)
+        
+        if "x-aahar-household" in h:
+            self.household = h["x-aahar-household"]
+        else:
+            self.household = store.HOUSEHOLD_ID
+            
+        self.token_payload = None
+
+        auth_header = h.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            try:
+                import jwt
+                import os
+                secret = os.environ.get("JWT_SECRET", "super_secret_dev_key")
+                payload = jwt.decode(token, secret, algorithms=["HS256"])
+                self.token_payload = payload
+                # Use JWT claims if the header was omitted
+                if "x-aahar-user" not in h:
+                    self.user_id = payload.get("sub", self.user_id)
+                if "x-aahar-role" not in h:
+                    self.role = payload.get("role", self.role)
+                if "x-aahar-household" not in h:
+                    self.household = payload.get("householdId", self.household)
+            except Exception:
+                pass
+
+
+def signup_endpoint(draft: dict[str, Any]) -> tuple[int, Any]:
+    email = str(draft.get("email") or "").strip()
+    password = str(draft.get("password") or "")
+    if not email or not password:
+        raise ApiError(400, "Email and password are required")
+        
+    import bcrypt
+    import uuid
+    import datetime
+    import jwt
+    
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    household_id = f"hh_{uuid.uuid4().hex[:8]}"
+    user_id = f"usr_{uuid.uuid4().hex[:8]}"
+    
+    # Compute BMI: weight / ((height / 100) ** 2)
+    weight = float(draft.get("weight") or draft.get("weight_kg") or 70.0)
+    height = float(draft.get("height") or draft.get("height_cm") or 170.0)
+    bmi = 0.0
+    if height > 0:
+        bmi = round(weight / ((height / 100) ** 2), 1)
+
+    profile_draft = {
+        "id": user_id,
+        "name": str(draft.get("name") or email.split("@")[0]),
+        "household_role": "ADMIN",
+        "gender": str(draft.get("gender") or ""),
+        "age": int(draft.get("age") or 30),
+        "weight_kg": weight,
+        "height_cm": height,
+    }
+    
+    # Optional starting allergies
+    allergies = draft.get("initial_allergies") or []
+    if allergies:
+        profile_draft["restrictions"] = [{"label": a, "severity": "MODERATE"} for a in allergies]
+        
+    profile = _profile_from_draft(profile_draft, user_id)
+    # The store layer needs password_hash saved. 
+    # For now, put_profile overwrites the item, so we save it with an extra kwarg or adapt.
+    # We will just write a custom item for the admin profile to store the hash.
+    item = store.item_from_profile(profile, household_id, user_id)
+    item["password_hash"] = hashed
+    item["email"] = email
+    item["bmi"] = bmi
+    
+    if store._use_dynamo():
+        import boto3
+        table = boto3.resource("dynamodb").Table(os.environ["PROFILES_TABLE"])
+        table.put_item(Item=item)
+    else:
+        store._LOCAL[profile.id] = item
+        store._save_local(store._LOCAL)
+        
+    secret = os.environ.get("JWT_SECRET", "super_secret_dev_key")
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "householdId": household_id,
+        "role": "Admin",
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+    
+    return 201, {
+        "token": token,
+        "user_id": user_id,
+        "name": profile.name,
+        "email": email,
+        "household_id": household_id,
+        "role": "admin",
+        "biometrics": {
+            "age": profile.age,
+            "gender": profile.gender,
+            "height": profile.height_cm,
+            "weight": profile.weight_kg,
+            "bmi": bmi
+        }
+    }
+
+
+def signin_endpoint(draft: dict[str, Any]) -> tuple[int, Any]:
+    email = str(draft.get("email") or "").strip()
+    password = str(draft.get("password") or "")
+    if not email or not password:
+        raise ApiError(400, "Email and password required")
+        
+    # Scan for the user by email
+    import bcrypt
+    import jwt
+    import datetime
+    
+    found_item = None
+    if store._use_dynamo():
+        import boto3
+        from boto3.dynamodb.conditions import Attr
+        table = boto3.resource("dynamodb").Table(os.environ["PROFILES_TABLE"])
+        # In a real app we'd have a GSI, but for hackathon we scan
+        res = table.scan(FilterExpression=Attr("email").eq(email))
+        if res.get("Items"):
+            found_item = res["Items"][0]
+    else:
+        for item in store._LOCAL.values():
+            if item.get("email") == email:
+                found_item = item
+                break
+                
+    if not found_item:
+        raise ApiError(401, "Invalid email or password")
+        
+    hashed = found_item.get("password_hash", "")
+    if not bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8')):
+        raise ApiError(401, "Invalid email or password")
+        
+    user_id = found_item.get("id") or found_item.get("profileId")
+    household_id = found_item.get("householdId")
+    
+    secret = os.environ.get("JWT_SECRET", "super_secret_dev_key")
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "householdId": household_id,
+        "role": found_item.get("household_role", "Admin"),
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+    
+    return 200, {
+        "token": token,
+        "user_id": user_id,
+        "name": found_item.get("name"),
+        "email": email,
+        "household_id": household_id,
+        "role": found_item.get("household_role", "Admin").lower(),
+        "biometrics": {
+            "age": found_item.get("age"),
+            "gender": found_item.get("gender"),
+            "height": found_item.get("height_cm"),
+            "weight": found_item.get("weight_kg"),
+            "bmi": found_item.get("bmi")
+        }
+    }
+
+
+def me_endpoint(caller: Caller) -> tuple[int, Any]:
+    if not caller.token_payload:
+        raise ApiError(401, "Not authenticated")
+    
+    existing = store.get_profile_item(caller.user_id, household_id=caller.household)
+    if not existing:
+        raise ApiError(404, "User profile not found")
+        
+    return 200, {
+        "user_id": caller.user_id,
+        "name": existing.get("name"),
+        "email": existing.get("email"),
+        "household_id": caller.household,
+        "role": existing.get("household_role", "Admin").lower(),
+        "biometrics": {
+            "age": existing.get("age"),
+            "gender": existing.get("gender"),
+            "height": existing.get("height_cm"),
+            "weight": existing.get("weight_kg"),
+            "bmi": existing.get("bmi")
+        }
+    }
 
 
 def _can_edit(caller: Caller, item: dict[str, Any]) -> bool:

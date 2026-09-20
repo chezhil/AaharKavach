@@ -3,10 +3,12 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, Sun, Moon } from "lucide-react";
+import { ShieldCheck, Sun, Moon, LogOut } from "lucide-react";
 import { usingMocks } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TABS, isActive } from "./tabs";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useEffect, useState } from "react";
 
 /**
  * The theme lives on <html class="dark">, put there by the blocking script in
@@ -35,6 +37,12 @@ const getServerTheme = () => "dark" as const;
 export function AppHeader() {
   const pathname = usePathname();
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, getServerTheme);
+  const { user, isAuthenticated, logout } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -53,7 +61,7 @@ export function AppHeader() {
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-brand-fg">
             <ShieldCheck size={19} strokeWidth={2.6} />
           </span>
-          <span className="min-w-0">
+          <span className="min-w-0 hidden sm:block">
             <span className="display block text-[1.05rem] leading-none">
               AaharKavach
             </span>
@@ -94,7 +102,6 @@ export function AppHeader() {
               Demo data
             </span>
           )}
-          
           <button
             onClick={toggleTheme}
             className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-fg-subtle hover:bg-surface-hover hover:text-fg transition-colors"
@@ -102,6 +109,40 @@ export function AppHeader() {
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+
+          {mounted && (
+            <div className="flex items-center gap-2 ml-1 border-l border-border pl-3">
+              {isAuthenticated && user ? (
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex size-9 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400 font-bold text-sm">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-fg-subtle hover:text-unsafe transition-colors"
+                  >
+                    <LogOut size={14} />
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Link
+                    href="/signin"
+                    className="px-3 py-1.5 text-xs font-semibold text-fg-muted hover:text-fg transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="rounded-full bg-brand px-4 py-1.5 text-xs font-bold text-brand-fg transition-transform hover:scale-105 active:scale-95"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>

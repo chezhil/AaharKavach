@@ -22,7 +22,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const parsed = token ? JSON.parse(atob(token.split(".")[1])) : null;
       if (parsed) {
-        household = parsed.household || "";
+        household = parsed.householdId || parsed.household || "";
         user = parsed.sub || "";
       }
     } catch (e) {
@@ -146,4 +146,12 @@ export const httpApi: AaharApi = {
 
   // /api/evaluate writes history server-side; nothing to do from the client.
   async recordScan() {},
+
+  signIn: (req: any) =>
+    request<any>("/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+
+  getMe: () => request<any>("/api/auth/me"),
 };

@@ -256,4 +256,29 @@ export const mockApi: AaharApi = {
     await delay(400);
     return { explainer: `${name} — a mock explanation (mocks are on).` };
   },
+
+  async signIn(req: any) {
+    await delay();
+    return {
+      token: "mock.token.str",
+      user_id: "usr_mock",
+      name: "Mock User",
+      email: req.email,
+      household_id: "hh_mock",
+      role: "admin",
+      biometrics: { age: 30, gender: "male", height: 175, weight: 70, bmi: 22.8 },
+    };
+  },
+
+  async getMe() {
+    await delay();
+    return {
+      user_id: "usr_mock",
+      name: "Mock User",
+      email: "mock@example.com",
+      household_id: "hh_mock",
+      role: "admin",
+      biometrics: { age: 30, gender: "male", height: 175, weight: 70, bmi: 22.8 },
+    };
+  },
 };

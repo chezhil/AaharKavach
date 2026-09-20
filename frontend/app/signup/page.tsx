@@ -3,14 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { api } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
+  const login = useAuthStore((state) => state.login);
   
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
   const [age, setAge] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other">("male");
+  const [gender, setGender] = useState<"male" | "female" | "other" | "prefer_not_to_say">("male");
   const [weightKg, setWeightKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [allergiesText, setAllergiesText] = useState("");
@@ -26,10 +31,10 @@ export default function SignupPage() {
     const h = parseFloat(heightCm) / 100;
     if (w > 0 && h > 0) {
       bmiValue = w / (h * h);
-      if (bmiValue < 18.5) { bmiLabel = "Underweight"; bmiColor = "text-blue-400"; }
-      else if (bmiValue < 25) { bmiLabel = "Normal"; bmiColor = "text-green-400"; }
-      else if (bmiValue < 30) { bmiLabel = "Overweight"; bmiColor = "text-yellow-400"; }
-      else { bmiLabel = "Obese"; bmiColor = "text-red-400"; }
+      if (bmiValue < 18.5) { bmiLabel = "Underweight"; bmiColor = "text-blue-500 dark:text-blue-400"; }
+      else if (bmiValue < 25) { bmiLabel = "Normal"; bmiColor = "text-green-600 dark:text-green-400"; }
+      else if (bmiValue < 30) { bmiLabel = "Overweight"; bmiColor = "text-amber-500 dark:text-amber-400"; }
+      else { bmiLabel = "Obese"; bmiColor = "text-red-500 dark:text-red-400"; }
     }
   }
 
@@ -39,18 +44,19 @@ export default function SignupPage() {
     setLoading(true);
 
     const payload = {
-      username,
+      name,
+      email,
       password,
       age: age ? parseInt(age, 10) : undefined,
       gender,
       weight_kg: weightKg ? parseFloat(weightKg) : undefined,
       height_cm: heightCm ? parseFloat(heightCm) : undefined,
-      allergies: allergiesText.split(",").map((a) => a.trim()).filter(Boolean),
+      initial_allergies: allergiesText.split(",").map((a) => a.trim()).filter(Boolean),
     };
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-      const res = await fetch(`${baseUrl}/api/signup`, {
+      const res = await fetch(`${baseUrl}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -62,11 +68,7 @@ export default function SignupPage() {
       }
 
       const data = await res.json();
-      // Store JWT (in a real app, use HttpOnly cookies or secure storage)
-      if (data.token) {
-        localStorage.setItem("aahar_token", data.token);
-      }
-      
+      login(data);
       router.push("/");
     } catch (err: any) {
       setError(err.message);
@@ -94,13 +96,24 @@ export default function SignupPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-fg-muted block mb-1">Username</label>
+              <label className="text-sm font-semibold text-fg-muted block mb-1">Full Name</label>
               <input
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="h-11 w-full rounded-xl border border-border-subtle bg-bg px-3.5 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
-                placeholder="Aryan"
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-fg-muted block mb-1">Email Address</label>
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 w-full rounded-xl border border-border-subtle bg-bg px-3.5 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
+                placeholder="john@example.com"
               />
             </div>
             <div>
@@ -122,10 +135,33 @@ export default function SignupPage() {
                 <div>
                   <label className="text-xs font-semibold text-fg-subtle block mb-1">Age</label>
                   <input
+                    required
                     type="number"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
                     placeholder="Years"
+                    className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-fg-subtle block mb-1">Height (cm)</label>
+                  <input
+                    required
+                    type="number"
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value)}
+                    placeholder="cm"
+                    className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-fg-subtle block mb-1">Weight (kg)</label>
+                  <input
+                    required
+                    type="number"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                    placeholder="kg"
                     className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
                   />
                 </div>
@@ -139,27 +175,8 @@ export default function SignupPage() {
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-fg-subtle block mb-1">Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value)}
-                    placeholder="kg"
-                    className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-fg-subtle block mb-1">Height (cm)</label>
-                  <input
-                    type="number"
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value)}
-                    placeholder="cm"
-                    className="h-10 w-full rounded-lg border border-border-subtle bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
-                  />
                 </div>
               </div>
 
@@ -187,6 +204,13 @@ export default function SignupPage() {
           <Button type="submit" size="lg" className="w-full" disabled={loading}>
             {loading ? "Creating account..." : "Sign up"}
           </Button>
+
+          <p className="text-center text-sm text-fg-subtle">
+            Already have an account?{" "}
+            <a href="/signin" className="font-semibold text-brand hover:underline">
+              Sign in
+            </a>
+          </p>
         </form>
       </div>
     </div>

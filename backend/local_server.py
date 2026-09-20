@@ -166,6 +166,15 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/health":
             return 200, {"ok": True, "storage": "dynamodb" if os.environ.get("PROFILES_TABLE") else "local"}
 
+        if method == "POST" and path == "/api/auth/signup":
+            return api.signup_endpoint(self._json_body())
+            
+        if method == "POST" and path == "/api/auth/signin":
+            return api.signin_endpoint(self._json_body())
+            
+        if method == "GET" and path == "/api/auth/me":
+            return api.me_endpoint(caller)
+
         if path == "/api/profiles":
             if method == "GET":
                 return api.list_profiles(caller)

@@ -43,6 +43,12 @@ export interface AaharApi {
    * so a second ask for the same ingredient never re-invokes it.
    */
   explainIngredient(name: string): Promise<{ explainer: string | null }>;
+  /** Log a scan manually (noop on client). */
+  recordScan(result: ScanResult): Promise<void>;
+  /** POST /api/auth/signin */
+  signIn(req: any): Promise<any>;
+  /** GET /api/auth/me */
+  getMe(): Promise<any>;
   /**
    * POST /api/history — the real backend logs a scan as a side effect of
    * /api/evaluate, so the HTTP client makes this a no-op. The mock needs it.
