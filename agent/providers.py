@@ -88,6 +88,14 @@ def build_model(provider: str | None = None):
                 "base_url": os.environ.get(
                     "GROQ_BASE_URL", "https://api.groq.com/openai/v1"
                 ),
+                # The client's default is to retry a 429 with exponential
+                # backoff, which on a rate-limited free tier spends the entire
+                # 29s API Gateway budget waiting and then returns a 504. One
+                # retry, then let the caller fall back to the rulebook — an
+                # allergen app answering from its rulebook beats one that
+                # times out.
+                "max_retries": int(os.environ.get("AAHAR_MODEL_MAX_RETRIES", "1")),
+                "timeout": float(os.environ.get("AAHAR_MODEL_TIMEOUT", "8")),
             },
             # Needs tool-calling support for the knowledge-base lookups.
             # Which models a Groq account can reach varies; list yours with

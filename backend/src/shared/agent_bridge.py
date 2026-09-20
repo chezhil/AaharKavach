@@ -21,6 +21,36 @@ from .contracts import (
 
 logger = logging.getLogger(__name__)
 
+#: Hard ceiling on a single model call, in seconds. Strands retries a rate
+#: limited provider itself with exponential backoff and ignores the client's
+#: max_retries, so on a throttled free tier one call can run until API Gateway
+#: cuts the connection at 29s and the caller gets a 504 instead of a verdict.
+#: This is the wall-clock stop: past it the call is abandoned and the
+#: deterministic rulebook answers, which is the whole point of having one.
+CALL_TIMEOUT_SECONDS = float(os.environ.get("AAHAR_AGENT_CALL_TIMEOUT", "10"))
+
+
+def call_with_timeout(fn, *args, **kwargs):
+    """Run `fn` but give up after CALL_TIMEOUT_SECONDS.
+
+    The worker thread cannot be killed and is left to finish on its own; under
+    Lambda the container is frozen after the response, so it costs nothing.
+    Raising here lets the caller fall back rather than hang.
+    """
+    import concurrent.futures
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(fn, *args, **kwargs)
+    try:
+        return future.result(timeout=CALL_TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(
+            f"model call exceeded {CALL_TIMEOUT_SECONDS}s (provider slow or rate limited)"
+        )
+    finally:
+        executor.shutdown(wait=False)
+
+
 def agent_is_available() -> bool:
     """True when some model provider is installed and configured.
 
@@ -146,8 +176,9 @@ def evaluate_with_agent(
         return None
     try:
         from agent.evaluator import evaluate_product
-        raw = evaluate_product(
-            _product_payload(product), _profiles_payload(profiles), known_matches
+        raw = call_with_timeout(
+            evaluate_product,
+            _product_payload(product), _profiles_payload(profiles), known_matches,
         )
         return _coerce(raw, profiles)
     except Exception as exc:
@@ -166,7 +197,7 @@ def extract_webpage(webpage_text: str):
         return None
     try:
         from agent.evaluator import extract_product_from_webpage
-        extraction = extract_product_from_webpage(webpage_text)
+        extraction = call_with_timeout(extract_product_from_webpage, webpage_text)
         if extraction is None or not getattr(extraction, "found_ingredients", False):
             return None
         return extraction
@@ -183,7 +214,7 @@ def explain_ingredient(token: str) -> str | None:
         return None
     try:
         from agent.evaluator import explain_ingredient as agent_explain
-        result = agent_explain(token)
+        result = call_with_timeout(agent_explain, token)
         text = (getattr(result, "explanation", "") or "").strip()
         return text or None
     except Exception as exc:

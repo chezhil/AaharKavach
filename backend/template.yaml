@@ -33,6 +33,9 @@ Parameters:
 Globals:
   Function:
     Timeout: 29
+    # Measured, not guessed: a heavy evaluation peaks at ~171 MB with a ~0.5s
+    # init, so this is not the constraint. What pushes a request past the 29s
+    # gateway ceiling is waiting on the model, which more memory cannot fix.
     MemorySize: 512
     Runtime: python3.11
     Architectures:
