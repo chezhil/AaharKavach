@@ -17,6 +17,8 @@ const ACTIVE_KEY = "aahar.active.v1";
 interface AppState {
   profiles: Profile[];
   loading: boolean;
+  /** Set when the household couldn't be loaded at all. */
+  error: string | null;
   activeIds: string[];
   activeProfiles: Profile[];
   toggleActive: (id: string) => void;
@@ -52,27 +54,43 @@ function readActive(): string[] {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeIds, setActiveIdsState] = useState<string[]>([]);
   const [history, setHistory] = useState<ScanResult[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [loaded, pastScans] = await Promise.all([
-        api.listProfiles(),
-        api.listHistory(),
-      ]);
-      if (cancelled) return;
-      setProfiles(loaded);
-      setHistory(pastScans);
-      const stored = readActive().filter((id) =>
-        loaded.some((p) => p.id === id),
-      );
-      // Default to everyone: checking the whole household is the safer default.
-      const initial = stored.length > 0 ? stored : loaded.map((p) => p.id);
-      setActiveIdsState(initial);
-      persistActive(initial);
-      setLoading(false);
+      try {
+        const [loaded, pastScans] = await Promise.all([
+          api.listProfiles(),
+          api.listHistory(),
+        ]);
+        if (cancelled) return;
+        setProfiles(loaded);
+        setHistory(pastScans);
+        const stored = readActive().filter((id) =>
+          loaded.some((p) => p.id === id),
+        );
+        // Default to everyone: checking the whole household is the safer default.
+        const initial = stored.length > 0 ? stored : loaded.map((p) => p.id);
+        setActiveIdsState(initial);
+        persistActive(initial);
+      } catch (err) {
+        // An unreachable API used to leave `loading` true forever, and every
+        // screen that waits on it sat on skeletons with no error and no retry —
+        // the result page even has an error state it never got to render.
+        if (!cancelled) {
+          console.error("Could not load the household:", err);
+          setError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Couldn't reach the server.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -141,6 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       profiles,
       loading,
+      error,
       activeIds,
       activeProfiles: profiles.filter((p) => activeIds.includes(p.id)),
       toggleActive,
@@ -155,6 +174,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       profiles,
       loading,
+      error,
       activeIds,
       toggleActive,
       setActiveIds,

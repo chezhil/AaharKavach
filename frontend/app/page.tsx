@@ -24,7 +24,7 @@ const SYNONYM_COUNT = 302;
 function ScanHome() {
   const router = useRouter();
   const params = useSearchParams();
-  const { activeIds, activeProfiles, addScan, history, profiles, loading } = useApp();
+  const { activeIds, activeProfiles, addScan, history, profiles, loading, error: loadError } = useApp();
 
   // `/?scan=photo` is how the "not in the database" screen hands over.
   const requested = params.get("scan");
@@ -113,6 +113,18 @@ function ScanHome() {
 
   return (
     <div className="space-y-3">
+      {/* The household couldn't be fetched at all — say so instead of showing
+          an app that looks empty for no reason. */}
+      {loadError ? (
+        <p
+          role="alert"
+          className="rounded-xl border border-unsafe-border bg-unsafe-soft px-3 py-2.5 text-sm text-unsafe"
+        >
+          {loadError} Your household and history couldn&apos;t be loaded — check the
+          connection and reload.
+        </p>
+      ) : null}
+
       <ProfileSwitcher />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

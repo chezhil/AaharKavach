@@ -26,9 +26,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError(
-      `Can't reach the API at ${BASE}. Is \`sam local start-api\` running?`,
-    );
+    // Reaches real users now that the store surfaces load failures, so it
+    // reads like something a shopper can act on. The address stays in the
+    // console message for whoever is debugging it.
+    console.error(`Can't reach the API at ${BASE}`);
+    throw new ApiError("Can't reach the server right now.");
   }
   if (!res.ok) {
     // The API answers {"error": "..."}; showing the raw JSON to a user is worse

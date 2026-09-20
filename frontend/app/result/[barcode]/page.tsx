@@ -156,6 +156,28 @@ export default function ResultPage() {
     );
   }
 
+  // Checked before "missing": a failed lookup also leaves `shown` null, so
+  // the !shown test below would otherwise claim the product simply isn't in
+  // the database and send people off to photograph a label for no reason.
+  if (view === "error") {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="That didn't go through"
+        body="The lookup failed on the way out. Check the connection and try the scan again."
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.refresh()}
+          >
+            Retry
+          </Button>
+        }
+      />
+    );
+  }
+
   if (view === "missing" || !shown) {
     return (
       <EmptyState
@@ -177,25 +199,6 @@ export default function ResultPage() {
               </Button>
             </Link>
           </div>
-        }
-      />
-    );
-  }
-
-  if (view === "error") {
-    return (
-      <EmptyState
-        icon={AlertTriangle}
-        title="That didn't go through"
-        body="The lookup failed on the way out. Check the connection and try the scan again."
-        action={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.refresh()}
-          >
-            Retry
-          </Button>
         }
       />
     );
