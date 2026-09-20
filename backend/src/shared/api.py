@@ -504,7 +504,7 @@ def scan_url_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             422, "We couldn't find an ingredient list on that page — try the barcode instead"
         )
 
-    evaluation = evaluate(product, profiles, _alternatives(product, profiles))
+    evaluation = _evaluate_with_alternatives(product, profiles)
 
     scan = ScanResult(
         id=f"scan_{uuid.uuid4().hex[:8]}",
@@ -631,10 +631,12 @@ def _alternatives(
     if os.environ.get("AAHAR_USE_AGENT", "").lower() == "true":
         from .agent_bridge import remaining_budget
         left = remaining_budget()
-        if left is not None and left < SWAP_IT_MIN_BUDGET:
+        skip = left is not None and left < SWAP_IT_MIN_BUDGET
+        if skip:
             logger.info("Skipping Swap It: %.1fs of model budget left", left)
-            raise _BudgetSpent
         try:
+            if skip:
+                raise _BudgetSpent
             from agent.evaluator import generate_swap_alternatives
             from .agent_bridge import call_with_timeout
             swap_result = call_with_timeout(
@@ -731,6 +733,24 @@ def _resolve_profiles(caller: Caller, profile_ids: list[str]) -> list[Profile]:
     return profiles
 
 
+def _evaluate_with_alternatives(product: Product, profiles: list[Profile]):
+    """The verdict first, then the safer picks with whatever budget is left.
+
+    Ordering matters twice over. Both calls draw on the same rate-limit quota
+    and the same request budget, and Python evaluates arguments before the
+    call — so writing evaluate(product, profiles, _alternatives(...)) ran Swap
+    It *first*, let it spend the quota, and left the verdict to be throttled
+    into the rulebook. The verdict is the product; the suggestions are a
+    nicety, so the verdict goes first and the suggestions take the remainder.
+
+    Alternatives are only attached to the result, never reasoned over, so
+    computing them afterwards changes nothing about the answer.
+    """
+    evaluation = evaluate(product, profiles, [])
+    evaluation.safe_alternatives = _alternatives(product, profiles)
+    return evaluation
+
+
 def evaluate_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     from .agent_bridge import start_request_budget
 
@@ -745,7 +765,7 @@ def evaluate_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
     else:
         raise ApiError(400, "evaluate needs a barcode or a product")
 
-    result = evaluate(product, profiles, _alternatives(product, profiles))
+    result = _evaluate_with_alternatives(product, profiles)
 
     store.record_scan(
         ScanResult(
@@ -787,7 +807,7 @@ def compare_endpoint(caller: Caller, body: dict[str, Any]) -> tuple[int, Any]:
             id=f"cmp_{uuid.uuid4().hex[:8]}",
             scanned_at=store.now_iso(),
             product=product,
-            evaluation=evaluate(product, profiles, _alternatives(product, profiles)),
+            evaluation=_evaluate_with_alternatives(product, profiles),
             profile_ids=[p.id for p in profiles],
         )
 

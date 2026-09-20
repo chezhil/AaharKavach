@@ -65,6 +65,14 @@ Globals:
         # Tesseract needs a native binary that a plain Lambda zip cannot carry,
         # so the deployed label reader is Textract. Locally it stays tesseract.
         AAHAR_OCR: textract
+        # On in the cloud, off locally. A local run should exercise the real
+        # fallback path, but a deployed demo re-scans the same few products
+        # constantly, and every repeat is another call against a free-tier
+        # rate limit that the whole household then waits on. /tmp is the only
+        # writable path in Lambda; it survives warm invocations, and cache.put
+        # already swallows OSError if it ever does not.
+        AAHAR_CACHE: "on"
+        AAHAR_CACHE_DIR: /tmp/aahar-cache
   Api:
     Cors:
       AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"

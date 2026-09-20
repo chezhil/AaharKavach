@@ -363,3 +363,30 @@ def test_a_product_body_keeps_its_nutrition_panel():
 
     # A product with no panel stays empty rather than becoming None.
     assert api._product_from_payload({"barcode": "1", "name": "Bare"}).nutritional_stats == {}
+
+
+def test_a_spent_model_budget_returns_alternatives_it_does_not_raise(monkeypatch):
+    """Running out of model time must not turn into a 500.
+
+    _alternatives signals "budget gone, use the catalogue" with an internal
+    exception. The check that raises it was placed above the try that catches
+    it, so on a slow provider it escaped the function and surfaced as an
+    Internal Server Error on the one product the demo leads with.
+    """
+    from shared import agent_bridge
+    from shared.contracts import Ingredient, Product
+
+    monkeypatch.setenv("AAHAR_USE_AGENT", "true")
+    agent_bridge.start_request_budget(0)          # nothing left at all
+
+    product = Product(
+        barcode="budget_probe",
+        name="Peanut Thing",
+        ingredients=[Ingredient(name="Peanuts")],
+    )
+    profiles = [
+        Profile(id="k", name="Aryan", restrictions=[Restriction("r", "Peanuts", "SEVERE")])
+    ]
+
+    result = api._alternatives(product, profiles)   # must not raise
+    assert isinstance(result, list)
