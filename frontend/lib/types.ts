@@ -45,6 +45,12 @@ export interface Profile {
    * The UI greys out editing when false; it never decides this itself.
    */
   can_edit: boolean;
+  
+  // Physical Attributes for dynamic nutrition limits
+  age?: number;
+  weight_kg?: number;
+  height_cm?: number;
+  gender?: "male" | "female" | "other";
 }
 
 export interface Ingredient {

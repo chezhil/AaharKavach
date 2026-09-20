@@ -47,6 +47,30 @@ Globals:
       AllowOrigin: "'*'"
 
 Resources:
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/auth/
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          PROFILES_TABLE: !Ref ProfilesTable
+          JWT_SECRET: super_secret_dev_key
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProfilesTable
+      Events:
+        Signup:
+          Type: Api
+          Properties:
+            Path: /api/signup
+            Method: post
+        Login:
+          Type: Api
+          Properties:
+            Path: /api/login
+            Method: post
+
   ProfilesTable:
     Type: AWS::DynamoDB::Table
     Properties:

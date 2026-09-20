@@ -50,6 +50,12 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
   const [restrictions, setRestrictions] = useState<Restriction[]>(
     profile?.restrictions ?? [],
   );
+  
+  const [age, setAge] = useState(profile?.age?.toString() ?? "");
+  const [gender, setGender] = useState<"male" | "female" | "other">(profile?.gender ?? "male");
+  const [weightKg, setWeightKg] = useState(profile?.weight_kg?.toString() ?? "");
+  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() ?? "");
+
   const [draftLabel, setDraftLabel] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -74,6 +80,10 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
         household_role: role,
         accent,
         restrictions,
+        age: age ? parseInt(age, 10) : undefined,
+        gender: gender,
+        weight_kg: weightKg ? parseFloat(weightKg) : undefined,
+        height_cm: heightCm ? parseFloat(heightCm) : undefined,
       });
       onClose();
     } finally {
@@ -84,6 +94,22 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
   const unused = COMMON.filter(
     (c) => !restrictions.some((r) => r.label.toLowerCase() === c.toLowerCase()),
   );
+
+  let bmiValue: number | null = null;
+  let bmiLabel = "";
+  let bmiColor = "text-fg-subtle";
+  
+  if (weightKg && heightCm) {
+    const w = parseFloat(weightKg);
+    const h = parseFloat(heightCm) / 100;
+    if (w > 0 && h > 0) {
+      bmiValue = w / (h * h);
+      if (bmiValue < 18.5) { bmiLabel = "Underweight"; bmiColor = "text-blue-400"; }
+      else if (bmiValue < 25) { bmiLabel = "Normal"; bmiColor = "text-green-400"; }
+      else if (bmiValue < 30) { bmiLabel = "Overweight"; bmiColor = "text-yellow-400"; }
+      else { bmiLabel = "Obese"; bmiColor = "text-red-400"; }
+    }
+  }
 
   return (
     <Sheet
@@ -160,6 +186,42 @@ export function ProfileEditor({ open, onClose, profile, onSave }: Props) {
                 ? "Can edit only their own restrictions."
                 : "Read-only — an admin has to make changes for them."}
           </p>
+        </div>
+
+        <div className="space-y-4 rounded-xl border border-border-subtle bg-surface p-4">
+          <span className="text-sm font-semibold text-fg-muted">
+            Physical Attributes (for nutrition math)
+          </span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="profile-age" className="text-xs font-semibold text-fg-subtle">Age</label>
+              <input id="profile-age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Years" className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand" />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="profile-gender" className="text-xs font-semibold text-fg-subtle">Gender</label>
+              <select id="profile-gender" value={gender} onChange={(e) => setGender(e.target.value as any)} className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none focus:border-brand">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="profile-weight" className="text-xs font-semibold text-fg-subtle">Weight (kg)</label>
+              <input id="profile-weight" type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="kg" className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand" />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="profile-height" className="text-xs font-semibold text-fg-subtle">Height (cm)</label>
+              <input id="profile-height" type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="cm" className="h-10 w-full rounded-lg border border-border-subtle bg-bg px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-brand" />
+            </div>
+          </div>
+          {bmiValue !== null && (
+            <div className="flex items-center justify-between rounded-lg bg-bg p-3 text-sm">
+              <span className="text-fg-subtle">BMI Calculation</span>
+              <span className={`font-semibold ${bmiColor}`}>
+                {bmiValue.toFixed(1)} ({bmiLabel})
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
