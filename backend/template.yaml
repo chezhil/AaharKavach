@@ -8,6 +8,7 @@ Description: >
 Parameters:
   JwtSecret:
     Type: String
+    NoEcho: true
     Description: Secret key used to sign JWT tokens. Do not use default in production.
     Default: "super_secret_dev_key"
   UseAgent:
