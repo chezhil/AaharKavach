@@ -48,8 +48,7 @@ looking for.
 | **AWS SAM** | `template.yaml` defines the API Gateway routes, five Lambda functions and two DynamoDB tables. `sam deploy` stands the whole backend up. |
 | **AWS Lambda + API Gateway** | Every endpoint: profiles, barcode lookup, label photo, evaluate, compare, history. |
 | **DynamoDB** | Household profiles and scan history, keyed by household. |
-| **Strands Agents SDK** | The reasoning path that cross-checks ingredients against each profile and writes the explanations. Optional at runtime — see *Reasoning* below. |
-| **Amazon Bedrock** | Hosts the model the Strands agent calls. |
+| **Strands Agents SDK** | The reasoning path that cross-checks ingredients against each profile and writes the explanations. Optional at runtime — see *Reasoning* below. The model behind it is Groq, not an AWS model. |
 | **OpenSearch** | Indexes the allergen ontology, E-number table, cross-reactivity map and ingredient descriptions. The same data resolves locally when no cluster is attached. |
 | **Textract** | Reads the ingredients panel from a label photo. Currently stood in for by Tesseract locally — `AAHAR_OCR=textract` switches it. |
 | **Open Food Facts** | Public barcode database for product records (not AWS, but the external data source).
@@ -77,17 +76,17 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # or the API Gateway URL
 
 ### Fallbacks
 
-Both AWS services chain to a non-AWS engine rather than failing the request,
-and the response always says which one answered:
+Both paths degrade to a local engine rather than failing the request, and the
+response always says which one answered:
 
 | Configured | Falls back to | Reported as |
 |---|---|---|
-| Bedrock | Groq, then the deterministic rulebook | `strands:bedrock` / `strands:groq` / `deterministic` |
+| Groq (Strands agent) | The deterministic rulebook | `strands:groq` / `deterministic` |
 | Textract | Tesseract | `engine` on the OCR result |
 
-The retry wraps the whole call, not just client construction — Bedrock builds
-fine and then refuses `ConverseStream` while an account is being verified, so
-retrying construction alone would never reach the second provider.
+The retry wraps the whole call, not just client construction: a provider can
+build fine and then have the call refused or rate-limited, so retrying
+construction alone would never reach the next one.
 
 `AAHAR_MODEL_FALLBACK` and `AAHAR_OCR_FALLBACK` override the chains; set either
 to `""` to disable.
@@ -96,7 +95,7 @@ to `""` to disable.
 
 **Off by default** — a real run should exercise the real fallback path, and a
 cache hides which one answered. Turn it on for repeated testing, where
-re-billing Textract and Bedrock for identical inputs buys nothing:
+re-billing Textract and the model for identical inputs buys nothing:
 
 ```bash
 AAHAR_CACHE=on
@@ -118,32 +117,28 @@ from 2.3s to 2ms.
 rm -rf .cache          # start fresh
 ```
 
-### Switching to AWS
+### Switching the label reader to Textract
 
-Both AWS services are behind one environment variable each — the code is
-already written for both.
+Label OCR runs on Tesseract locally and on **AWS Textract** when credentials are
+present — one environment variable, the code is written for both.
 
 ```bash
 brew install awscli
 aws configure                 # Access Key ID + Secret from the IAM console
-./scripts/check_aws.sh        # read-only pre-flight: credentials, region, models
+./scripts/check_aws.sh        # read-only pre-flight: credentials and region
 ```
 
 Then in `.env`:
 
 ```bash
-AAHAR_USE_AGENT=true
-AAHAR_MODEL_PROVIDER=bedrock          # was groq
-AAHAR_BEDROCK_MODEL=<id from the pre-flight output>
+AAHAR_OCR=textract            # was tesseract
 AWS_REGION=<your region>
-AAHAR_OCR=textract                    # was tesseract
 ```
 
-Check `"reasoning"` in any evaluate response afterwards: `"strands"` means the
-agent ran, `"deterministic"` means it fell back to the rulebook.
-
-Model access has to be enabled per-region in the Bedrock console first —
-credentials alone are not enough.
+The OCR result carries the `engine` that answered, so you can tell a Textract
+read from a Tesseract one. For reasoning, check `"reasoning"` in any evaluate
+response: `"strands:groq"` means the agent ran, `"deterministic"` means it fell
+back to the rulebook.
 
 ### Deploying
 
@@ -169,14 +164,13 @@ configured:
 ```bash
 AAHAR_USE_AGENT=true
 
-# The submission target — needs an AWS account with the model enabled.
-AAHAR_MODEL_PROVIDER=bedrock
-AAHAR_BEDROCK_MODEL=<id from `aws bedrock list-inference-profiles`>
-
-# Or prove the same agent without an AWS account. Groq is what dev.sh uses:
+# The default. Free tier at console.groq.com/keys.
 AAHAR_MODEL_PROVIDER=groq       # pip install openai, set GROQ_API_KEY
+
+# The same agent runs on any of these — Strands abstracts the provider.
 AAHAR_MODEL_PROVIDER=ollama     # pip install ollama, then `ollama serve` (local, free)
 AAHAR_MODEL_PROVIDER=anthropic  # pip install anthropic, set ANTHROPIC_API_KEY
+AAHAR_MODEL_PROVIDER=litellm    # anything LiteLLM supports, set AAHAR_MODEL_ID
 ```
 
 Put credentials in a `.env` at the repo root (`cp .env.example .env`) — it is
@@ -184,10 +178,8 @@ gitignored and loaded on startup. Without one the agent is skipped and the
 deterministic rulebook answers, so a fresh clone still works.
 
 Strands drives all of these behind one `Agent` API, so the prompts, the tools
-and the structured-output schema are identical whichever you pick. That matters:
-it means "does the agent produce a valid verdict for this schema?" can be
-answered before an AWS account exists, and moving to Bedrock is one environment
-variable rather than a rewrite.
+and the structured-output schema are identical whichever you pick — changing
+provider is one environment variable rather than a rewrite.
 
 Otherwise — and whenever the agent errors — a **deterministic rulebook** resolves every
 ingredient through the same knowledge base and applies the same severity rules. Each
@@ -244,13 +236,15 @@ Worth checking by hand, all against the bundled catalogue so they are stable:
 
 ## Honest limits
 
-- **Label-photo OCR runs on Tesseract, which is a stand-in.** It is weaker than
-  AWS Textract on the shiny, curved packaging food labels actually come on.
-  Swap with `AAHAR_OCR=textract` once an AWS account exists — nothing else
-  changes. Tesseract needs `brew install tesseract`; without it the endpoint
-  returns 503 rather than guessing.
-- The Strands agent path is implemented and importable but has not been run against a
-  live Bedrock model — the deterministic path is what the demo shows.
+- **Label-photo OCR runs on AWS Textract** (`AAHAR_OCR=textract`), with
+  Tesseract as the local fallback. Tesseract needs `brew install tesseract`;
+  without it and without credentials the endpoint returns 503 rather than
+  guessing.
+- **The reasoning model is Groq, not an AWS model.** Bedrock model access could
+  not be granted on this account inside the event, so the agent runs on Groq
+  through the same Strands API. The AWS surface is Textract, Lambda, API
+  Gateway, DynamoDB, Cedar and SAM — the model is not part of it, and the
+  `reasoning` field on every response says so.
 - Caller identity is passed via headers rather than Cognito, so the Cedar rules can be
   demonstrated by switching roles. Wiring a JWT authorizer is the next step.
 - Open Food Facts coverage of Indian products is patchy; that is exactly why the

@@ -15,10 +15,7 @@ from .tools import lookup_ingredient_details
 
 from .providers import build_model, provider_chain
 
-# Kept for callers that only check whether a model is configured.
 logger = logging.getLogger(__name__)
-
-BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
 
 # Convert mock tool functions to strands tools
 @tool
@@ -31,9 +28,9 @@ def tool_lookup_ingredient_details(ingredient_name: str) -> str:
 def _run_on_chain(system_prompt: str, prompt: str, schema, tools=None):
     """Run a prompt on the first provider in the chain that answers.
 
-    Construction is not enough to prove a provider works: Bedrock builds fine
-    and then refuses ConverseStream while an account is being verified. So the
-    whole call is retried, not just the client.
+    Construction is not enough to prove a provider works — a client can build
+    cleanly and then have the call refused or rate-limited — so the whole call
+    is retried on the next provider, not just the client.
 
     Returns (parsed_output, provider_that_answered).
     """

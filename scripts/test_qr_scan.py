@@ -3,8 +3,6 @@ import sys
 
 # Set up environment variables to force Agent usage
 os.environ["AAHAR_USE_AGENT"] = "true"
-if not os.environ.get("AAHAR_BEDROCK_MODEL"):
-    os.environ["AAHAR_BEDROCK_MODEL"] = "us.anthropic.claude-3-haiku-20240307-v1:0"
 
 # Add project root to PYTHONPATH
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -45,9 +43,10 @@ def test_qr_scan():
         print("Flagged:", response["evaluation"]["profile_evaluations"][0]["flagged_ingredients"])
     except Exception as e:
         print(f"FAIL: {e}")
-        # Could fail due to AWS credentials, which is fine as long as we hit the Bedrock credentials error
-        if "credentials" in str(e).lower() or "bedrock" in str(e).lower() or "we couldn't find an ingredient list" in str(e).lower() or "COULD_NOT_PARSE_INGREDIENTS" in str(e):
-            print("PASS (Implicit): Reached agent execution but no AWS credentials (or bedrock error).")
+        # Reaching the agent at all is the point; an unconfigured provider on a
+        # machine with no API key is an acceptable stopping point.
+        if "credentials" in str(e).lower() or "api key" in str(e).lower() or "we couldn't find an ingredient list" in str(e).lower() or "COULD_NOT_PARSE_INGREDIENTS" in str(e):
+            print("PASS (Implicit): reached agent execution but no model provider is configured.")
         else:
             sys.exit(1)
             

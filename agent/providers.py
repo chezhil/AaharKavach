@@ -1,18 +1,16 @@
 """Choose which model backs the Strands agent.
 
-The submission targets Bedrock, but Bedrock needs an AWS account, and waiting
-for one leaves the single riskiest question unanswered: does the agent actually
-produce valid structured output for this schema and prompt?
+Groq is the default: it speaks the OpenAI wire format, supports the tool
+calling the knowledge-base lookups need, and has a free tier, so the project
+runs for anyone who clones it with one API key and no cloud account.
 
-Strands can drive several providers behind the same Agent API, so that question
-can be answered today against Ollama (free, local) or the Anthropic API, and the
-switch to Bedrock is then one environment variable — not a rewrite.
-
-    AAHAR_MODEL_PROVIDER=bedrock    # default; needs AWS credentials
-    AAHAR_MODEL_PROVIDER=groq       # needs GROQ_API_KEY + `pip install openai`
+    AAHAR_MODEL_PROVIDER=groq       # default; needs GROQ_API_KEY
     AAHAR_MODEL_PROVIDER=anthropic  # needs ANTHROPIC_API_KEY + `pip install anthropic`
     AAHAR_MODEL_PROVIDER=ollama     # needs a local ollama + `pip install ollama`
     AAHAR_MODEL_PROVIDER=litellm    # anything LiteLLM supports
+
+With no provider configured the deterministic rulebook answers instead, which
+is a safe default rather than an error.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROVIDER = "bedrock"
+DEFAULT_PROVIDER = "groq"
 
 
 class ProviderUnavailable(RuntimeError):
@@ -34,25 +32,21 @@ def provider_name() -> str:
 
 
 def provider_chain() -> list[str]:
-    """The provider to try, then its fallbacks.
+    """The provider to try, then any fallbacks.
 
-    Bedrock can be held by account verification or throttled; Groq is a
-    different vendor entirely, so one covers the other. Set
-    AAHAR_MODEL_FALLBACK to change it, or to "" to disable chaining.
+    Empty by default. Set AAHAR_MODEL_FALLBACK to a comma-separated list to
+    chain one — e.g. ``AAHAR_MODEL_FALLBACK=ollama`` to fail over to a local
+    model when the primary is rate-limited.
     """
     primary = provider_name()
     override = os.environ.get("AAHAR_MODEL_FALLBACK")
-    if override is not None:
-        rest = [p.strip().lower() for p in override.split(",") if p.strip()]
-    elif primary == "bedrock":
-        rest = ["groq"]
-    else:
-        rest = []
+    rest = [p.strip().lower() for p in (override or "").split(",") if p.strip()]
     return [primary] + [p for p in rest if p != primary]
 
 
 def model_id() -> str:
-    return os.environ.get("AAHAR_BEDROCK_MODEL", "").strip()
+    """The model to ask for, or "" to use the provider's own default."""
+    return os.environ.get("AAHAR_MODEL_ID", "").strip()
 
 
 def build_model(provider: str | None = None):
@@ -68,22 +62,16 @@ def build_model(provider: str | None = None):
         configured_id = ""
 
     if provider == "bedrock":
-        from strands.models.bedrock import BedrockModel
-
-        if not configured_id:
-            raise ProviderUnavailable(
-                "Set AAHAR_BEDROCK_MODEL to a model enabled in your Bedrock account "
-                "(list them with `aws bedrock list-inference-profiles`)."
-            )
-        return BedrockModel(
-            model_id=configured_id,
-            region_name=os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"),
+        raise ProviderUnavailable(
+            "Amazon Bedrock is no longer a supported provider — set "
+            "AAHAR_MODEL_PROVIDER=groq (and GROQ_API_KEY) in your .env. "
+            "Without this the deterministic rulebook would answer silently."
         )
 
     if provider == "groq":
         # Groq speaks the OpenAI wire format, so the OpenAI provider reaches it
-        # with a different base_url. Fast and has a free tier, which makes it a
-        # practical stand-in for Bedrock while an AWS account is pending.
+        # with a different base_url. Fast, free tier, and supports the tool
+        # calling the knowledge-base lookups need.
         try:
             from strands.models.openai import OpenAIModel
         except ImportError as exc:
@@ -137,12 +125,12 @@ def build_model(provider: str | None = None):
         except ImportError as exc:
             raise ProviderUnavailable("pip install litellm") from exc
         if not configured_id:
-            raise ProviderUnavailable("Set AAHAR_BEDROCK_MODEL to a LiteLLM model string.")
+            raise ProviderUnavailable("Set AAHAR_MODEL_ID to a LiteLLM model string.")
         return LiteLLMModel(model_id=configured_id)
 
     raise ProviderUnavailable(
         f"Unknown AAHAR_MODEL_PROVIDER '{provider}'. "
-        "Use bedrock, groq, anthropic, ollama or litellm."
+        "Use groq, anthropic, ollama or litellm."
     )
 
 

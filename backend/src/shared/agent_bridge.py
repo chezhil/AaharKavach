@@ -21,17 +21,12 @@ from .contracts import (
 
 logger = logging.getLogger(__name__)
 
-# Bedrock model ids are account- and region-specific, and the model has to be
-# enabled in the console first. Keep it configurable rather than hard-coded.
-BEDROCK_MODEL = os.environ.get("AAHAR_BEDROCK_MODEL", "")
-
-
 def agent_is_available() -> bool:
     """True when some model provider is installed and configured.
 
-    Not Bedrock-specific on purpose: the same agent runs against Ollama or the
-    Anthropic API, which is how the reasoning path gets proven before an AWS
-    account exists.
+    Provider-agnostic on purpose: the same agent runs against Groq, Ollama or
+    the Anthropic API, so the reasoning path is provable without any one
+    vendor being reachable.
     """
     if os.environ.get("AAHAR_USE_AGENT", "").lower() != "true":
         return False
@@ -130,7 +125,7 @@ def _coerce(raw: Any, profiles: list[Profile]) -> EvaluationResult | None:
         return None
 
     # Say which vendor answered: with chaining on, "strands" alone hides the
-    # fact that Bedrock was down and Groq picked it up.
+    # fact that the primary provider was down and a fallback picked it up.
     provider = getattr(raw, "_provider", None)
     return EvaluationResult(
         confidence=str(data.get("confidence", "MEDIUM")).upper(),  # type: ignore[arg-type]

@@ -27,19 +27,12 @@ fi
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-$(aws configure get region 2>/dev/null)}}"
 if [ -n "$REGION" ]; then pass "region $REGION"; else fail "no region set — aws configure set region ap-south-1"; fi
 
-echo
-echo "── bedrock ──"
-if MODELS=$(aws bedrock list-inference-profiles --query 'inferenceProfileSummaries[].inferenceProfileId' --output text 2>/dev/null) && [ -n "$MODELS" ]; then
-  pass "inference profiles available:"
-  for m in $MODELS; do info "$m"; done
-  info "pick one and set AAHAR_BEDROCK_MODEL to it"
-else
-  fail "no inference profiles returned"
-  info "enable model access in the Bedrock console for this region, then retry"
-fi
 
 echo
 echo "── textract ──"
+# Reasoning runs on Groq, not an AWS model, so Textract is the AWS service this
+# app calls at runtime. Nothing here checks it beyond availability: permission
+# is only proven by a real DetectDocumentText call.
 if aws textract help >/dev/null 2>&1; then
   pass "textract available in this CLI"
   info "permission is only exercised on a real call"

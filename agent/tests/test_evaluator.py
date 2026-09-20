@@ -36,7 +36,9 @@ def _agent_returning(structured):
 
 @patch("agent.evaluator.build_model", lambda provider=None: object())
 @patch("agent.evaluator.Agent")
-def test_evaluate_product_unwraps_structured_output(agent_cls):
+def test_evaluate_product_unwraps_structured_output(agent_cls, monkeypatch):
+    monkeypatch.setenv("AAHAR_MODEL_PROVIDER", "groq")
+    monkeypatch.delenv("AAHAR_MODEL_FALLBACK", raising=False)
     expected = EvaluationResult(
         confidence="HIGH",
         profile_evaluations=[],
@@ -52,7 +54,7 @@ def test_evaluate_product_unwraps_structured_output(agent_cls):
     # The schema must be passed at call time, not construction.
     assert instance.call_args.kwargs["structured_output_model"] is EvaluationResult
     # And the result records which provider answered.
-    assert getattr(result, "_provider", None) in ("bedrock", "groq")
+    assert getattr(result, "_provider", None) == "groq"
 
 
 @patch("agent.evaluator.build_model", lambda provider=None: object())
@@ -79,12 +81,13 @@ def test_webpage_extraction_returns_ingredients_not_a_verdict(agent_cls):
 @patch("agent.evaluator.build_model", lambda provider=None: object())
 @patch("agent.evaluator.Agent")
 def test_the_chain_moves_on_when_a_provider_fails_mid_call(agent_cls, monkeypatch):
-    """Bedrock builds fine and then refuses the call while an account is held.
+    """A provider can build fine and then refuse or rate-limit the call.
 
-    Retrying only construction would never reach the second provider.
+    Retrying only construction would never reach the second provider, so the
+    whole invocation is retried down the chain.
     """
-    monkeypatch.setenv("AAHAR_MODEL_PROVIDER", "bedrock")
-    monkeypatch.setenv("AAHAR_MODEL_FALLBACK", "groq")
+    monkeypatch.setenv("AAHAR_MODEL_PROVIDER", "groq")
+    monkeypatch.setenv("AAHAR_MODEL_FALLBACK", "ollama")
 
     expected = EvaluationResult(confidence="HIGH", profile_evaluations=[])
     calls = []
@@ -95,7 +98,7 @@ def test_the_chain_moves_on_when_a_provider_fails_mid_call(agent_cls, monkeypatc
         def invoke(*a, **k):
             calls.append(1)
             if len(calls) == 1:          # first provider dies on invocation
-                raise RuntimeError("ValidationException: Operation not allowed")
+                raise RuntimeError("429 rate_limit_exceeded")
             return MagicMock(structured_output=expected)
 
         instance.side_effect = invoke
@@ -106,4 +109,4 @@ def test_the_chain_moves_on_when_a_provider_fails_mid_call(agent_cls, monkeypatc
     result = evaluate_product(PRODUCT, PROFILES)
     assert result is expected
     assert len(calls) == 2, "should have retried on the second provider"
-    assert getattr(result, "_provider", None) == "groq"
+    assert getattr(result, "_provider", None) == "ollama"

@@ -4,9 +4,10 @@ The video is the only thing judges see. A feature not shown here does not count,
 even if it is in the repo. The rules also say the video must **show** AWS usage —
 naming AWS in the writeup is not enough.
 
-Everything below is verified working as of 18 Sept 2026 **except the Bedrock
-step**, which is blocked on enabling model access in the Bedrock console — a
-one-time account opt-in, nothing to do with IAM. See the bottom of this file.
+Everything below is verified working as of 20 Sept 2026. The AWS service shown
+on camera is **Textract**, which does the label OCR on a real call; the
+reasoning model is Groq via the Strands Agents SDK, and the script never claims
+otherwise.
 
 ---
 
@@ -19,8 +20,8 @@ curl -s localhost:9200/_cat/indices?v
 # 2. if it is empty, reseed — idempotent, safe to re-run
 .venv/bin/python -m data.seed.seed_opensearch
 
-# 3. real agent, real AWS
-export AAHAR_USE_AGENT=true AAHAR_MODEL_PROVIDER=bedrock AAHAR_OCR=textract
+# 3. real agent, real Textract
+export AAHAR_USE_AGENT=true AAHAR_MODEL_PROVIDER=groq AAHAR_OCR=textract
 
 # 4. start both
 ./dev.sh
@@ -54,7 +55,7 @@ scores. Textract returns 91–99% on a flat label; that number on screen is the
 proof the call was real. If you have a curved/shiny packet, use it — that is
 where Textract visibly beats local OCR, and it is worth 5 seconds.
 
-## 0:50 – 1:30 — The verdict, per person → **Amazon Bedrock**
+## 0:50 – 1:30 — The verdict, per person → **Strands Agents SDK**
 
 This is the heart of the product. Show the **per-person** verdict cards, not a
 single pass/fail.
@@ -64,12 +65,14 @@ single pass/fail.
 
 > "Same product, two different answers, because it knows who is eating it."
 
-**Say the service name:** "The reasoning runs on **Amazon Bedrock** through the
-Strands Agents SDK."
+**Say it accurately:** "The reasoning runs through the **Strands Agents SDK** —
+AWS's open-source agent framework — over our allergen knowledge base." Strands
+is the AWS open-source project here; do not name an AWS *model*, because the
+model is Groq.
 
-**Show the evidence:** the `reasoning` field in the response. `"strands"` means
-the agent answered. `"deterministic"` means the rulebook did — if it says that,
-the Bedrock claim is not true yet and you must not make it.
+**Show the evidence:** the `reasoning` field in the response. `"strands:groq"`
+means the agent answered. `"deterministic"` means the rulebook did — still a
+correct verdict, but then do not claim the agent ran.
 
 ## 1:30 – 2:00 — Cross-reactivity + confidence — the bit nobody else has
 
@@ -111,8 +114,8 @@ text reads as real.
 One sentence on impact, one on the stack:
 
 > "AaharKavach turns a label you cannot read into a straight answer for each
-> person in your house. Textract reads it, Bedrock reasons about it, OpenSearch
-> explains it, Cedar decides who can change it."
+> person in your house. Textract reads it, a Strands agent reasons about it,
+> OpenSearch explains it, Cedar decides who can change it."
 
 ---
 
@@ -127,15 +130,10 @@ One sentence on impact, one on the stack:
 
 ## Do not say any of this unless it is true on the day
 
-- **Bedrock** — currently fails with `ValidationException: Operation not
-  allowed` on EVERY model, Amazon's own included. Diagnosed 18 Sept: it is not
-  IAM and not the credentials. `get_foundation_model_availability` reports
-  `authorizationStatus: NOT_AUTHORIZED` and `agreementAvailability:
-  NOT_AVAILABLE`, while region and entitlement are both `AVAILABLE` — i.e.
-  **model access has never been enabled for the account**. That is a one-time
-  console opt-in, separate from IAM. Until it is granted the chain falls back to
-  **Groq, which is not AWS**, so the agent works but the Bedrock claim does not.
-  See "The one blocker" below.
+- **Any AWS model.** The reasoning runs on **Groq**, which is not AWS. Bedrock
+  was removed from the project on 20 Sept — model access could not be granted
+  on this account in time. Name **Strands Agents SDK** (an AWS open-source
+  project) for the reasoning step, never an AWS model.
 - **Lambda / API Gateway / DynamoDB** — nothing is deployed: 0 CloudFormation
   stacks, 0 functions, 0 tables. Do not imply a live cloud deployment.
 - **OpenSearch on AWS** — the cluster is local. It is a genuine OpenSearch
@@ -143,46 +141,31 @@ One sentence on impact, one on the stack:
   Amazon OpenSearch Service. Say "OpenSearch", not "Amazon OpenSearch Service",
   unless you move it.
 
-## The one blocker — enable Bedrock model access
+## Why there is no AWS model in this demo
 
-IAM is already correct: `arn:aws:iam::964207170715:user/aahar-bedrock` with
-`AmazonBedrockFullAccess` + `AmazonTextractFullAccess`. Textract is verified
-working through the real pipeline. Only the model-access opt-in is missing.
+Amazon Bedrock was the original reasoning target and has been removed from the
+project. `get_foundation_model_availability` reported `authorizationStatus:
+NOT_AUTHORIZED` on every model in every region, with `agreementAvailability:
+NOT_AVAILABLE` for the Anthropic models — the account could not even accept the
+model agreement, which is a billing/verification state, not an IAM one. Keeping
+a provider that failed over to Groq on every call would have left the code and
+the script reading as if AWS answered, so it is gone.
 
-1. AWS Console → **Bedrock** → make sure the region is **us-east-1**
-2. Left sidebar → **Model access**
-3. **Modify model access** / **Enable specific models**
-4. Tick the Anthropic Claude models (and Amazon Nova as a backup)
-5. Anthropic models ask for short use-case details — a couple of sentences about
-   the allergen scanner is enough
-6. Submit. Grants are often instant, sometimes a few minutes.
+**This does not weaken the submission.** Strands Agents SDK, Cedar and SAM are
+AWS open-source projects on the Build It list, OpenSearch is genuinely queried,
+and **Textract is a live AWS service verified working through the real
+pipeline**. That is four AWS technologies with evidence on camera.
 
-Re-check from the terminal without reloading the console:
-
-```bash
-.venv/bin/python -c "
-import boto3
-a = boto3.client('bedrock', region_name='us-east-1').get_foundation_model_availability(
-    modelId='anthropic.claude-haiku-4-5-20251001-v1:0')
-print('authorization:', a['authorizationStatus'], '| agreement:', a['agreementAvailability']['status'])"
-```
-
-You want `authorization: AUTHORIZED`. Then:
+Before recording, confirm the agent is actually answering:
 
 ```bash
-set -a && . ./.env && set +a && .venv/bin/python scripts/verify_bedrock.py
+set -a && . ./.env && set +a && .venv/bin/python scripts/verify_agent.py
 ```
 
-If `agreementAvailability` stays `NOT_AVAILABLE`, the account itself cannot
-accept the EULA yet — usually a brand-new account without a verified payment
-method. That is a billing-console fix, not a code one.
+It exits non-zero unless the configured provider itself answered, so a pass is
+evidence rather than a guess. In the app, `"reasoning": "strands:groq"` on an
+evaluate response says the same thing.
 
-**If access does not come through before the deadline, you are still fine.**
-Do not burn demo time on it. Strands Agents SDK, Cedar, SAM and OpenSearch are
-all AWS open-source projects on the Build It list, and Textract is a live AWS
-service verified working. That is four AWS technologies with evidence. Record
-the video around those, say "Strands Agents SDK" rather than "Bedrock" for the
-reasoning step, and the submission is honest and complete without it.
-Separately: the **root** access keys are still active on this laptop. Delete
-them in the console (IAM → My security credentials) — the app no longer needs
-them now that `aahar-bedrock` is configured.
+Separately, unrelated to the demo: the **root** access keys are still active on
+this laptop. Delete them in the console (IAM → My security credentials) — the
+app only needs the dedicated IAM user's Textract permission.

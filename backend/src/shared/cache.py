@@ -5,7 +5,7 @@ Three callers, three reasons:
 * **Open Food Facts** rate-limits, and did so mid-testing.
 * **Textract** is billed per page, and the same demo label gets scanned
   repeatedly during a rehearsal.
-* **Bedrock** is billed per token, and re-asking the model about a product
+* **The model** is billed per token, and re-asking it about a product
   whose ingredients have not changed buys nothing.
 
 Deterministic reasoning is *not* cached — it is already instant and free.
@@ -44,7 +44,7 @@ def enabled() -> bool:
 
     Caching hides which path actually answered, and a real run should exercise
     the real provider chain. Turn it on (AAHAR_CACHE=on) for repeated testing,
-    where re-billing Textract and Bedrock for identical inputs buys nothing.
+    where re-billing Textract and the model for identical inputs buys nothing.
     """
     return os.environ.get("AAHAR_CACHE", "off").strip().lower() in ("on", "1", "true")
 

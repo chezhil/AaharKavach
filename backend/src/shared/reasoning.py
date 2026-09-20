@@ -6,8 +6,8 @@ Two paths, same output shape:
   applies the severity rules directly. No network, no model, fully repeatable.
   This is what the demo runs on.
 * **strands** — Role 1's agent. Used when ``AAHAR_USE_AGENT=true`` and the
-  Strands SDK plus Bedrock credentials are actually available; it falls back to
-  the deterministic path on any failure rather than failing the request.
+  Strands SDK plus a configured model provider are actually available; it falls
+  back to the deterministic path on any failure rather than failing the request.
 
 An allergen app that answers "service unavailable" is worse than one that
 answers from a rulebook, so the fallback is deliberate, not incidental.
@@ -405,7 +405,7 @@ def evaluate(
                 ProfileEvaluation as _Eval,
             )
 
-            # Same product, same household, same answer — and Bedrock bills
+            # Same product, same household, same answer — and the model bills
             # per token. Keyed on the ingredients rather than the barcode so an
             # updated record re-asks.
             cache_key = cache.key_for(
