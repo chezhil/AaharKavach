@@ -234,6 +234,35 @@ Worth checking by hand, all against the bundled catalogue so they are stable:
 | **Naman Raghav** | SAM template, Cedar policies, Lambda handlers |
 | **Jyothi Xavier Rodrigues** | Allergen knowledge base, Open Food Facts client, confidence scoring |
 
+## Credits and licensing
+
+**Product data — Open Food Facts.** Barcode lookups resolve against the
+[Open Food Facts](https://world.openfoodfacts.org) database, which is made
+available under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/).
+Individual product contents are available under the
+[Database Contents License](https://opendatacommons.org/licenses/dbcl/1-0/), and
+product images under [CC BY-SA](https://creativecommons.org/licenses/by-sa/3.0/deed.en).
+Open Food Facts is a collaborative project built by thousands of volunteers; this
+project would not work without it.
+
+**AI coding assistants.** AI coding assistants were used throughout development —
+mainly for code review, debugging, refactoring and documentation. The
+architecture, the AWS service selection, the allergen ontology and the safety
+rules that decide every verdict were designed by the team.
+
+**Open-source dependencies.** Python and JavaScript dependencies are listed in
+`backend/src/requirements.txt`, `data/requirements.txt`, `agent/requirements.txt`
+and `frontend/package.json`, each under its own licence. Notable ones:
+[Cedar](https://www.cedarpolicy.com/) (Apache-2.0) for authorisation,
+[Strands Agents SDK](https://github.com/strands-agents/sdk-python) (Apache-2.0)
+for the reasoning agent, [OpenSearch](https://opensearch.org) (Apache-2.0) for the
+ontology index, and [html5-qrcode](https://github.com/mebjas/html5-qrcode)
+(Apache-2.0) for in-browser barcode decoding.
+
+**Nutrition reference values** follow the Mifflin-St Jeor equation for basal
+metabolic rate, with daily limits derived from standard adult and paediatric
+reference intakes. They are guidance, not medical advice.
+
 ## Honest limits
 
 - **Label-photo OCR runs on AWS Textract** (`AAHAR_OCR=textract`), with
