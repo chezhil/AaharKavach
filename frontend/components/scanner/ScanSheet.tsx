@@ -45,7 +45,9 @@ export function ScanSheet({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [typed, setTyped] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [labelCamActive, setLabelCamActive] = useState(false);
+  const labelVideoRef = useRef<HTMLVideoElement>(null);
+  const labelStreamRef = useRef<MediaStream | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const { batchMode, toggleBatchMode, items, addItem, removeItem, clearCart } = useCartStore();
@@ -71,6 +73,54 @@ export function ScanSheet({
     handleClose();
     router.push("/batch-result");
   };
+
+  // ---- Label photo live viewfinder helpers ----
+  const stopLabelCam = useCallback(() => {
+    labelStreamRef.current?.getTracks().forEach((t) => t.stop());
+    labelStreamRef.current = null;
+    if (labelVideoRef.current) labelVideoRef.current.srcObject = null;
+    setLabelCamActive(false);
+  }, []);
+
+  const startLabelCam = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      labelStreamRef.current = stream;
+      setLabelCamActive(true);
+      // Wait a tick for the <video> to mount before assigning srcObject
+      requestAnimationFrame(() => {
+        if (labelVideoRef.current) {
+          labelVideoRef.current.srcObject = stream;
+        }
+      });
+    } catch (err) {
+      showToast("Camera access denied — use \"Choose File\" instead.");
+    }
+  }, []);
+
+  const snapLabel = useCallback(() => {
+    const video = labelVideoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    const base64 = canvas.toDataURL("image/jpeg", 0.85);
+    stopLabelCam();
+    onLabelPhoto(base64);
+  }, [stopLabelCam, onLabelPhoto]);
+
+  // Clean up the label viewfinder when the sheet unmounts or closes
+  useEffect(() => {
+    return () => {
+      labelStreamRef.current?.getTracks().forEach((t) => t.stop());
+      labelStreamRef.current = null;
+    };
+  }, []);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -140,6 +190,7 @@ export function ScanSheet({
   };
 
   const handleTabChange = (newTab: Mode) => {
+    stopLabelCam();
     if (newTab !== "camera") {
       if (typeof document !== "undefined") {
         document.querySelectorAll("video").forEach((v) => {
@@ -154,6 +205,7 @@ export function ScanSheet({
   };
 
   const handleClose = useCallback(() => {
+    stopLabelCam();
     if (typeof document !== "undefined") {
       document.querySelectorAll("video").forEach((v) => {
         if (v.srcObject) {
@@ -163,7 +215,7 @@ export function ScanSheet({
       });
     }
     onClose();
-  }, [onClose]);
+  }, [onClose, stopLabelCam]);
 
   // Truly stable identity: reads batchMode and addItem from refs so the camera
   // is never restarted when the user toggles batch mode.
@@ -210,11 +262,11 @@ export function ScanSheet({
       description="Point at the barcode, type it, or photograph the ingredients panel."
     >
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
+        <div className="flex items-center justify-between gap-3 px-1">
           <div
             role="tablist"
             aria-label="Scan method"
-            className="flex w-[200px] gap-1 rounded-xl bg-bg p-1"
+            className="flex min-w-0 gap-1 rounded-xl bg-bg p-1"
           >
             {MODES.map(({ id, label, icon: Icon }) => (
               <button
@@ -223,14 +275,14 @@ export function ScanSheet({
                 aria-selected={mode === id}
                 onClick={() => handleTabChange(id)}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+                  "flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                   mode === id
                     ? "bg-brand text-brand-fg"
                     : "text-fg-subtle hover:text-fg-muted",
                 )}
               >
-                <Icon size={14} aria-hidden />
-                <span className="sr-only sm:not-sr-only sm:inline-block">{label}</span>
+                <Icon size={14} className="shrink-0" aria-hidden />
+                <span className="sr-only sm:not-sr-only sm:inline-block whitespace-nowrap">{label}</span>
               </button>
             ))}
           </div>
@@ -349,12 +401,13 @@ export function ScanSheet({
                     aria-label="Barcode number or URL"
                     className="h-12 flex-1 rounded-xl border border-border-subtle bg-bg px-3.5 font-mono text-sm outline-none placeholder:text-fg-subtle focus:border-brand"
                   />
-                  <Button
+                  <button
                     onClick={submitTyped}
                     disabled={(!isValidBarcode(typed) && !typed.startsWith("http")) || !typed}
+                    className="h-12 shrink-0 rounded-xl bg-orange-600 px-5 font-medium text-white transition-colors hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Check
-                  </Button>
+                  </button>
                 </div>
                 <p className="text-xs text-fg-subtle">
                   8 to 14 digits, printed under the bars.
@@ -389,42 +442,55 @@ export function ScanSheet({
 
             {mode === "photo" ? (
               <div className="space-y-3">
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="group flex w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center transition-colors hover:border-brand bg-bg/50 hover:bg-surface"
-                >
-                  <ImagePlus size={32} className="text-fg-subtle group-hover:text-brand transition-colors" aria-hidden />
-                  <span className="text-base font-semibold">
-                    Snap or Drop Ingredients
-                  </span>
-                  <span className="max-w-[32ch] text-xs text-fg-subtle">
-                    Take a photo of the ingredients list on the back of the package.
-                  </span>
-                  
-                  <div className="flex w-full gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
-                    <Button onClick={() => cameraInputRef.current?.click()} className="flex-1 text-sm bg-brand text-brand-fg">
-                      Take Photo
-                    </Button>
-                    <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex-1 text-sm bg-surface hover:bg-surface-hover">
-                      Choose File
-                    </Button>
+                {labelCamActive ? (
+                  /* ---- Live viewfinder ---- */
+                  <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+                    <video
+                      ref={labelVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full aspect-[4/3] object-cover"
+                    />
+                    <div className="absolute bottom-0 inset-x-0 flex gap-2 p-3 bg-gradient-to-t from-black/70 to-transparent">
+                      <Button onClick={snapLabel} className="flex-1 text-sm bg-brand text-brand-fg">
+                        📸 Snap Label
+                      </Button>
+                      <Button variant="secondary" onClick={stopLabelCam} className="flex-1 text-sm bg-white/20 hover:bg-white/30 text-white backdrop-blur">
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* ---- Drop zone + buttons ---- */
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    className="group flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center transition-colors hover:border-brand bg-bg/50 hover:bg-surface"
+                  >
+                    <ImagePlus size={32} className="text-fg-subtle group-hover:text-brand transition-colors" aria-hidden />
+                    <span className="text-base font-semibold">
+                      Snap or Drop Ingredients
+                    </span>
+                    <span className="max-w-[32ch] text-xs text-fg-subtle">
+                      Take a photo of the ingredients list on the back of the package.
+                    </span>
+                    
+                    <div className="flex w-full gap-2 mt-4">
+                      <Button onClick={startLabelCam} className="flex-1 text-sm bg-brand text-brand-fg">
+                        Take Photo
+                      </Button>
+                      <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex-1 text-sm bg-surface hover:bg-surface-hover">
+                        Choose File
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="hidden"
                   onChange={handleFileChange}
                 />
