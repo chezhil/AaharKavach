@@ -468,6 +468,15 @@ export default function ResultPage() {
                   ?.map((a) => a.name)
                   .join(", ")}.`}
             </p>
+            {evaluation.safe_alternatives?.some((a) =>
+              a.barcode.startsWith("synth_"),
+            ) ? (
+              <p className="mt-2 rounded-lg bg-caution-soft px-2.5 py-1.5 text-[0.7rem] leading-relaxed text-caution">
+                Items marked <strong>Unverified</strong> are suggestions from the
+                assistant, not products we have checked. Read the label before
+                you buy.
+              </p>
+            ) : null}
             {evaluation.safe_alternatives &&
             evaluation.safe_alternatives.length > 0 ? (
               <ul className="mt-3 space-y-3">
@@ -489,14 +498,27 @@ export default function ResultPage() {
                             </span>
                           ) : null}
                         </span>
-                        {alt.household_cleared ? (
-                           <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg" title={alt.household_status || ""}>
-                             Safe for All
-                           </span>
+                        {/* A synth_ barcode means the model suggested this
+                            product from memory — nothing checked its actual
+                            ingredients, so it must not wear the same green
+                            badge as a catalogue pick that was run through the
+                            matcher. On an allergen app that is the difference
+                            between a verified answer and a guess. */}
+                        {isSynth ? (
+                          <span
+                            className="shrink-0 rounded-full bg-caution-soft px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-caution"
+                            title="Suggested by the assistant — we have not checked this product's ingredients. Verify the label before buying."
+                          >
+                            Unverified
+                          </span>
+                        ) : alt.household_cleared ? (
+                          <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg" title={alt.household_status || ""}>
+                            Safe for All
+                          </span>
                         ) : (
-                           <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
-                             Clear
-                           </span>
+                          <span className="shrink-0 rounded-full bg-safe px-2 py-0.5 text-[0.65rem] font-extrabold uppercase text-safe-fg">
+                            Clear
+                          </span>
                         )}
                       </div>
                       

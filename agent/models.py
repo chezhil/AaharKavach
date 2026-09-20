@@ -49,7 +49,15 @@ class CompareSummary(BaseModel):
     explanation: str = Field(description="Side-by-side comparison explaining the reasoning")
 
 class SwapItAlternative(BaseModel):
-    barcode: str = Field(description="Synthetic barcode, e.g., 'synth_123', or a real one if available")
+    # Optional for the same reason as `reason` below: a generated product has
+    # no barcode to give, so requiring one made the model invent a field it
+    # could not know — and when it omitted it instead, tool-call validation
+    # rejected the *entire* result and Swap It returned nothing at all, after
+    # spending several seconds on the call. The caller assigns a synth_ id.
+    barcode: Optional[str] = Field(
+        default=None,
+        description="Only if this is a real product with a known barcode. Leave null for a suggestion.",
+    )
     name: str = Field(description="The name of the alternative product")
     brand: Optional[str] = Field(default=None, description="The brand of the alternative product")
     # Optional: a model that fills why_it_works/household_status but skips this

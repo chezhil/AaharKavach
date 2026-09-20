@@ -619,7 +619,10 @@ def _alternatives(product: Product, profiles: list[Profile]) -> list[Alternative
             out = []
             for alt in swap_result.alternatives:
                 out.append(AlternativeProduct(
-                    barcode=alt.barcode,
+                    # A suggestion the model invented has no barcode. The UI
+                    # keys off the synth_ prefix to hide "View details" and
+                    # "Compare", which cannot work without a real product.
+                    barcode=alt.barcode or f"synth_{uuid.uuid4().hex[:8]}",
                     name=alt.name,
                     brand=alt.brand,
                     reason=alt.reason or alt.why_it_works

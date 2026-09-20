@@ -9,6 +9,7 @@ installed — no Docker, no AWS account.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from datetime import datetime, timezone
@@ -20,6 +21,8 @@ from .adapters import item_from_profile, profile_from_item
 from .contracts import Profile, Restriction, ScanResult
 
 HOUSEHOLD_ID = os.environ.get("AAHAR_HOUSEHOLD_ID", "hh_1")
+logger = logging.getLogger(__name__)
+
 LOCAL_DB = Path(os.environ.get("AAHAR_LOCAL_DB", Path(__file__).resolve().parents[2] / ".local-db.json"))
 
 _lock = threading.Lock()
@@ -31,18 +34,30 @@ def _use_dynamo() -> bool:
 
 # ------------------------------------------------------------------ seed
 
+# The demo household. Chosen so that one scan answers three different ways:
+# between them these restrictions cover every severity, a hidden allergen name
+# (maida -> gluten, E322 -> soy, casein -> dairy), an E-number that matters to a
+# vegetarian, and a cross-reactivity (latex -> banana) that no label mentions.
+#
+# The biometrics are what nutrition.calculate_daily_limits works from, so they
+# are set: without them every member falls back to the same generic limits and
+# the per-serving chart says nothing about the person. Aryan being nine is the
+# point — the same bar is a far bigger share of his day than of an adult's.
 SEED_PROFILES = [
     Profile(
         id="adult_1", name="Aaditya", household_role="ADMIN", accent="violet",
         restrictions=[Restriction("r1", "Gluten", "MODERATE"), Restriction("r2", "Soy", "MILD")],
+        age=34, weight_kg=72.0, height_cm=176.0, gender="male",
     ),
     Profile(
         id="kid_1", name="Aryan", household_role="CHILD", accent="amber",
         restrictions=[Restriction("r3", "Peanuts", "SEVERE"), Restriction("r4", "Dairy", "MODERATE")],
+        age=9, weight_kg=28.0, height_cm=132.0, gender="male",
     ),
     Profile(
         id="adult_2", name="Naman", household_role="MEMBER", accent="teal",
         restrictions=[Restriction("r5", "Latex", "MODERATE"), Restriction("r6", "Vegetarian", "MILD")],
+        age=29, weight_kg=68.0, height_cm=172.0, gender="male",
     ),
 ]
 
@@ -231,7 +246,27 @@ def record_scan(scan: ScanResult, household_id: str | None = None) -> None:
         "scan": scan.to_dict(),
     }
     if _use_dynamo():
+        from boto3.dynamodb.conditions import Key
+
         _, history_table = _tables()
+        # One row per product, matching the local store. The table is keyed on
+        # (householdId, timestamp), so a re-scan lands on a new key and simply
+        # appends — the deployed demo household had the same biscuit in its
+        # history five times while a local run showed it once.
+        try:
+            existing = history_table.query(
+                KeyConditionExpression=Key("householdId").eq(hid),
+                ProjectionExpression="householdId, #ts, barcode",
+                ExpressionAttributeNames={"#ts": "timestamp"},
+            ).get("Items", [])
+            for row in existing:
+                if row.get("barcode") == scan.product.barcode:
+                    history_table.delete_item(
+                        Key={"householdId": hid, "timestamp": row["timestamp"]}
+                    )
+        except Exception as exc:  # pragma: no cover - defensive
+            # A failed tidy-up must not lose the scan being recorded.
+            logger.warning("Could not prune older scans of %s: %s", scan.product.barcode, exc)
         history_table.put_item(Item=_floats_to_decimal(item))
         return
     with _lock:
