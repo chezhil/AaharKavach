@@ -42,6 +42,15 @@ Globals:
         HISTORY_TABLE: !Ref HistoryTable
         EXPLANATIONS_TABLE: !Ref ExplanationsTable
         AAHAR_HOUSEHOLD_ID: hh_1
+        # Every function builds a Caller, and a Caller verifies the bearer
+        # token — so every function needs the signing key, not just the one
+        # that issues tokens. Set on AuthFunction alone, the others decoded
+        # with the default secret, the signature check failed, the exception
+        # was swallowed and the request silently fell back to the default
+        # household: a signed-in user saw someone else's profiles and scans.
+        # It only looked fine while JwtSecret was left at its default, because
+        # then every function happened to share the same wrong key.
+        JWT_SECRET: !Ref JwtSecret
         # Set to "true" and give GroqApiKey a key to route reasoning through
         # Role 1's Strands agent. Left off — or with no key — the deterministic
         # rulebook answers instead, which is a safe default rather than an error.
@@ -72,7 +81,6 @@ Resources:
       Environment:
         Variables:
           PROFILES_TABLE: !Ref ProfilesTable
-          JWT_SECRET: !Ref JwtSecret
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProfilesTable
